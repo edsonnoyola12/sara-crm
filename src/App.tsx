@@ -128,6 +128,8 @@ function App() {
   const [showNewMember, setShowNewMember] = useState(false)
   const [showNewMortgage, setShowNewMortgage] = useState(false)
   const [showNewCampaign, setShowNewCampaign] = useState(false)
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([])
+  const [showNewEvent, setShowNewEvent] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -151,6 +153,7 @@ function App() {
     generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
     
     setLoading(false)
+    loadCalendarEvents()
   }
 
   function generateInsights(leads: Lead[], team: TeamMember[], campaigns: Campaign[]) {
@@ -246,6 +249,43 @@ function App() {
     }
 
     setInsights(newInsights)
+  }
+
+  async function loadCalendarEvents() {
+    try {
+      const response = await fetch("https://sara-backend.edson-633.workers.dev/api/calendar/events")
+      const data = await response.json()
+      setCalendarEvents(data.items || [])
+    } catch (error) {
+      console.error("Error loading calendar:", error)
+    }
+  }
+
+  async function createCalendarEvent(eventData: any) {
+    try {
+      await fetch("https://sara-backend.edson-633.workers.dev/api/calendar/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(eventData)
+      })
+      loadCalendarEvents()
+      setShowNewEvent(false)
+    } catch (error) {
+      console.error("Error creating event:", error)
+    }
+  }
+
+  async function deleteCalendarEvent(eventId: string) {
+    if (confirm("¿Cancelar esta cita?")) {
+      try {
+        await fetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
+          method: "DELETE"
+        })
+        loadCalendarEvents()
+      } catch (error) {
+        console.error("Error deleting event:", error)
+      }
+    }
   }
 
   async function saveProperty(prop: Partial<Property>) {
@@ -926,9 +966,32 @@ function App() {
         )}
 
         {view === 'calendar' && (
-          <div className="text-center py-12">
-            <CalendarIcon size={64} className="mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">Módulo de calendario en desarrollo</p>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold">Calendario de Citas ({calendarEvents.length})</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {calendarEvents.map((event: any) => {
+                const startDate = new Date(event.start?.dateTime || event.start?.date)
+                return (
+                  <div key={event.id} className="bg-gray-800 p-4 rounded-xl flex items-center justify-between hover:bg-gray-700">
+                    <div className="flex items-center gap-4">
+                      <CalendarIcon className="text-blue-500" size={32} />
+                      <div>
+                        <p className="font-bold">{event.summary}</p>
+                        <p className="text-gray-400 text-sm">{event.description || 'Sin descripción'}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {calendarEvents.length === 0 && (
+                <div className="text-center py-12">
+                  <CalendarIcon size={64} className="mx-auto text-gray-600 mb-4" />
+                  <p className="text-gray-400 text-lg">Sin citas agendadas</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
