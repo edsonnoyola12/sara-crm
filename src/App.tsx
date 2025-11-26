@@ -980,10 +980,9 @@ function App() {
                       <div>
                         <p className="font-bold">{event.summary}</p>
                         <p className="text-gray-400 text-sm">{event.description || 'Sin descripción'}</p>
+                        <p className="text-blue-400 text-sm mt-1">📅 {startDate.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })} - 🕐 {startDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                     </div>
-                    <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
-                    <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
                     <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
                   </div>
                 )
