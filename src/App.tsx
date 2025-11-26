@@ -984,6 +984,7 @@ function App() {
                     </div>
                     <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
                     <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
+                    <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
                   </div>
                 )
               })}
@@ -1085,6 +1086,70 @@ function App() {
           onSave={saveCampaign}
           onClose={() => { setEditingCampaign(null); setShowNewCampaign(false); }}
         />
+      )}
+
+      {showNewEvent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowNewEvent(false)}>
+          <div className="bg-gray-800 p-6 rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Agendar Cita</h3>
+              <button onClick={() => setShowNewEvent(false)} className="text-gray-400 hover:text-white"><X /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Cliente</label>
+                <select id="evt-cliente" className="w-full bg-gray-700 rounded-lg p-3">
+                  <option value="">Seleccionar</option>
+                  {leads.map(l => <option key={l.id} value={(l.name||"")+ "|" + (l.phone||"")}>{l.name || l.phone}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Propiedad</label>
+                <select id="evt-prop" className="w-full bg-gray-700 rounded-lg p-3">
+                  <option value="">Seleccionar</option>
+                  {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Fecha</label>
+                <input type="date" id="evt-date" className="w-full bg-gray-700 rounded-lg p-3" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Hora</label>
+                <select id="evt-time" className="w-full bg-gray-700 rounded-lg p-3">
+                  <option value="09:00">9:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="12:00">12:00 PM</option>
+                  <option value="13:00">1:00 PM</option>
+                  <option value="14:00">2:00 PM</option>
+                  <option value="15:00">3:00 PM</option>
+                  <option value="16:00">4:00 PM</option>
+                  <option value="17:00">5:00 PM</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowNewEvent(false)} className="px-4 py-2 rounded-lg bg-gray-700">Cancelar</button>
+              <button onClick={() => {
+                const cv = (document.getElementById("evt-cliente") as HTMLSelectElement).value.split("|");
+                const cn = cv[0];
+                const cp = cv[1] || "";
+                const pr = (document.getElementById("evt-prop") as HTMLSelectElement).value;
+                const dt = (document.getElementById("evt-date") as HTMLInputElement).value;
+                const tm = (document.getElementById("evt-time") as HTMLSelectElement).value;
+                if(cn && dt){
+                  createCalendarEvent({
+                    summary: "Cita: " + cn + " - " + pr,
+                    description: "Cliente: " + cn + "\nTelefono: " + cp + "\nPropiedad: " + pr,
+                    startTime: dt + "T" + tm + ":00-06:00",
+                    endTime: dt + "T" + String(parseInt(tm.split(":")[0])+1).padStart(2,"0") + ":00:00-06:00"
+                  });
+                }
+              }} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center gap-2"><Save size={20} /> Agendar</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {selectedLead && (
