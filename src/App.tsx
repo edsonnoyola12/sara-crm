@@ -982,6 +982,7 @@ function App() {
                         <p className="text-gray-400 text-sm">{event.description || 'Sin descripción'}</p>
                       </div>
                     </div>
+                    <button onClick={() => deleteCalendarEvent(event.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={20} /></button>
                   </div>
                 )
               })}
