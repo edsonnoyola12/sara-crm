@@ -149,18 +149,21 @@ function App() {
 
   async function loadData() {
     setLoading(true)
-    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes] = await Promise.all([
+    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes] = await Promise.all([
       supabase.from('leads').select('*').order('created_at', { ascending: false }),
       supabase.from('properties').select('*'),
       supabase.from('team_members').select('*'),
       supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false })
+      supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
+      supabase.from('reminder_config').select('*').order('lead_category')
     ])
     setLeads(leadsRes.data || [])
     setProperties(propsRes.data || [])
     setTeam(teamRes.data || [])
     setMortgages(mortgagesRes.data || [])
     setCampaigns(campaignsRes.data || [])
+    setReminderConfigs(remindersRes.data || [])
+    console.log('🔍 Reminders cargados:', remindersRes.data)
     
     generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
     
