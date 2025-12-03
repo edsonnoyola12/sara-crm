@@ -1139,7 +1139,12 @@ function App() {
                 <label className="block text-sm mb-2">Mensaje</label>
                 <textarea defaultValue={editingReminder.message_template} id="msg" rows={4} className="w-full bg-gray-700 rounded px-3 py-2" />
               </div>
-              <button onClick={() => saveReminderConfig({...editingReminder, reminder_hours: parseInt((document.getElementById('hrs') as HTMLInputElement).value), send_start_hour: parseInt((document.getElementById('start') as HTMLInputElement).value), send_end_hour: parseInt((document.getElementById('end') as HTMLInputElement).value), message_template: (document.getElementById('msg') as HTMLTextAreaElement).value})} className="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Guardar</button>
+              <div className="flex gap-3">
+                                            <button onClick={() => setEditingReminder(null)} className="flex-1 bg-gray-600 hover:bg-gray-700 py-2 rounded">
+                                              Cancelar
+                                            </button>
+                                            <button onClick={() => saveReminderConfig({...editingReminder, reminder_hours: parseInt((document.getElementById('hrs') as HTMLInputElement).value), send_start_hour: parseInt((document.getElementById('start') as HTMLInputElement).value), send_end_hour: parseInt((document.getElementById('end') as HTMLInputElement).value), message_template: (document.getElementById('msg') as HTMLTextAreaElement).value})} className="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Guardar</button>
+                                          </div>
             </div>
           </div>
         </div>
