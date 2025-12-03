@@ -101,6 +101,16 @@ interface Campaign {
   created_at: string
 }
 
+interface ReminderConfig {
+  id: string
+  lead_category: string
+  reminder_hours: number
+  active: boolean
+  message_template: string
+  send_start_hour: number
+  send_end_hour: number
+}
+
 interface Insight {
   type: 'opportunity' | 'warning' | 'success'
   title: string
@@ -116,6 +126,8 @@ function App() {
   const [team, setTeam] = useState<TeamMember[]>([])
   const [mortgages, setMortgages] = useState<MortgageApplication[]>([])
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [reminderConfigs, setReminderConfigs] = useState<ReminderConfig[]>([])
+  const [editingReminder, setEditingReminder] = useState<ReminderConfig | null>(null)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [loading, setLoading] = useState(true)
   const [insights, setInsights] = useState<Insight[]>([])
@@ -417,7 +429,31 @@ function App() {
       })
     }
     return acc
-  }, [])
+  
+
+}, [])
+
+  const saveReminderConfig = async (config: ReminderConfig) => {
+    try {
+      const { error } = await supabase
+        .from('reminder_config')
+        .update({
+          reminder_hours: config.reminder_hours,
+          message_template: config.message_template,
+          send_start_hour: config.send_start_hour,
+          send_end_hour: config.send_end_hour
+        })
+        .eq('id', config.id)
+      
+      if (error) throw error
+      
+      setReminderConfigs(prev => prev.map(r => r.id === config.id ? config : r))
+      setEditingReminder(null)
+    } catch (error) {
+      console.error('Error updating reminder config:', error)
+    }
+  }
+
 
   const vendedoresRanking = [...team].filter(t => t.role === 'vendedor').sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
   const asesoresRanking = [...team].filter(t => t.role === 'asesor').sort((a, b) => (b.commission || 0) - (a.commission || 0))
@@ -1048,9 +1084,63 @@ function App() {
                 </div>
               </div>
             </div>
+
+            {/* Configuración de Recordatorios */}
+            <div className="bg-gray-800 p-6 rounded-xl mt-6">
+              <h3 className="text-xl font-semibold mb-4">⏰ Recordatorios Automáticos</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {reminderConfigs.map(config => (
+                  <div key={config.id} className="bg-gray-700 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`font-bold ${
+                        config.lead_category === 'HOT' ? 'text-red-500' :
+                        config.lead_category === 'WARM' ? 'text-yellow-500' : 'text-blue-500'
+                      }`}>{config.lead_category}</span>
+                      <button onClick={() => setEditingReminder(config)} className="text-blue-400 hover:text-blue-300">
+                        Editar
+                      </button>
+                    </div>
+                    <p className="text-2xl font-bold">Cada {config.reminder_hours}h</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      {config.send_start_hour}:00 - {config.send_end_hour}:00
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
+
+
+      {editingReminder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingReminder(null)}>
+          <div className="bg-gray-800 p-6 rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">Editar {editingReminder.lead_category}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Frecuencia (horas)</label>
+                <input type="number" defaultValue={editingReminder.reminder_hours} id="hrs" className="w-full bg-gray-700 rounded px-3 py-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2">Inicio</label>
+                  <input type="number" defaultValue={editingReminder.send_start_hour} id="start" className="w-full bg-gray-700 rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Fin</label>
+                  <input type="number" defaultValue={editingReminder.send_end_hour} id="end" className="w-full bg-gray-700 rounded px-3 py-2" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Mensaje</label>
+                <textarea defaultValue={editingReminder.message_template} id="msg" rows={4} className="w-full bg-gray-700 rounded px-3 py-2" />
+              </div>
+              <button onClick={() => saveReminderConfig({...editingReminder, reminder_hours: parseInt((document.getElementById('hrs') as HTMLInputElement).value), send_start_hour: parseInt((document.getElementById('start') as HTMLInputElement).value), send_end_hour: parseInt((document.getElementById('end') as HTMLInputElement).value), message_template: (document.getElementById('msg') as HTMLTextAreaElement).value})} className="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(editingProperty || showNewProperty) && (
         <PropertyModal
@@ -1501,6 +1591,8 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
         </div>
       </div>
     </div>
+
+
   )
 }
 
