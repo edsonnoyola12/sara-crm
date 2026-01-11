@@ -1739,6 +1739,146 @@ function App() {
               </div>
             </div>
 
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* 3 KPIs CRÍTICOS DEL CEO - Vista rápida de salud del negocio */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {(() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+              const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
+
+              // 1. META VS REAL
+              const ventasDelMes = filteredLeads.filter(l =>
+                (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') &&
+                l.status_changed_at?.startsWith(currentMonth)
+              ).length
+              const metaMes = monthlyGoals.company_goal || 0
+              const ventasFaltantes = Math.max(0, metaMes - ventasDelMes)
+              const porcentajeMeta = metaMes > 0 ? Math.round((ventasDelMes / metaMes) * 100) : 0
+              const ventasPorDiaNecesarias = diasRestantes > 0 ? (ventasFaltantes / diasRestantes).toFixed(1) : '0'
+
+              // 2. COBERTURA DE PIPELINE
+              const leadsActivos = filteredLeads.filter(l =>
+                !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)
+              ).length
+              const tasaConversionReal = filteredLeads.length > 0
+                ? (filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered' || l.status === 'sold').length / filteredLeads.length) * 100
+                : 2
+              const tasaConversion = Math.max(tasaConversionReal, 2) // mínimo 2%
+              const ventasProyectadas = Math.round(leadsActivos * (tasaConversion / 100))
+              const leadsNecesarios = tasaConversion > 0 ? Math.ceil(ventasFaltantes / (tasaConversion / 100)) : 0
+              const coberturaPipeline = leadsNecesarios > 0 ? Math.round((leadsActivos / leadsNecesarios) * 100) : 100
+
+              // 3. TASA DE CONVERSIÓN
+              const metaConversion = 10 // 10% es bueno en inmobiliaria
+              const diferenciaConversion = tasaConversionReal - metaConversion
+
+              // Determinar estados
+              const estadoMeta = porcentajeMeta >= 80 ? 'good' : porcentajeMeta >= 50 ? 'warning' : 'critical'
+              const estadoPipeline = coberturaPipeline >= 100 ? 'good' : coberturaPipeline >= 70 ? 'warning' : 'critical'
+              const estadoConversion = tasaConversionReal >= 10 ? 'good' : tasaConversionReal >= 5 ? 'warning' : 'critical'
+
+              const getColor = (estado: string) => {
+                if (estado === 'good') return 'from-green-600/30 to-emerald-600/30 border-green-500/50'
+                if (estado === 'warning') return 'from-yellow-600/30 to-amber-600/30 border-yellow-500/50'
+                return 'from-red-600/30 to-rose-600/30 border-red-500/50'
+              }
+
+              const getIcon = (estado: string) => {
+                if (estado === 'good') return '✅'
+                if (estado === 'warning') return '⚠️'
+                return '🚨'
+              }
+
+              const getTextColor = (estado: string) => {
+                if (estado === 'good') return 'text-green-400'
+                if (estado === 'warning') return 'text-yellow-400'
+                return 'text-red-400'
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* KPI 1: META VS REAL */}
+                  <div className={`bg-gradient-to-br ${getColor(estadoMeta)} border rounded-xl p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-300">META DEL MES</span>
+                      <span className="text-2xl">{getIcon(estadoMeta)}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className={`text-4xl font-bold ${getTextColor(estadoMeta)}`}>{ventasDelMes}</span>
+                      <span className="text-slate-400">/ {metaMes || '?'}</span>
+                      <span className={`text-lg font-bold ${getTextColor(estadoMeta)}`}>({porcentajeMeta}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`h-full transition-all ${estadoMeta === 'good' ? 'bg-green-500' : estadoMeta === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.min(porcentajeMeta, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {ventasFaltantes > 0
+                        ? `Faltan ${ventasFaltantes} ventas · ${diasRestantes} días · ${ventasPorDiaNecesarias}/día`
+                        : '¡Meta alcanzada!'
+                      }
+                    </p>
+                    {metaMes === 0 && (
+                      <button onClick={() => setView('goals')} className="text-xs text-blue-400 hover:underline mt-1">
+                        Configurar meta →
+                      </button>
+                    )}
+                  </div>
+
+                  {/* KPI 2: COBERTURA DE PIPELINE */}
+                  <div className={`bg-gradient-to-br ${getColor(estadoPipeline)} border rounded-xl p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-300">PIPELINE</span>
+                      <span className="text-2xl">{getIcon(estadoPipeline)}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className={`text-4xl font-bold ${getTextColor(estadoPipeline)}`}>{leadsActivos}</span>
+                      <span className="text-slate-400">leads activos</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`h-full transition-all ${estadoPipeline === 'good' ? 'bg-green-500' : estadoPipeline === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.min(coberturaPipeline, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {coberturaPipeline >= 100
+                        ? `Suficiente para ${ventasProyectadas} ventas al ${tasaConversion.toFixed(1)}%`
+                        : `Necesitas ${leadsNecesarios} leads · Tienes ${leadsActivos} · Faltan ${Math.max(0, leadsNecesarios - leadsActivos)}`
+                      }
+                    </p>
+                  </div>
+
+                  {/* KPI 3: TASA DE CONVERSIÓN */}
+                  <div className={`bg-gradient-to-br ${getColor(estadoConversion)} border rounded-xl p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-300">CONVERSIÓN</span>
+                      <span className="text-2xl">{getIcon(estadoConversion)}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className={`text-4xl font-bold ${getTextColor(estadoConversion)}`}>{tasaConversionReal.toFixed(1)}%</span>
+                      <span className="text-slate-400">lead → venta</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`h-full transition-all ${estadoConversion === 'good' ? 'bg-green-500' : estadoConversion === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.min((tasaConversionReal / 15) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {diferenciaConversion >= 0
+                        ? `+${diferenciaConversion.toFixed(1)}% sobre meta (10%)`
+                        : `${diferenciaConversion.toFixed(1)}% bajo meta · Pierdes ${Math.abs(Math.round(diferenciaConversion * leadsActivos / 100))} ventas potenciales`
+                      }
+                    </p>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* ALERTAS CRÍTICAS - Solo si hay */}
             {(() => {
               const maxDays: Record<string, number> = { new: 1, contacted: 3, scheduled: 1, visited: 5, negotiation: 10, reserved: 30 }
