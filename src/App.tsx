@@ -1799,7 +1799,7 @@ function App() {
               const diferenciaConversion = tasaConversionReal - metaConversion
 
               // Determinar estados
-              const estadoMeta = porcentajeMeta >= 80 ? 'good' : porcentajeMeta >= 50 ? 'warning' : 'critical'
+              const estadoMeta = metaMes === 0 ? 'warning' : porcentajeMeta >= 80 ? 'good' : porcentajeMeta >= 50 ? 'warning' : 'critical'
               const estadoPipeline = coberturaPipeline >= 100 ? 'good' : coberturaPipeline >= 70 ? 'warning' : 'critical'
               const estadoConversion = tasaConversionReal >= 10 ? 'good' : tasaConversionReal >= 5 ? 'warning' : 'critical'
 
@@ -1841,9 +1841,11 @@ function App() {
                       />
                     </div>
                     <p className="text-xs text-slate-400">
-                      {ventasFaltantes > 0
-                        ? `Faltan ${ventasFaltantes} ventas · ${diasRestantes} días · ${ventasPorDiaNecesarias}/día`
-                        : '¡Meta alcanzada!'
+                      {metaMes === 0
+                        ? 'Sin meta configurada'
+                        : ventasFaltantes > 0
+                          ? `Faltan ${ventasFaltantes} ventas · ${diasRestantes} días · ${ventasPorDiaNecesarias}/día`
+                          : '¡Meta alcanzada!'
                       }
                     </p>
                     {metaMes === 0 && (
