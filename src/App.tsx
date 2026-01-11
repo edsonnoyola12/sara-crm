@@ -1728,30 +1728,123 @@ function App() {
                 <div className="text-xs sm:text-sm text-slate-400">
                   {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
                 </div>
-                {/* Botón exportar resumen */}
+                {/* Botón exportar resumen ejecutivo */}
                 <button
                   onClick={() => {
                     const now = new Date()
                     const currentMonth = now.toISOString().slice(0, 7)
                     const [y, m] = currentMonth.split('-')
                     const monthName = new Date(parseInt(y), parseInt(m) - 1, 15).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+                    const prevMonth = new Date(parseInt(y), parseInt(m) - 2, 15)
+                    const prevMonthStr = prevMonth.toISOString().slice(0, 7)
                     const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
-                    const ventasDelMes = filteredLeads.filter(l => (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
+                    const diasTranscurridos = now.getDate()
+
+                    // Métricas actuales
+                    const ventasDelMes = leads.filter(l => (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
+                    const ventasMesAnterior = leads.filter(l => (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(prevMonthStr)).length
                     const metaMes = monthlyGoals.company_goal || 0
-                    const ventasFaltantes = Math.max(0, metaMes - ventasDelMes)
                     const porcentajeMeta = metaMes > 0 ? Math.round((ventasDelMes / metaMes) * 100) : 0
-                    const leadsActivos = filteredLeads.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)).length
-                    const tasaConversion = filteredLeads.length > 0 ? ((filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered' || l.status === 'sold').length / filteredLeads.length) * 100).toFixed(1) : '0'
-                    const printContent = '<html><head><title>Resumen Dashboard</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:800px;margin:0 auto}h1{color:#333;text-align:center;border-bottom:3px solid #6366f1;padding-bottom:15px}h2{color:#666;margin-top:30px}.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:30px 0}.kpi-box{padding:25px;border-radius:12px;text-align:center}.kpi-box.green{background:#d1fae5;border:2px solid #10b981}.kpi-box.yellow{background:#fef3c7;border:2px solid #f59e0b}.kpi-box.red{background:#fee2e2;border:2px solid #ef4444}.kpi-number{font-size:48px;font-weight:bold;margin:10px 0}.kpi-label{font-size:14px;color:#666;text-transform:uppercase}.kpi-detail{font-size:12px;color:#888;margin-top:10px}.summary{background:#f8fafc;padding:20px;border-radius:8px;margin-top:30px}.footer{margin-top:40px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:15px}</style></head><body><h1>Resumen Ejecutivo - ' + monthName + '</h1><div class="kpi-grid"><div class="kpi-box ' + (porcentajeMeta >= 80 ? 'green' : porcentajeMeta >= 50 ? 'yellow' : 'red') + '"><div class="kpi-label">Meta del Mes</div><div class="kpi-number">' + ventasDelMes + '/' + metaMes + '</div><div class="kpi-detail">' + porcentajeMeta + '% completado<br>Faltan ' + ventasFaltantes + ' ventas en ' + diasRestantes + ' dias</div></div><div class="kpi-box ' + (leadsActivos >= 30 ? 'green' : leadsActivos >= 15 ? 'yellow' : 'red') + '"><div class="kpi-label">Pipeline</div><div class="kpi-number">' + leadsActivos + '</div><div class="kpi-detail">Leads activos en funnel</div></div><div class="kpi-box ' + (parseFloat(tasaConversion) >= 10 ? 'green' : parseFloat(tasaConversion) >= 5 ? 'yellow' : 'red') + '"><div class="kpi-label">Conversion</div><div class="kpi-number">' + tasaConversion + '%</div><div class="kpi-detail">Lead a venta (meta: 10%)</div></div></div><div class="summary"><h3>Resumen</h3><ul><li><strong>Meta anual:</strong> ' + (annualGoal.goal || 0) + ' casas (' + Math.round((annualGoal.goal || 0) / 12) + '/mes)</li><li><strong>Ventas este mes:</strong> ' + ventasDelMes + ' de ' + metaMes + '</li><li><strong>Leads en pipeline:</strong> ' + leadsActivos + '</li><li><strong>Tasa de conversion:</strong> ' + tasaConversion + '%</li></ul></div><div class="footer">Generado el ' + new Date().toLocaleString('es-MX') + ' - SARA CRM</div></body></html>'
+                    const leadsNuevosMes = leads.filter(l => l.created_at?.startsWith(currentMonth)).length
+                    const leadsNuevosMesAnt = leads.filter(l => l.created_at?.startsWith(prevMonthStr)).length
+
+                    // Funnel
+                    const funnel = {
+                      new: leads.filter(l => l.status === 'new').length,
+                      contacted: leads.filter(l => l.status === 'contacted').length,
+                      scheduled: leads.filter(l => l.status === 'scheduled').length,
+                      visited: leads.filter(l => l.status === 'visited').length,
+                      negotiation: leads.filter(l => l.status === 'negotiation').length,
+                      reserved: leads.filter(l => l.status === 'reserved').length
+                    }
+                    const totalFunnel = funnel.new + funnel.contacted + funnel.scheduled + funnel.visited + funnel.negotiation + funnel.reserved
+
+                    // Top vendedores
+                    const vendedoresData = team.filter(t => t.role === 'vendedor' && t.active).map(v => {
+                      const ventas = leads.filter(l => l.assigned_to === v.id && (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
+                      const leadsAsignados = leads.filter(l => l.assigned_to === v.id).length
+                      const conversion = leadsAsignados > 0 ? Math.round((ventas / leadsAsignados) * 100) : 0
+                      const meta = vendorGoals.find(vg => vg.vendor_id === v.id)?.goal || 0
+                      return { name: v.name, ventas, meta, conversion, cumplimiento: meta > 0 ? Math.round((ventas / meta) * 100) : 0 }
+                    }).sort((a, b) => b.ventas - a.ventas)
+
+                    // Fuentes de leads
+                    const fuentes: Record<string, {total: number, cerrados: number}> = {}
+                    leads.forEach(l => {
+                      const src = l.source || 'Directo'
+                      if (!fuentes[src]) fuentes[src] = { total: 0, cerrados: 0 }
+                      fuentes[src].total++
+                      if (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') fuentes[src].cerrados++
+                    })
+                    const fuentesArr = Object.entries(fuentes).map(([name, data]) => ({
+                      name, total: data.total, cerrados: data.cerrados, conversion: data.total > 0 ? Math.round((data.cerrados / data.total) * 100) : 0
+                    })).sort((a, b) => b.total - a.total).slice(0, 5)
+
+                    // Alertas
+                    const alertas: string[] = []
+                    if (metaMes > 0 && porcentajeMeta < 50 && diasRestantes < 15) alertas.push('CRITICO: Meta del mes en riesgo (' + porcentajeMeta + '% con ' + diasRestantes + ' dias restantes)')
+                    if (funnel.new > 10) alertas.push('Hay ' + funnel.new + ' leads nuevos sin contactar')
+                    const leadsEstancados = leads.filter(l => {
+                      const days = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
+                      return !['closed', 'delivered', 'sold', 'lost'].includes(l.status) && days > 7
+                    }).length
+                    if (leadsEstancados > 5) alertas.push(leadsEstancados + ' leads llevan mas de 7 dias sin avance')
+                    const vendedorBajo = vendedoresData.find(v => v.meta > 0 && v.cumplimiento < 30)
+                    if (vendedorBajo) alertas.push(vendedorBajo.name + ' solo ha cumplido ' + vendedorBajo.cumplimiento + '% de su meta')
+
+                    // Recomendaciones
+                    const recomendaciones: string[] = []
+                    if (funnel.visited > 0 && funnel.negotiation < funnel.visited * 0.5) recomendaciones.push('Mejorar cierre post-visita: Solo ' + Math.round((funnel.negotiation / funnel.visited) * 100) + '% de visitas pasan a negociacion')
+                    if (leadsNuevosMes < metaMes * 10) recomendaciones.push('Aumentar generacion de leads: Necesitas ~' + (metaMes * 10) + ' leads/mes para meta de ' + metaMes + ' ventas')
+                    const mejorFuente = fuentesArr.find(f => f.conversion > 10)
+                    if (mejorFuente) recomendaciones.push('Invertir mas en ' + mejorFuente.name + ' (conversion ' + mejorFuente.conversion + '%)')
+                    const mejorVendedor = vendedoresData[0]
+                    if (mejorVendedor && mejorVendedor.conversion > 15) recomendaciones.push('Replicar estrategia de ' + mejorVendedor.name + ' (' + mejorVendedor.conversion + '% conversion)')
+
+                    const cambioVentas = ventasMesAnterior > 0 ? Math.round(((ventasDelMes - ventasMesAnterior) / ventasMesAnterior) * 100) : 0
+                    const cambioLeads = leadsNuevosMesAnt > 0 ? Math.round(((leadsNuevosMes - leadsNuevosMesAnt) / leadsNuevosMesAnt) * 100) : 0
+
+                    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte Ejecutivo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:40px;max-width:900px;margin:0 auto;color:#333;font-size:14px}h1{font-size:28px;color:#1e40af;border-bottom:3px solid #1e40af;padding-bottom:10px;margin-bottom:5px}h2{font-size:18px;color:#1e40af;margin:25px 0 15px;padding-bottom:5px;border-bottom:1px solid #ddd}h3{font-size:14px;color:#666;margin:15px 0 10px}.header-info{color:#666;font-size:12px;margin-bottom:30px}.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:20px 0}.kpi-box{padding:20px;border-radius:8px;text-align:center;border:2px solid}.kpi-box.green{background:#dcfce7;border-color:#22c55e}.kpi-box.yellow{background:#fef9c3;border-color:#eab308}.kpi-box.red{background:#fee2e2;border-color:#ef4444}.kpi-number{font-size:36px;font-weight:bold}.kpi-label{font-size:12px;color:#666;text-transform:uppercase;margin-bottom:5px}.kpi-change{font-size:11px;margin-top:5px}.kpi-change.up{color:#22c55e}.kpi-change.down{color:#ef4444}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #eee}th{background:#f8fafc;font-weight:600;font-size:12px;text-transform:uppercase;color:#666}.alert-box{background:#fef2f2;border-left:4px solid #ef4444;padding:10px 15px;margin:8px 0;font-size:13px}.rec-box{background:#f0fdf4;border-left:4px solid #22c55e;padding:10px 15px;margin:8px 0;font-size:13px}.funnel{display:flex;flex-direction:column;gap:8px}.funnel-row{display:flex;align-items:center;gap:10px}.funnel-label{width:100px;font-size:12px}.funnel-bar{flex:1;height:24px;background:#e5e7eb;border-radius:4px;overflow:hidden}.funnel-fill{height:100%;background:#3b82f6;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:white;font-size:11px;font-weight:bold}.footer{margin-top:40px;padding-top:15px;border-top:1px solid #ddd;text-align:center;font-size:11px;color:#999}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media print{body{padding:20px}}</style></head><body>'
+                    + '<h1>REPORTE EJECUTIVO</h1><div class="header-info">Santa Rita Residencial | ' + monthName.toUpperCase() + ' | Generado: ' + now.toLocaleString('es-MX') + '</div>'
+
+                    + '<h2>INDICADORES CLAVE</h2><div class="kpi-grid">'
+                    + '<div class="kpi-box ' + (metaMes === 0 ? 'yellow' : porcentajeMeta >= 80 ? 'green' : porcentajeMeta >= 50 ? 'yellow' : 'red') + '"><div class="kpi-label">Meta del Mes</div><div class="kpi-number">' + ventasDelMes + '/' + (metaMes || '?') + '</div><div>' + porcentajeMeta + '% completado</div><div class="kpi-change ' + (cambioVentas >= 0 ? 'up' : 'down') + '">' + (cambioVentas >= 0 ? '+' : '') + cambioVentas + '% vs mes anterior</div></div>'
+                    + '<div class="kpi-box ' + (totalFunnel >= 30 ? 'green' : totalFunnel >= 15 ? 'yellow' : 'red') + '"><div class="kpi-label">Pipeline Activo</div><div class="kpi-number">' + totalFunnel + '</div><div>leads en proceso</div><div class="kpi-change ' + (cambioLeads >= 0 ? 'up' : 'down') + '">' + (cambioLeads >= 0 ? '+' : '') + cambioLeads + '% leads nuevos</div></div>'
+                    + '<div class="kpi-box green"><div class="kpi-label">Dias Restantes</div><div class="kpi-number">' + diasRestantes + '</div><div>para cerrar el mes</div><div class="kpi-change">Ritmo necesario: ' + (metaMes > 0 ? Math.ceil((metaMes - ventasDelMes) / diasRestantes * 10) / 10 : 0) + ' ventas/dia</div></div>'
+                    + '</div>'
+
+                    + '<div class="two-col"><div><h2>FUNNEL DE VENTAS</h2><div class="funnel">'
+                    + '<div class="funnel-row"><div class="funnel-label">Nuevos</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.new / totalFunnel) * 100) : 0) + '%">' + funnel.new + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Contactados</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.contacted / totalFunnel) * 100) : 0) + '%;background:#60a5fa">' + funnel.contacted + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Cita Agendada</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.scheduled / totalFunnel) * 100) : 0) + '%;background:#a78bfa">' + funnel.scheduled + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Visitaron</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.visited / totalFunnel) * 100) : 0) + '%;background:#f472b6">' + funnel.visited + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Negociacion</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.negotiation / totalFunnel) * 100) : 0) + '%;background:#fb923c">' + funnel.negotiation + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Reservado</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.reserved / totalFunnel) * 100) : 0) + '%;background:#22c55e">' + funnel.reserved + '</div></div></div>'
+                    + '</div></div>'
+
+                    + '<div><h2>FUENTES DE LEADS</h2><table><tr><th>Fuente</th><th>Leads</th><th>Cerrados</th><th>Conv%</th></tr>'
+                    + fuentesArr.map(f => '<tr><td>' + f.name + '</td><td>' + f.total + '</td><td>' + f.cerrados + '</td><td>' + f.conversion + '%</td></tr>').join('')
+                    + '</table></div></div>'
+
+                    + '<h2>DESEMPENO POR VENDEDOR</h2><table><tr><th>Vendedor</th><th>Ventas</th><th>Meta</th><th>Cumpl.</th><th>Conv%</th></tr>'
+                    + vendedoresData.map(v => '<tr><td>' + v.name + '</td><td><strong>' + v.ventas + '</strong></td><td>' + v.meta + '</td><td style="color:' + (v.cumplimiento >= 80 ? '#22c55e' : v.cumplimiento >= 50 ? '#eab308' : '#ef4444') + '">' + v.cumplimiento + '%</td><td>' + v.conversion + '%</td></tr>').join('')
+                    + '</table>'
+
+                    + (alertas.length > 0 ? '<h2>ALERTAS</h2>' + alertas.map(a => '<div class="alert-box">' + a + '</div>').join('') : '')
+
+                    + (recomendaciones.length > 0 ? '<h2>RECOMENDACIONES</h2>' + recomendaciones.map(r => '<div class="rec-box">' + r + '</div>').join('') : '')
+
+                    + '<div class="footer">Reporte generado automaticamente por SARA CRM | Santa Rita Residencial</div></body></html>'
+
                     const printWindow = window.open('', '_blank')
                     if (printWindow) {
-                      printWindow.document.write(printContent)
+                      printWindow.document.write(html)
                       printWindow.document.close()
                       printWindow.print()
                     }
                   }}
                   className="px-2 py-1 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-xs sm:text-sm hover:from-green-700 hover:to-emerald-700 flex items-center gap-1"
-                  title="Exportar resumen PDF"
+                  title="Reporte Ejecutivo CEO"
                 >
                   <Download size={14} /> PDF
                 </button>
