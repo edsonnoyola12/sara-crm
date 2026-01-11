@@ -296,6 +296,11 @@ function App() {
   const [showNewCampaign, setShowNewCampaign] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState<any[]>([])
   const [referrals, setReferrals] = useState<any[]>([])
+  const [bonoReferido, setBonoReferido] = useState(() => {
+    const saved = localStorage.getItem('bonoReferido')
+    return saved ? parseInt(saved) : 500
+  })
+  const [editandoBono, setEditandoBono] = useState(false)
   const [monthlyGoals, setMonthlyGoals] = useState<{month: string, company_goal: number}>({ month: "", company_goal: 0 })
   const [vendorGoals, setVendorGoals] = useState<{vendor_id: string, goal: number, name: string}[]>([])
   const [selectedGoalMonth, setSelectedGoalMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -4067,11 +4072,52 @@ function App() {
 
             {/* Bonos de Referidos por Vendedor */}
             <div className="bg-slate-800/50 rounded-2xl p-6">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <DollarSign size={24} className="text-green-400" />
-                Bonos por Referidos (Este Mes)
-              </h3>
-              <p className="text-slate-400 text-sm mb-4">$500 MXN por cada referido que resulte en venta</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <DollarSign size={24} className="text-green-400" />
+                  Bonos por Referidos (Este Mes)
+                </h3>
+                <button
+                  onClick={() => setEditandoBono(true)}
+                  className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm flex items-center gap-1"
+                >
+                  ✏️ Editar Bono
+                </button>
+              </div>
+
+              {/* Editor de Bono */}
+              {editandoBono && (
+                <div className="bg-slate-700/50 p-4 rounded-xl mb-4 flex items-center gap-4">
+                  <label className="text-sm text-slate-400">Monto por referido vendido:</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400">$</span>
+                    <input
+                      type="number"
+                      value={bonoReferido}
+                      onChange={(e) => setBonoReferido(parseInt(e.target.value) || 0)}
+                      className="w-24 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-center"
+                    />
+                    <span className="text-slate-400">MXN</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('bonoReferido', bonoReferido.toString())
+                      setEditandoBono(false)
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    onClick={() => setEditandoBono(false)}
+                    className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              <p className="text-slate-400 text-sm mb-4">${bonoReferido.toLocaleString()} MXN por cada referido que resulte en venta</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {team.filter(t => t.active && t.role === 'vendedor').map(member => {
                   const mesActual = new Date()
@@ -4082,7 +4128,7 @@ function App() {
                     l.assigned_to === member.id &&
                     new Date(l.referral_date || l.created_at) >= inicioMes
                   ).length
-                  const bono = referidosVendidos * 500
+                  const bono = referidosVendidos * bonoReferido
                   return (
                     <div key={member.id} className="bg-slate-700/50 rounded-xl p-4 flex items-center justify-between">
                       <div>
