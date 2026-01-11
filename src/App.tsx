@@ -4374,7 +4374,7 @@ function App() {
 
               <div className="mt-4">
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Avance del equipo ({new Date(selectedGoalMonth + '-01').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })})</span>
+                  <span>Avance del equipo ({(() => { const [y, m] = selectedGoalMonth.split('-'); return new Date(parseInt(y), parseInt(m) - 1, 15).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }) })()})</span>
                   <span className="font-bold">{leads.filter(l => (l.status === 'closed' || l.status === 'Cerrado' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(selectedGoalMonth)).length} / {monthlyGoals.company_goal || 0}</span>
                 </div>
                 <div className="h-4 bg-slate-700 rounded-full overflow-hidden">
