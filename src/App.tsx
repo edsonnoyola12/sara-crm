@@ -1019,9 +1019,10 @@ function App() {
     return Math.floor((Date.now() - new Date(statusDate).getTime()) / (1000 * 60 * 60 * 24))
   }
 
-  const hotLeads = leads.filter(l => l.score >= 8).length
-  const warmLeads = leads.filter(l => l.score >= 5 && l.score < 8).length
-  const coldLeads = leads.filter(l => l.score < 5).length
+  // NOTA: hotLeads, warmLeads, coldLeads se recalculan después de filteredLeads
+  const _hotLeadsAll = leads.filter(l => l.score >= 8).length
+  const _warmLeadsAll = leads.filter(l => l.score >= 5 && l.score < 8).length
+  const _coldLeadsAll = leads.filter(l => l.score < 5).length
   const totalSales = team.reduce((acc, t) => acc + (t.sales_count || 0), 0)
   const totalCommissions = team.reduce((acc, t) => acc + (t.commission || 0), 0)
   const availableUnits = properties.reduce((acc, p) => acc + ((p.total_units || 0) - (p.sold_units || 0) - 0), 0)
@@ -1036,11 +1037,7 @@ function App() {
   const avgCPA = totalSalesFromCampaigns > 0 ? totalSpent / totalSalesFromCampaigns : 0
   const roi = totalSpent > 0 ? ((totalRevenue - totalSpent) / totalSpent) * 100 : 0
 
-  const scoreData = [
-    { name: 'HOT', value: hotLeads, color: '#ef4444' },
-    { name: 'WARM', value: warmLeads, color: '#f97316' },
-    { name: 'COLD', value: coldLeads, color: '#3b82f6' }
-  ]
+  // NOTA: scoreData se define después de filteredLeads (línea ~1445)
 
   const roiByChannel = campaigns.reduce((acc: any[], c) => {
     const existing = acc.find(x => x.channel === c.channel)
@@ -1233,30 +1230,27 @@ function App() {
   })()
 
   // ============ KPIs DE CONVERSIÓN INMOBILIARIA ============
-  
-  // 9. Tasa de Conversión General (Lead to Sale) - Meta: 1-3%
-  const conversionLeadToSale = (() => {
+  // NOTA: Estos cálculos usan 'leads' temporalmente.
+  // Se recalculan con filteredLeads más abajo (línea ~1510)
+  const _conversionLeadToSaleTmp = (() => {
     const totalLeads = leads.length
     const totalSales = leads.filter(l => l.status === 'closed' || l.status === 'delivered').length
     return totalLeads > 0 ? ((totalSales / totalLeads) * 100).toFixed(1) : '0'
   })()
 
-  // 10. Tasa de Conversión Lead-a-Cita - Meta: 15-25%
-  const conversionLeadToCita = (() => {
+  const _conversionLeadToCitaTmp = (() => {
     const totalLeads = leads.length
     const citasRealizadas = leads.filter(l => ['scheduled', 'visited', 'negotiation', 'reserved', 'closed', 'delivered'].includes(l.status)).length
     return totalLeads > 0 ? ((citasRealizadas / totalLeads) * 100).toFixed(1) : '0'
   })()
 
-  // 11. Tasa de Cierre de Citas (Appointment to Close) - Meta: 10-20%
-  const conversionCitaToClose = (() => {
+  const _conversionCitaToCloseTmp = (() => {
     const citasRealizadas = leads.filter(l => ['visited', 'negotiation', 'reserved', 'closed', 'delivered'].includes(l.status)).length
     const ventas = leads.filter(l => l.status === 'closed' || l.status === 'delivered').length
     return citasRealizadas > 0 ? ((ventas / citasRealizadas) * 100).toFixed(1) : '0'
   })()
 
-  // 12. Ratio de Leads por Venta - Meta: 50:1
-  const ratioLeadsPorVenta = (() => {
+  const _ratioLeadsPorVentaTmp = (() => {
     const ventas = leads.filter(l => l.status === 'closed' || l.status === 'delivered').length
     return ventas > 0 ? Math.round(leads.length / ventas) : leads.length
   })()
@@ -1437,6 +1431,78 @@ function App() {
           : leads.some(l => l.id === m.lead_id && l.assigned_to === currentUser.id)
       )
     : mortgages
+
+  // HOT/WARM/COLD basados en filteredLeads (para el usuario actual)
+  const hotLeads = filteredLeads.filter(l => l.score >= 8).length
+  const warmLeads = filteredLeads.filter(l => l.score >= 5 && l.score < 8).length
+  const coldLeads = filteredLeads.filter(l => l.score < 5).length
+
+  // scoreData para charts
+  const scoreData = [
+    { name: 'HOT', value: hotLeads, color: '#ef4444' },
+    { name: 'WARM', value: warmLeads, color: '#f97316' },
+    { name: 'COLD', value: coldLeads, color: '#3b82f6' }
+  ]
+
+  // ============ KPIs DE CONVERSIÓN (con filteredLeads) ============
+  const conversionLeadToSale = (() => {
+    const totalLeads = filteredLeads.length
+    const totalSales = filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length
+    return totalLeads > 0 ? ((totalSales / totalLeads) * 100).toFixed(1) : '0'
+  })()
+
+  const conversionLeadToCita = (() => {
+    const totalLeads = filteredLeads.length
+    const citasRealizadas = filteredLeads.filter(l => ['scheduled', 'visited', 'negotiation', 'reserved', 'closed', 'delivered'].includes(l.status)).length
+    return totalLeads > 0 ? ((citasRealizadas / totalLeads) * 100).toFixed(1) : '0'
+  })()
+
+  const conversionCitaToClose = (() => {
+    const citasRealizadas = filteredLeads.filter(l => ['visited', 'negotiation', 'reserved', 'closed', 'delivered'].includes(l.status)).length
+    const ventas = filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length
+    return citasRealizadas > 0 ? ((ventas / citasRealizadas) * 100).toFixed(1) : '0'
+  })()
+
+  const ratioLeadsPorVenta = (() => {
+    const ventas = filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length
+    return ventas > 0 ? Math.round(filteredLeads.length / ventas) : filteredLeads.length
+  })()
+
+  // ============ ANÁLISIS META vs REALIDAD ============
+  const metaAnalysis = (() => {
+    const metaMensual = monthlyGoals.company_goal || 0
+    const convRate = parseFloat(conversionLeadToSale) / 100 || 0.02
+    const ventasActuales = filteredLeads.filter(l => {
+      const d = new Date(l.status_changed_at || l.created_at)
+      const now = new Date()
+      return (l.status === 'closed' || l.status === 'delivered') &&
+             d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }).length
+
+    const ventasFaltantes = Math.max(0, metaMensual - ventasActuales)
+    const leadsNecesarios = convRate > 0 ? Math.ceil(ventasFaltantes / convRate) : 0
+    const leadsActivosEnFunnel = filteredLeads.filter(l => !['closed', 'delivered', 'lost', 'inactive'].includes(l.status)).length
+    const leadsNuevosMes = filteredLeads.filter(l => {
+      const d = new Date(l.created_at)
+      const now = new Date()
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }).length
+    const deficitLeads = Math.max(0, leadsNecesarios - leadsActivosEnFunnel)
+    const leadsQueAvanzan = filteredLeads.filter(l => ['scheduled', 'visited', 'negotiation', 'reserved', 'closed', 'delivered'].includes(l.status)).length
+    const calidadLeads = filteredLeads.length > 0 ? Math.round((leadsQueAvanzan / filteredLeads.length) * 100) : 0
+    const now = new Date()
+    const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
+    const leadsPorDiaNecesarios = diasRestantes > 0 ? Math.ceil(deficitLeads / diasRestantes) : deficitLeads
+
+    return {
+      metaMensual, ventasActuales, ventasFaltantes,
+      conversionRate: convRate * 100, leadsNecesarios, leadsActivosEnFunnel,
+      leadsNuevosMes, deficitLeads, calidadLeads, diasRestantes, leadsPorDiaNecesarios,
+      cumplimientoMeta: metaMensual > 0 ? Math.round((ventasActuales / metaMensual) * 100) : 0,
+      alertaRoja: deficitLeads > leadsNuevosMes * 2,
+      alertaCalidad: calidadLeads < 30
+    }
+  })()
 
   // Filtrar citas por vendedor (toggle)
   const filteredAppointments = showAllAppointments || currentUser?.role === 'admin'
@@ -1664,6 +1730,106 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* ============ META vs REALIDAD - ANÁLISIS CRÍTICO ============ */}
+            {metaAnalysis.metaMensual > 0 && (
+              <div className={`border rounded-xl p-4 ${metaAnalysis.alertaRoja ? 'bg-gradient-to-r from-red-900/50 to-orange-900/50 border-red-500/50' : metaAnalysis.cumplimientoMeta >= 80 ? 'bg-gradient-to-r from-green-900/50 to-emerald-900/50 border-green-500/50' : 'bg-gradient-to-r from-yellow-900/40 to-amber-900/40 border-yellow-500/40'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    {metaAnalysis.alertaRoja ? '🚨' : metaAnalysis.cumplimientoMeta >= 80 ? '🎯' : '⚠️'}
+                    Meta del Mes: {metaAnalysis.ventasActuales}/{metaAnalysis.metaMensual} ventas
+                  </h3>
+                  <span className={`text-2xl font-bold ${metaAnalysis.cumplimientoMeta >= 80 ? 'text-green-400' : metaAnalysis.cumplimientoMeta >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {metaAnalysis.cumplimientoMeta}%
+                  </span>
+                </div>
+
+                {/* Barra de progreso de meta */}
+                <div className="w-full bg-slate-700 rounded-full h-3 mb-4">
+                  <div
+                    className={`h-3 rounded-full transition-all ${metaAnalysis.cumplimientoMeta >= 80 ? 'bg-green-500' : metaAnalysis.cumplimientoMeta >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.min(metaAnalysis.cumplimientoMeta, 100)}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  {/* Ventas faltantes */}
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-slate-400">Faltan vender</p>
+                    <p className="text-2xl font-bold text-orange-400">{metaAnalysis.ventasFaltantes}</p>
+                    <p className="text-xs text-slate-500">casas</p>
+                  </div>
+
+                  {/* Leads necesarios */}
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-slate-400">Leads necesarios</p>
+                    <p className="text-2xl font-bold text-cyan-400">{metaAnalysis.leadsNecesarios}</p>
+                    <p className="text-xs text-slate-500">al {metaAnalysis.conversionRate.toFixed(1)}% conv</p>
+                  </div>
+
+                  {/* Leads en funnel */}
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-slate-400">Leads en funnel</p>
+                    <p className={`text-2xl font-bold ${metaAnalysis.leadsActivosEnFunnel >= metaAnalysis.leadsNecesarios ? 'text-green-400' : 'text-red-400'}`}>
+                      {metaAnalysis.leadsActivosEnFunnel}
+                    </p>
+                    <p className="text-xs text-slate-500">activos</p>
+                  </div>
+
+                  {/* Déficit */}
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-slate-400">Déficit leads</p>
+                    <p className={`text-2xl font-bold ${metaAnalysis.deficitLeads === 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {metaAnalysis.deficitLeads === 0 ? '✓' : `-${metaAnalysis.deficitLeads}`}
+                    </p>
+                    <p className="text-xs text-slate-500">{metaAnalysis.diasRestantes} días restantes</p>
+                  </div>
+                </div>
+
+                {/* Alertas y recomendaciones */}
+                <div className="space-y-2">
+                  {metaAnalysis.deficitLeads > 0 && (
+                    <div className="bg-red-900/30 border border-red-500/30 rounded-lg p-3">
+                      <p className="text-sm text-red-300">
+                        <strong>⚠️ ALERTA:</strong> Necesitas <strong>{metaAnalysis.leadsPorDiaNecesarios} leads/día</strong> para llegar a meta.
+                        {metaAnalysis.alertaRoja && ' ¡Urgente aumentar inversión en marketing!'}
+                      </p>
+                    </div>
+                  )}
+
+                  {metaAnalysis.alertaCalidad && (
+                    <div className="bg-yellow-900/30 border border-yellow-500/30 rounded-lg p-3">
+                      <p className="text-sm text-yellow-300">
+                        <strong>📉 CALIDAD:</strong> Solo {metaAnalysis.calidadLeads}% de leads avanzan en el funnel.
+                        Revisa la segmentación de anuncios - están entrando leads de baja calidad.
+                      </p>
+                    </div>
+                  )}
+
+                  {metaAnalysis.deficitLeads === 0 && metaAnalysis.calidadLeads >= 30 && (
+                    <div className="bg-green-900/30 border border-green-500/30 rounded-lg p-3">
+                      <p className="text-sm text-green-300">
+                        <strong>✅ EN TRACK:</strong> Tienes suficientes leads para cumplir la meta.
+                        Enfócate en avanzar los leads actuales por el funnel.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Sin meta configurada */}
+            {metaAnalysis.metaMensual === 0 && (
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🎯</span>
+                  <div>
+                    <p className="font-bold text-slate-300">Sin meta de ventas configurada</p>
+                    <p className="text-sm text-slate-500">Ve a <button onClick={() => setView('goals')} className="text-blue-400 hover:underline">Metas</button> para configurar tu objetivo mensual y ver este análisis.</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* GAUGE DE SALUD DEL FUNNEL - Visual rápido */}
             <div className="bg-slate-800/50 border border-slate-700/50 p-4 lg:p-5 rounded-xl">
