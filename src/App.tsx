@@ -1690,11 +1690,9 @@ function App() {
           <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <CalendarIcon size={20} /> Calendario
           </button>
-          {(!currentUser || currentUser.role === 'admin') && (
-            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Target size={20} /> Metas
-            </button>
-          )}
+          <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
+            <Target size={20} /> Metas
+          </button>
           <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Clock size={20} /> Follow-ups
           </button>
@@ -4215,9 +4213,72 @@ function App() {
         {/* ============ METAS ============ */}
         {view === 'goals' && (
           <div className="space-y-6">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              Planeaci&oacute;n de Metas
-            </h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                Planeaci&oacute;n de Metas
+              </h2>
+              <div className="flex gap-2">
+                {/* Exportar CSV */}
+                <button
+                  onClick={() => {
+                    const currentMonth = selectedGoalMonth
+                    const rows = [
+                      ['REPORTE DE METAS - ' + new Date(currentMonth + '-01').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }).toUpperCase()],
+                      [],
+                      ['META ANUAL', annualGoal.goal + ' casas', 'Promedio mensual: ' + Math.round(annualGoal.goal / 12)],
+                      ['META MENSUAL', monthlyGoals.company_goal + ' casas'],
+                      [],
+                      ['VENDEDOR', 'META', 'CERRADOS', 'RESERVADOS', 'NEGOCIANDO', '% AVANCE'],
+                      ...vendorGoals.map(vg => {
+                        const closed = leads.filter(l => l.assigned_to === vg.vendor_id && (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
+                        const reserved = leads.filter(l => l.assigned_to === vg.vendor_id && l.status === 'reserved').length
+                        const negotiation = leads.filter(l => l.assigned_to === vg.vendor_id && l.status === 'negotiation').length
+                        const pct = vg.goal > 0 ? Math.round((closed / vg.goal) * 100) : 0
+                        return [vg.name, vg.goal, closed, reserved, negotiation, pct + '%']
+                      }),
+                      [],
+                      ['TOTAL', vendorGoals.reduce((s, v) => s + v.goal, 0), '', '', '', '']
+                    ]
+                    const csv = rows.map(r => r.join(',')).join('\n')
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                    const url = URL.createObjectURL(blob)
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = `metas_${currentMonth}.csv`
+                    link.click()
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium"
+                >
+                  <Download size={16} />
+                  Excel/CSV
+                </button>
+                {/* Imprimir/PDF */}
+                <button
+                  onClick={() => {
+                    const monthName = new Date(selectedGoalMonth + '-01').toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+                    const vendorRows = vendorGoals.map(vg => {
+                      const closed = leads.filter(l => l.assigned_to === vg.vendor_id && (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(selectedGoalMonth)).length
+                      const reserved = leads.filter(l => l.assigned_to === vg.vendor_id && l.status === 'reserved').length
+                      const negotiation = leads.filter(l => l.assigned_to === vg.vendor_id && l.status === 'negotiation').length
+                      const pct = vg.goal > 0 ? Math.round((closed / vg.goal) * 100) : 0
+                      return '<tr><td><strong>' + vg.name + '</strong></td><td>' + vg.goal + '</td><td>' + closed + '</td><td>' + reserved + '</td><td>' + negotiation + '</td><td><div class="progress"><div class="progress-bar" style="width:' + Math.min(pct, 100) + '%"></div></div><strong>' + pct + '%</strong></td></tr>'
+                    }).join('')
+                    const totalGoal = vendorGoals.reduce((s, v) => s + v.goal, 0)
+                    const printContent = '<html><head><title>Reporte de Metas</title><style>body{font-family:Arial,sans-serif;padding:20px}h1{color:#333;border-bottom:2px solid #333;padding-bottom:10px}h2{color:#666;margin-top:30px}table{width:100%;border-collapse:collapse;margin-top:15px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f5f5f5;font-weight:bold}.meta-box{display:inline-block;padding:15px 25px;margin:10px;background:#f0f0f0;border-radius:8px}.meta-box .number{font-size:32px;font-weight:bold;color:#333}.meta-box .label{font-size:12px;color:#666}.progress{height:10px;background:#e0e0e0;border-radius:5px;overflow:hidden}.progress-bar{height:100%;background:#4CAF50}.footer{margin-top:30px;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:10px}</style></head><body><h1>Reporte de Metas - ' + monthName + '</h1><div style="margin:20px 0;"><div class="meta-box"><div class="number">' + annualGoal.goal + '</div><div class="label">Meta Anual ' + selectedGoalYear + '</div></div><div class="meta-box"><div class="number">' + Math.round(annualGoal.goal / 12) + '</div><div class="label">Meta Mensual Promedio</div></div><div class="meta-box"><div class="number">' + monthlyGoals.company_goal + '</div><div class="label">Meta Este Mes</div></div></div><h2>Metas por Vendedor</h2><table><thead><tr><th>Vendedor</th><th>Meta</th><th>Cerrados</th><th>Reservados</th><th>Negociando</th><th>Avance</th></tr></thead><tbody>' + vendorRows + '</tbody><tfoot><tr style="background:#f5f5f5;"><td><strong>TOTAL</strong></td><td><strong>' + totalGoal + '</strong></td><td colspan="4"></td></tr></tfoot></table><div class="footer">Generado el ' + new Date().toLocaleString('es-MX') + ' - SARA CRM</div></body></html>'
+                    const printWindow = window.open('', '_blank')
+                    if (printWindow) {
+                      printWindow.document.write(printContent)
+                      printWindow.document.close()
+                      printWindow.print()
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
+                >
+                  <Download size={16} />
+                  PDF / Imprimir
+                </button>
+              </div>
+            </div>
 
             {/* META ANUAL */}
             <div className="bg-gradient-to-br from-purple-900/40 to-indigo-900/40 border border-purple-500/30 rounded-2xl p-6">
