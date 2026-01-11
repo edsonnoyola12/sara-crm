@@ -319,7 +319,7 @@ function App() {
       if (!currentUser) return false
       // Externos: agencia (mkt) y asesor - acceso limitado
       const acceso: Record<string, string[]> = {
-        dashboard: ['admin', 'vendedor', 'coordinador'], // Externos NO ven dashboard general
+        dashboard: ['admin', 'vendedor', 'coordinador', 'asesor', 'agencia'], // Cada rol ve su propio dashboard
         leads: ['admin', 'vendedor', 'coordinador'], // Externos NO ven leads
         properties: ['admin', 'vendedor', 'coordinador'], // Externos NO ven propiedades
         team: ['admin', 'coordinador'],
@@ -1990,11 +1990,358 @@ function App() {
             {/* DASHBOARD PERSONALIZADO POR ROL */}
             {/* ═══════════════════════════════════════════════════════════ */}
 
+            {/* ══════ DASHBOARD ADMIN ══════ */}
+            {currentUser?.role === 'admin' && (() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+              const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+              const diasTranscurridos = now.getDate()
+              const diasEnMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+              const diasRestantes = diasEnMes - diasTranscurridos
+
+              // Ventas del mes
+              const ventasDelMes = leads.filter(l =>
+                ['closed', 'delivered', 'sold'].includes(l.status) &&
+                l.status_changed_at?.startsWith(currentMonth)
+              )
+              const ventasMesAnterior = leads.filter(l =>
+                ['closed', 'delivered', 'sold'].includes(l.status) &&
+                l.status_changed_at?.startsWith(prevMonth)
+              ).length
+              const metaMes = monthlyGoals.company_goal || 0
+              const porcentajeMeta = metaMes > 0 ? Math.round((ventasDelMes.length / metaMes) * 100) : 0
+              const cambioVsMesAnterior = ventasMesAnterior > 0
+                ? Math.round(((ventasDelMes.length - ventasMesAnterior) / ventasMesAnterior) * 100)
+                : 0
+
+              // Pipeline y revenue
+              const leadsActivos = leads.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status))
+              const pipelineValue = leadsActivos.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+              const revenueDelMes = ventasDelMes.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+
+              // Leads HOT (negociación + reservado)
+              const leadsHot = leads.filter(l => ['negotiation', 'reserved'].includes(l.status))
+              const valorLeadsHot = leadsHot.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+
+              // Proyección
+              const ventasProyectadas = diasTranscurridos > 0 ? Math.round((ventasDelMes.length / diasTranscurridos) * diasEnMes) : 0
+              const revenueProyectado = diasTranscurridos > 0 ? Math.round((revenueDelMes / diasTranscurridos) * diasEnMes) : 0
+
+              // Leads del mes
+              const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth)).length
+              const leadsNuevosSinContactar = leads.filter(l => l.status === 'new').length
+
+              // Leads estancados (+5 días)
+              const leadsEstancados = leads.filter(l => {
+                if (['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)) return false
+                const dias = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
+                return dias > 5
+              })
+
+              // Conversión general
+              const totalLeads = leads.length
+              const totalVentas = leads.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
+              const tasaConversion = totalLeads > 0 ? ((totalVentas / totalLeads) * 100).toFixed(1) : '0'
+
+              // Ranking vendedores
+              const vendedoresRanking = team
+                .filter(t => t.role === 'vendedor')
+                .map(v => {
+                  const ventasV = leads.filter(l =>
+                    l.assigned_to === v.id &&
+                    ['closed', 'delivered', 'sold'].includes(l.status) &&
+                    l.status_changed_at?.startsWith(currentMonth)
+                  ).length
+                  const metaV = vendorGoals.find(g => g.vendor_id === v.id)?.goal || 0
+                  const leadsV = leads.filter(l => l.assigned_to === v.id && !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)).length
+                  return { ...v, ventas: ventasV, meta: metaV, leads: leadsV, pct: metaV > 0 ? Math.round((ventasV / metaV) * 100) : 0 }
+                })
+                .sort((a, b) => b.ventas - a.ventas)
+
+              // Por fuente
+              const porFuente: Record<string, { leads: number, ventas: number }> = {}
+              leads.filter(l => l.created_at?.startsWith(currentMonth)).forEach(l => {
+                const src = l.source || 'Directo'
+                if (!porFuente[src]) porFuente[src] = { leads: 0, ventas: 0 }
+                porFuente[src].leads++
+                if (['closed', 'delivered', 'sold'].includes(l.status)) porFuente[src].ventas++
+              })
+              const fuentes = Object.entries(porFuente)
+                .map(([name, data]) => ({ name, ...data, conv: data.leads > 0 ? Math.round((data.ventas / data.leads) * 100) : 0 }))
+                .sort((a, b) => b.leads - a.leads)
+
+              // Por desarrollo
+              const porDesarrollo: Record<string, { leads: number, ventas: number, revenue: number }> = {}
+              leads.forEach(l => {
+                const dev = l.property_interest || 'Sin especificar'
+                if (!porDesarrollo[dev]) porDesarrollo[dev] = { leads: 0, ventas: 0, revenue: 0 }
+                porDesarrollo[dev].leads++
+                if (['closed', 'delivered', 'sold'].includes(l.status) && l.status_changed_at?.startsWith(currentMonth)) {
+                  porDesarrollo[dev].ventas++
+                  porDesarrollo[dev].revenue += Number(l.budget) || 0
+                }
+              })
+              const desarrollos = Object.entries(porDesarrollo)
+                .map(([name, data]) => ({ name, ...data }))
+                .sort((a, b) => b.ventas - a.ventas)
+
+              // Hipotecas resumen
+              const hipotecasPendientes = mortgages.filter(m => !['approved', 'rejected', 'cancelled'].includes(m.status)).length
+              const hipotecasAprobadas = mortgages.filter(m => m.status === 'approved' && m.decision_at?.startsWith(currentMonth)).length
+
+              // Funnel general
+              const funnel = {
+                new: leads.filter(l => l.status === 'new').length,
+                contacted: leads.filter(l => l.status === 'contacted').length,
+                scheduled: leads.filter(l => l.status === 'scheduled').length,
+                visited: leads.filter(l => l.status === 'visited').length,
+                negotiation: leads.filter(l => l.status === 'negotiation').length,
+                reserved: leads.filter(l => l.status === 'reserved').length,
+                closed: leads.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
+              }
+
+              // Marketing CPL
+              const presupuestoMkt = marketingGoals.budget || 50000
+              const cpl = leadsDelMes > 0 ? Math.round(presupuestoMkt / leadsDelMes) : 0
+
+              const estadoMeta = metaMes === 0 ? 'warning' : porcentajeMeta >= 80 ? 'good' : porcentajeMeta >= 50 ? 'warning' : 'critical'
+
+              return (
+                <div className="space-y-4">
+                  {/* Header Admin */}
+                  <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold mb-1">🏢 Panel Ejecutivo</h2>
+                        <p className="text-sm text-slate-400">Vista general del negocio - {new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</p>
+                      </div>
+                      <div className="flex gap-4 text-right">
+                        <div>
+                          <p className="text-xs text-slate-400">Pipeline</p>
+                          <p className="text-lg font-bold text-emerald-400">${(pipelineValue / 1000000).toFixed(1)}M</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400">Revenue mes</p>
+                          <p className="text-lg font-bold text-green-400">${(revenueDelMes / 1000000).toFixed(1)}M</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alertas críticas */}
+                  {(leadsNuevosSinContactar > 5 || leadsEstancados.length > 10) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {leadsNuevosSinContactar > 5 && (
+                        <div className="bg-red-900/30 border border-red-500/40 rounded-xl p-3 flex items-center gap-3">
+                          <span className="text-2xl">🚨</span>
+                          <div className="flex-1">
+                            <p className="font-semibold text-red-300">{leadsNuevosSinContactar} leads sin contactar</p>
+                            <p className="text-xs text-slate-400">Requieren atención inmediata</p>
+                          </div>
+                        </div>
+                      )}
+                      {leadsEstancados.length > 10 && (
+                        <div className="bg-orange-900/30 border border-orange-500/40 rounded-xl p-3 flex items-center gap-3">
+                          <span className="text-2xl">⚠️</span>
+                          <div className="flex-1">
+                            <p className="font-semibold text-orange-300">{leadsEstancados.length} leads estancados</p>
+                            <p className="text-xs text-slate-400">+5 días sin movimiento</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* KPIs principales */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {/* Meta vs Real */}
+                    <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-xs text-slate-400 mb-1">META VS REAL</p>
+                      <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {ventasDelMes.length}/{metaMes || '?'}
+                      </p>
+                      <div className="h-1.5 bg-slate-700 rounded-full mt-2">
+                        <div className={`h-full rounded-full ${estadoMeta === 'good' ? 'bg-green-500' : estadoMeta === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(porcentajeMeta, 100)}%` }} />
+                      </div>
+                      <p className="text-xs mt-1 flex justify-between">
+                        <span>{porcentajeMeta}%</span>
+                        <span className={cambioVsMesAnterior >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {cambioVsMesAnterior >= 0 ? '↑' : '↓'}{Math.abs(cambioVsMesAnterior)}%
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Leads HOT */}
+                    <div className={`rounded-xl p-4 border ${leadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
+                      <p className="text-3xl font-bold text-orange-400">{leadsHot.length}</p>
+                      <p className="text-xs text-slate-500 mt-2">${(valorLeadsHot / 1000000).toFixed(1)}M valor</p>
+                    </div>
+
+                    {/* Conversión */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
+                      <p className={`text-3xl font-bold ${Number(tasaConversion) >= 10 ? 'text-green-400' : Number(tasaConversion) >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{tasaConversion}%</p>
+                      <p className="text-xs text-slate-500 mt-2">{totalVentas} de {totalLeads}</p>
+                    </div>
+
+                    {/* CPL */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">CPL</p>
+                      <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
+                      <p className="text-xs text-slate-500 mt-2">{leadsDelMes} leads/mes</p>
+                    </div>
+
+                    {/* Hipotecas */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">HIPOTECAS</p>
+                      <p className="text-3xl font-bold text-cyan-400">{hipotecasPendientes}</p>
+                      <p className="text-xs text-slate-500 mt-2">{hipotecasAprobadas} aprobadas/mes</p>
+                    </div>
+                  </div>
+
+                  {/* Proyección + Revenue */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className={`border rounded-xl p-4 ${ventasProyectadas >= metaMes ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
+                      <h3 className="font-semibold mb-2">🎯 Proyección del Mes</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-3xl font-bold">{ventasProyectadas}</p>
+                          <p className="text-xs text-slate-400">ventas proyectadas</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-emerald-400">${(revenueProyectado / 1000000).toFixed(1)}M</p>
+                          <p className="text-xs text-slate-400">revenue proyectado</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">
+                        {diasRestantes} días restantes • Faltan {Math.max(0, metaMes - ventasDelMes.length)} ventas
+                      </p>
+                    </div>
+
+                    {/* Funnel resumen */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-2">📊 Funnel General</h3>
+                      <div className="flex items-center gap-1">
+                        {[
+                          { label: 'Nuevos', count: funnel.new, color: 'bg-blue-500' },
+                          { label: 'Contact', count: funnel.contacted, color: 'bg-cyan-500' },
+                          { label: 'Cita', count: funnel.scheduled, color: 'bg-purple-500' },
+                          { label: 'Visita', count: funnel.visited, color: 'bg-pink-500' },
+                          { label: 'Negoc', count: funnel.negotiation, color: 'bg-orange-500' },
+                          { label: 'Reserv', count: funnel.reserved, color: 'bg-yellow-500' },
+                          { label: 'Cerrado', count: funnel.closed, color: 'bg-green-500' }
+                        ].map((s, i) => (
+                          <div key={i} className="flex-1 text-center">
+                            <div className={`${s.color} rounded py-1 text-sm font-bold`}>{s.count}</div>
+                            <p className="text-[10px] mt-0.5 text-slate-500">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ranking vendedores */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">🏆 Ranking Vendedores</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {vendedoresRanking.slice(0, 6).map((v, i) => (
+                        <div key={v.id} className={`flex items-center gap-3 p-3 rounded-lg ${i === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-slate-700/50'}`}>
+                          <span className="text-xl">
+                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{v.name}</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-bold ${v.pct >= 100 ? 'text-green-400' : v.pct >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {v.ventas}/{v.meta || '?'}
+                              </span>
+                              <span className="text-xs text-slate-500">({v.pct}%)</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400">{v.leads} activos</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Por fuente y Por desarrollo */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Por fuente */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">📣 Por Fuente (mes)</h3>
+                      <div className="space-y-2">
+                        {fuentes.slice(0, 5).map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                              <div
+                                className="h-full bg-gradient-to-r from-pink-500 to-purple-500"
+                                style={{ width: `${Math.max(10, (f.leads / (fuentes[0]?.leads || 1)) * 100)}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
+                                <span>{f.name}</span>
+                                <span>{f.leads} • {f.conv}%</span>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Por desarrollo */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">🏘️ Por Desarrollo (mes)</h3>
+                      <div className="space-y-2">
+                        {desarrollos.slice(0, 5).map((d, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                              <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                                style={{ width: `${Math.max(10, (d.ventas / (desarrollos[0]?.ventas || 1)) * 100)}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
+                                <span className="truncate">{d.name}</span>
+                                <span>{d.ventas} ventas</span>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Acciones rápidas */}
+                  <div className="flex gap-3 flex-wrap">
+                    <button onClick={() => setView('leads')} className="flex-1 min-w-[120px] py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium">
+                      📋 Leads
+                    </button>
+                    <button onClick={() => setView('team')} className="flex-1 min-w-[120px] py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
+                      👥 Equipo
+                    </button>
+                    <button onClick={() => setView('goals')} className="flex-1 min-w-[120px] py-3 bg-green-600 hover:bg-green-700 rounded-xl font-medium">
+                      🎯 Metas
+                    </button>
+                    <button onClick={() => setView('reportes')} className="flex-1 min-w-[120px] py-3 bg-orange-600 hover:bg-orange-700 rounded-xl font-medium">
+                      📊 Reportes
+                    </button>
+                    <button onClick={() => setView('config')} className="flex-1 min-w-[120px] py-3 bg-slate-600 hover:bg-slate-700 rounded-xl font-medium">
+                      ⚙️ Config
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* ══════ DASHBOARD VENDEDOR ══════ */}
             {currentUser?.role === 'vendedor' && (() => {
               const now = new Date()
               const currentMonth = now.toISOString().slice(0, 7)
-              const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
+              const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+              const diasTranscurridos = now.getDate()
+              const diasEnMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+              const diasRestantes = diasEnMes - diasTranscurridos
 
               // Mis leads
               const misLeads = leads.filter(l => l.assigned_to === currentUser.id)
@@ -2002,10 +2349,25 @@ function App() {
               const misVentasMes = misLeads.filter(l =>
                 (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') &&
                 l.status_changed_at?.startsWith(currentMonth)
+              )
+              const misVentasMesAnterior = misLeads.filter(l =>
+                (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') &&
+                l.status_changed_at?.startsWith(prevMonth)
               ).length
               const miMeta = vendorGoals.find(v => v.vendor_id === currentUser.id)?.goal || 0
-              const miPorcentaje = miMeta > 0 ? Math.round((misVentasMes / miMeta) * 100) : 0
+              const miPorcentaje = miMeta > 0 ? Math.round((misVentasMes.length / miMeta) * 100) : 0
               const miConversion = misLeads.length > 0 ? Math.round((misLeads.filter(l => l.status === 'closed' || l.status === 'delivered' || l.status === 'sold').length / misLeads.length) * 100) : 0
+
+              // Pipeline value (leads activos con presupuesto)
+              const miPipeline = misLeadsActivos.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+
+              // Leads HOT (negociación + reservado)
+              const misLeadsHot = misLeads.filter(l => ['negotiation', 'reserved'].includes(l.status))
+
+              // Proyección
+              const ventasProyectadas = diasTranscurridos > 0 ? Math.round((misVentasMes.length / diasTranscurridos) * diasEnMes) : 0
+              const ventasFaltantes = Math.max(0, miMeta - misVentasMes.length)
+              const ventasPorDiaNecesarias = diasRestantes > 0 ? (ventasFaltantes / diasRestantes).toFixed(1) : '0'
 
               // Mi funnel
               const miFunnel = {
@@ -2017,46 +2379,123 @@ function App() {
                 reserved: misLeads.filter(l => l.status === 'reserved').length
               }
 
-              // Mis citas de hoy
+              // Mis citas de hoy y mañana
               const hoy = now.toISOString().slice(0, 10)
+              const mañana = new Date(now.getTime() + 86400000).toISOString().slice(0, 10)
               const misCitasHoy = appointments.filter(a => a.vendedor_id === currentUser.id && a.scheduled_date?.startsWith(hoy))
+              const misCitasMañana = appointments.filter(a => a.vendedor_id === currentUser.id && a.scheduled_date?.startsWith(mañana))
 
               // Leads que necesitan atención (estancados)
-              const leadsUrgentes = misLeads.filter(l => {
+              const leadsEstancados = misLeads.filter(l => {
                 if (['closed', 'delivered', 'sold', 'lost'].includes(l.status)) return false
                 const dias = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
                 return dias > 3
-              }).length
+              })
+
+              // Leads nuevos sin contactar
+              const leadsNuevosSinContactar = misLeads.filter(l => l.status === 'new')
+
+              // Mi ranking
+              const vendedoresConVentas = team
+                .filter(t => t.role === 'vendedor')
+                .map(v => ({
+                  id: v.id,
+                  name: v.name,
+                  ventas: leads.filter(l =>
+                    l.assigned_to === v.id &&
+                    ['closed', 'delivered', 'sold'].includes(l.status) &&
+                    l.status_changed_at?.startsWith(currentMonth)
+                  ).length
+                }))
+                .sort((a, b) => b.ventas - a.ventas)
+              const miPosicion = vendedoresConVentas.findIndex(v => v.id === currentUser.id) + 1
+              const totalVendedores = vendedoresConVentas.length
+
+              // Por desarrollo
+              const porDesarrollo: Record<string, number> = {}
+              misLeadsActivos.forEach(l => {
+                const dev = l.property_interest || 'Sin especificar'
+                porDesarrollo[dev] = (porDesarrollo[dev] || 0) + 1
+              })
+              const desarrollos = Object.entries(porDesarrollo)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
 
               const estadoMeta = miMeta === 0 ? 'warning' : miPorcentaje >= 80 ? 'good' : miPorcentaje >= 50 ? 'warning' : 'critical'
 
               return (
                 <div className="space-y-4">
-                  {/* Header personal */}
+                  {/* Header personal con ranking */}
                   <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-500/30 rounded-xl p-4">
-                    <h2 className="text-xl font-bold mb-1">👤 Mi Dashboard - {currentUser.name}</h2>
-                    <p className="text-sm text-slate-400">Tu rendimiento personal y leads asignados</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold mb-1">👤 Mi Dashboard - {currentUser.name}</h2>
+                        <p className="text-sm text-slate-400">Tu rendimiento personal y leads asignados</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Mi posición</p>
+                        <p className={`text-2xl font-bold ${miPosicion <= 3 ? 'text-yellow-400' : 'text-slate-300'}`}>
+                          {miPosicion === 1 ? '🥇' : miPosicion === 2 ? '🥈' : miPosicion === 3 ? '🥉' : `#${miPosicion}`}
+                          <span className="text-sm text-slate-400">/{totalVendedores}</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* KPIs personales */}
+                  {/* Alertas urgentes */}
+                  {leadsNuevosSinContactar.length > 0 && (
+                    <div className="bg-red-900/30 border border-red-500/40 rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-2xl">🚨</span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-red-300">{leadsNuevosSinContactar.length} leads nuevos sin contactar</p>
+                        <p className="text-sm text-slate-400">
+                          {leadsNuevosSinContactar.slice(0, 2).map(l => l.name).join(', ')}
+                          {leadsNuevosSinContactar.length > 2 && ` +${leadsNuevosSinContactar.length - 2} más`}
+                        </p>
+                      </div>
+                      <button onClick={() => setView('leads')} className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded-lg text-sm">
+                        Contactar →
+                      </button>
+                    </div>
+                  )}
+
+                  {leadsEstancados.length > 0 && (
+                    <div className="bg-orange-900/30 border border-orange-500/40 rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-2xl">⚠️</span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-orange-300">{leadsEstancados.length} leads estancados (+3 días)</p>
+                        <p className="text-sm text-slate-400">Necesitan seguimiento urgente</p>
+                      </div>
+                      <button onClick={() => setView('leads')} className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm">
+                        Ver leads →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* KPIs personales - Fila 1 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Mi meta */}
                     <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
                       <p className="text-xs text-slate-400 mb-1">MI META</p>
                       <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {misVentasMes}/{miMeta || '?'}
+                        {misVentasMes.length}/{miMeta || '?'}
                       </p>
                       <div className="h-1.5 bg-slate-700 rounded-full mt-2">
                         <div className={`h-full rounded-full ${estadoMeta === 'good' ? 'bg-green-500' : estadoMeta === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(miPorcentaje, 100)}%` }} />
                       </div>
-                      <p className="text-xs mt-1">{miMeta === 0 ? 'Sin meta asignada' : `${miPorcentaje}% completado`}</p>
+                      <p className="text-xs mt-1 flex justify-between">
+                        <span>{miMeta === 0 ? 'Sin meta' : `${miPorcentaje}%`}</span>
+                        <span className={misVentasMes.length >= misVentasMesAnterior ? 'text-green-400' : 'text-red-400'}>
+                          {misVentasMes.length >= misVentasMesAnterior ? '↑' : '↓'} vs ant.
+                        </span>
+                      </p>
                     </div>
 
-                    {/* Leads activos */}
+                    {/* Pipeline */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">MIS LEADS</p>
-                      <p className="text-3xl font-bold text-blue-400">{misLeadsActivos.length}</p>
-                      <p className="text-xs text-slate-500">activos de {misLeads.length} total</p>
+                      <p className="text-xs text-slate-400 mb-1">MI PIPELINE</p>
+                      <p className="text-3xl font-bold text-emerald-400">${(miPipeline / 1000000).toFixed(1)}M</p>
+                      <p className="text-xs text-slate-500">{misLeadsActivos.length} leads activos</p>
                     </div>
 
                     {/* Conversión */}
@@ -2066,27 +2505,54 @@ function App() {
                       <p className="text-xs text-slate-500">lead → venta</p>
                     </div>
 
-                    {/* Citas hoy */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CITAS HOY</p>
-                      <p className="text-3xl font-bold text-purple-400">{misCitasHoy.length}</p>
-                      <p className="text-xs text-slate-500">{diasRestantes} días para cierre</p>
+                    {/* Leads HOT */}
+                    <div className={`rounded-xl p-4 border ${misLeadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
+                      <p className={`text-3xl font-bold ${misLeadsHot.length > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{misLeadsHot.length}</p>
+                      <p className="text-xs text-slate-500">negociación + reservado</p>
                     </div>
                   </div>
 
-                  {/* Alerta si hay leads urgentes */}
-                  {leadsUrgentes > 0 && (
-                    <div className="bg-orange-900/30 border border-orange-500/40 rounded-xl p-3 flex items-center gap-3">
-                      <span className="text-2xl">⚠️</span>
-                      <div>
-                        <p className="font-semibold text-orange-300">Tienes {leadsUrgentes} leads sin seguimiento</p>
-                        <p className="text-sm text-slate-400">Llevan más de 3 días sin avance</p>
+                  {/* Proyección + Citas */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Proyección */}
+                    <div className={`border rounded-xl p-4 ${ventasProyectadas >= miMeta ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
+                      <h3 className="font-semibold mb-2">🎯 Proyección del Mes</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-3xl font-bold">{ventasProyectadas}</p>
+                          <p className="text-xs text-slate-400">ventas proyectadas</p>
+                        </div>
+                        <div className="text-right">
+                          {ventasProyectadas >= miMeta ? (
+                            <p className="text-green-400 font-semibold">✅ En track</p>
+                          ) : (
+                            <p className="text-yellow-400 font-semibold">⚠️ {ventasFaltantes} faltan</p>
+                          )}
+                          <p className="text-xs text-slate-400">Necesitas {ventasPorDiaNecesarias}/día</p>
+                        </div>
                       </div>
-                      <button onClick={() => setView('leads')} className="ml-auto px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm">
-                        Ver leads →
-                      </button>
                     </div>
-                  )}
+
+                    {/* Citas */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-2">📅 Mis Citas</h3>
+                      <div className="flex gap-4">
+                        <div className="flex-1 text-center bg-slate-700/50 rounded-lg p-3">
+                          <p className="text-2xl font-bold text-purple-400">{misCitasHoy.length}</p>
+                          <p className="text-xs text-slate-400">Hoy</p>
+                        </div>
+                        <div className="flex-1 text-center bg-slate-700/50 rounded-lg p-3">
+                          <p className="text-2xl font-bold text-blue-400">{misCitasMañana.length}</p>
+                          <p className="text-xs text-slate-400">Mañana</p>
+                        </div>
+                        <div className="flex-1 text-center bg-slate-700/50 rounded-lg p-3">
+                          <p className="text-2xl font-bold text-slate-400">{diasRestantes}</p>
+                          <p className="text-xs text-slate-400">Días rest.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Mi Funnel */}
                   <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
@@ -2108,13 +2574,69 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Acción rápida */}
+                  {/* Leads HOT detalle + Por desarrollo */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Leads HOT */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">🔥 Leads en Cierre</h3>
+                      {misLeadsHot.length > 0 ? (
+                        <div className="space-y-2">
+                          {misLeadsHot.slice(0, 5).map((l, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0">
+                              <div>
+                                <p className="font-medium text-sm">{l.name}</p>
+                                <p className="text-xs text-slate-400">{l.property_interest || 'Sin desarrollo'}</p>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-xs px-2 py-1 rounded-full ${l.status === 'reserved' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                  {l.status === 'reserved' ? 'Reservado' : 'Negociación'}
+                                </span>
+                                {l.budget && <p className="text-xs text-slate-500 mt-1">${(Number(l.budget) / 1000000).toFixed(1)}M</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500 text-center py-4">Sin leads en cierre</p>
+                      )}
+                    </div>
+
+                    {/* Por desarrollo */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">🏘️ Mis Leads por Desarrollo</h3>
+                      {desarrollos.length > 0 ? (
+                        <div className="space-y-2">
+                          {desarrollos.slice(0, 5).map((d, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                                <div
+                                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                                  style={{ width: `${Math.max(15, (d.count / (desarrollos[0]?.count || 1)) * 100)}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
+                                  <span className="truncate">{d.name}</span>
+                                  <span className="font-bold">{d.count}</span>
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500 text-center py-4">Sin leads activos</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Acciones rápidas */}
                   <div className="flex gap-3">
                     <button onClick={() => setView('leads')} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium">
-                      📋 Ver mis leads
+                      📋 Mis leads
                     </button>
                     <button onClick={() => setView('calendar')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
-                      📅 Ver mi agenda
+                      📅 Mi agenda
+                    </button>
+                    <button onClick={() => setView('followups')} className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl font-medium">
+                      🔔 Seguimientos
                     </button>
                   </div>
                 </div>
@@ -2125,133 +2647,265 @@ function App() {
             {currentUser?.role === 'agencia' && (() => {
               const now = new Date()
               const currentMonth = now.toISOString().slice(0, 7)
+              const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
               const diasTranscurridos = now.getDate()
               const diasEnMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
 
-              // Leads del mes
-              const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth)).length
+              // Leads del mes actual y anterior
+              const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth))
+              const leadsDelMesAnterior = leads.filter(l => l.created_at?.startsWith(prevMonth))
               const leadsAyer = leads.filter(l => {
                 const ayer = new Date(now.getTime() - 86400000).toISOString().slice(0, 10)
                 return l.created_at?.startsWith(ayer)
               }).length
               const leadsHoy = leads.filter(l => l.created_at?.startsWith(now.toISOString().slice(0, 10))).length
 
-              // Meta de leads (estimación: 10 leads por cada venta de meta)
-              const metaLeads = marketingGoals.leads_goal || (monthlyGoals.company_goal * 10)
-              const porcentajeLeads = metaLeads > 0 ? Math.round((leadsDelMes / metaLeads) * 100) : 0
-              const leadsProyectados = diasTranscurridos > 0 ? Math.round((leadsDelMes / diasTranscurridos) * diasEnMes) : 0
+              // Cambio vs mes anterior
+              const cambioVsMesAnterior = leadsDelMesAnterior.length > 0
+                ? Math.round(((leadsDelMes.length - leadsDelMesAnterior.length) / leadsDelMesAnterior.length) * 100)
+                : 0
 
-              // Por fuente
-              const fuentesData: Record<string, { total: number, cerrados: number }> = {}
-              leads.filter(l => l.created_at?.startsWith(currentMonth)).forEach(l => {
+              // Meta de leads
+              const metaLeads = marketingGoals.leads_goal || (monthlyGoals.company_goal * 10)
+              const porcentajeLeads = metaLeads > 0 ? Math.round((leadsDelMes.length / metaLeads) * 100) : 0
+              const leadsProyectados = diasTranscurridos > 0 ? Math.round((leadsDelMes.length / diasTranscurridos) * diasEnMes) : 0
+
+              // Por fuente con más datos
+              const fuentesData: Record<string, { total: number, cerrados: number, revenue: number, calificados: number }> = {}
+              leadsDelMes.forEach(l => {
                 const src = l.source || 'Directo'
-                if (!fuentesData[src]) fuentesData[src] = { total: 0, cerrados: 0 }
+                if (!fuentesData[src]) fuentesData[src] = { total: 0, cerrados: 0, revenue: 0, calificados: 0 }
                 fuentesData[src].total++
-                if (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') fuentesData[src].cerrados++
+                if (!['new', 'lost', 'inactive'].includes(l.status)) fuentesData[src].calificados++
+                if (['closed', 'delivered', 'sold'].includes(l.status)) {
+                  fuentesData[src].cerrados++
+                  fuentesData[src].revenue += Number(l.budget) || 0
+                }
               })
               const fuentes = Object.entries(fuentesData).map(([name, data]) => ({
                 name,
                 total: data.total,
                 cerrados: data.cerrados,
-                conversion: data.total > 0 ? Math.round((data.cerrados / data.total) * 100) : 0
+                calificados: data.calificados,
+                revenue: data.revenue,
+                conversion: data.total > 0 ? Math.round((data.cerrados / data.total) * 100) : 0,
+                calidad: data.total > 0 ? Math.round((data.calificados / data.total) * 100) : 0
               })).sort((a, b) => b.total - a.total)
 
-              // Calidad de leads (% que avanza en funnel)
-              const leadsQueAvanzan = leads.filter(l =>
-                l.created_at?.startsWith(currentMonth) &&
-                !['new', 'lost', 'inactive'].includes(l.status)
-              ).length
-              const calidadLeads = leadsDelMes > 0 ? Math.round((leadsQueAvanzan / leadsDelMes) * 100) : 0
+              // Por desarrollo/propiedad
+              const porDesarrollo: Record<string, number> = {}
+              leadsDelMes.forEach(l => {
+                const dev = l.property_interest || 'Sin especificar'
+                porDesarrollo[dev] = (porDesarrollo[dev] || 0) + 1
+              })
+              const desarrollos = Object.entries(porDesarrollo)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
 
-              // CPL estimado
-              const presupuesto = marketingGoals.budget || 50000 // default 50k
-              const cpl = leadsDelMes > 0 ? Math.round(presupuesto / leadsDelMes) : 0
-              const cplProyectado = leadsProyectados > 0 ? Math.round(presupuesto / leadsProyectados) : 0
+              // Calidad de leads
+              const leadsCalificados = leadsDelMes.filter(l => !['new', 'lost', 'inactive'].includes(l.status)).length
+              const calidadLeads = leadsDelMes.length > 0 ? Math.round((leadsCalificados / leadsDelMes.length) * 100) : 0
+
+              // Métricas financieras
+              const presupuesto = marketingGoals.budget || 50000
+              const cpl = leadsDelMes.length > 0 ? Math.round(presupuesto / leadsDelMes.length) : 0
+              const cpql = leadsCalificados > 0 ? Math.round(presupuesto / leadsCalificados) : 0 // Cost per qualified lead
+              const ventasCerradas = leadsDelMes.filter(l => ['closed', 'delivered', 'sold'].includes(l.status))
+              const revenueGenerado = ventasCerradas.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
+              const roi = presupuesto > 0 ? Math.round(((revenueGenerado - presupuesto) / presupuesto) * 100) : 0
+              const cpa = ventasCerradas.length > 0 ? Math.round(presupuesto / ventasCerradas.length) : 0 // Cost per acquisition
+
+              // Velocidad de leads (últimos 7 días)
+              const ultimosDias: { dia: string, count: number }[] = []
+              for (let i = 6; i >= 0; i--) {
+                const fecha = new Date(now.getTime() - i * 86400000).toISOString().slice(0, 10)
+                const count = leads.filter(l => l.created_at?.startsWith(fecha)).length
+                ultimosDias.push({ dia: fecha.slice(8, 10), count })
+              }
+              const promedioLeadsDiarios = Math.round(ultimosDias.reduce((s, d) => s + d.count, 0) / 7)
+              const maxLeadsDia = Math.max(...ultimosDias.map(d => d.count), 1)
+
+              // Funnel de marketing
+              const funnelMkt = {
+                total: leadsDelMes.length,
+                contactados: leadsDelMes.filter(l => l.status !== 'new').length,
+                calificados: leadsCalificados,
+                citas: leadsDelMes.filter(l => ['scheduled', 'visited', 'negotiation', 'reserved', 'closed', 'delivered', 'sold'].includes(l.status)).length,
+                cerrados: ventasCerradas.length
+              }
 
               const estadoLeads = porcentajeLeads >= 80 ? 'good' : porcentajeLeads >= 50 ? 'warning' : 'critical'
+              const estadoROI = roi >= 100 ? 'good' : roi >= 0 ? 'warning' : 'critical'
 
               return (
                 <div className="space-y-4">
                   {/* Header marketing */}
                   <div className="bg-gradient-to-r from-pink-900/50 to-purple-900/50 border border-pink-500/30 rounded-xl p-4">
-                    <h2 className="text-xl font-bold mb-1">📣 Dashboard Marketing</h2>
-                    <p className="text-sm text-slate-400">Generación de leads y performance de campañas</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold mb-1">📣 Dashboard Marketing</h2>
+                        <p className="text-sm text-slate-400">Performance de campañas y generación de demanda</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400">Presupuesto mensual</p>
+                        <p className="text-lg font-bold text-pink-400">${(presupuesto / 1000).toFixed(0)}K</p>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* KPIs marketing */}
+                  {/* KPIs principales - Fila 1 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Leads del mes */}
                     <div className={`rounded-xl p-4 border ${estadoLeads === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoLeads === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
                       <p className="text-xs text-slate-400 mb-1">LEADS DEL MES</p>
                       <p className={`text-3xl font-bold ${estadoLeads === 'good' ? 'text-green-400' : estadoLeads === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {leadsDelMes}
+                        {leadsDelMes.length}
                       </p>
                       <div className="h-1.5 bg-slate-700 rounded-full mt-2">
                         <div className={`h-full rounded-full ${estadoLeads === 'good' ? 'bg-green-500' : estadoLeads === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(porcentajeLeads, 100)}%` }} />
                       </div>
-                      <p className="text-xs mt-1">Meta: {metaLeads} ({porcentajeLeads}%)</p>
+                      <p className="text-xs mt-1 flex justify-between">
+                        <span>Meta: {metaLeads}</span>
+                        <span className={cambioVsMesAnterior >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {cambioVsMesAnterior >= 0 ? '↑' : '↓'}{Math.abs(cambioVsMesAnterior)}% vs ant.
+                        </span>
+                      </p>
                     </div>
 
-                    {/* Leads hoy */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
-                      <p className="text-3xl font-bold text-blue-400">{leadsHoy}</p>
-                      <p className="text-xs text-slate-500">Ayer: {leadsAyer}</p>
+                    {/* ROI */}
+                    <div className={`rounded-xl p-4 border ${estadoROI === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoROI === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-xs text-slate-400 mb-1">ROI</p>
+                      <p className={`text-3xl font-bold ${estadoROI === 'good' ? 'text-green-400' : estadoROI === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {roi}%
+                      </p>
+                      <p className="text-xs text-slate-500 mt-2">Revenue: ${(revenueGenerado / 1000000).toFixed(1)}M</p>
+                      <p className="text-xs text-slate-500">{ventasCerradas.length} ventas cerradas</p>
                     </div>
 
-                    {/* CPL */}
+                    {/* CPL y CPQL */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CPL ACTUAL</p>
+                      <p className="text-xs text-slate-400 mb-1">COSTO POR LEAD</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
-                      <p className="text-xs text-slate-500">Proyectado: ${cplProyectado}</p>
+                      <p className="text-xs text-slate-500 mt-2">CPQL: ${cpql}</p>
+                      <p className="text-xs text-slate-500">CPA: ${cpa.toLocaleString()}</p>
                     </div>
 
                     {/* Calidad */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CALIDAD</p>
+                      <p className="text-xs text-slate-400 mb-1">CALIDAD LEADS</p>
                       <p className={`text-3xl font-bold ${calidadLeads >= 40 ? 'text-green-400' : calidadLeads >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>{calidadLeads}%</p>
-                      <p className="text-xs text-slate-500">leads que avanzan</p>
+                      <p className="text-xs text-slate-500 mt-2">{leadsCalificados} calificados</p>
+                      <p className="text-xs text-slate-500">de {leadsDelMes.length} totales</p>
                     </div>
                   </div>
 
-                  {/* Proyección */}
-                  <div className={`border rounded-xl p-4 ${leadsProyectados >= metaLeads ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-400">Proyección fin de mes</p>
-                        <p className="text-2xl font-bold">{leadsProyectados} leads</p>
+                  {/* Fila 2: Hoy/Velocidad + Proyección */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Velocidad de leads */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">📈 Velocidad (últimos 7 días)</h3>
+                        <span className="text-sm text-slate-400">Prom: {promedioLeadsDiarios}/día</span>
                       </div>
-                      <div className="text-right">
-                        {leadsProyectados >= metaLeads ? (
-                          <p className="text-green-400">✅ En track para cumplir meta</p>
-                        ) : (
-                          <p className="text-yellow-400">⚠️ Faltan {metaLeads - leadsProyectados} leads</p>
-                        )}
+                      <div className="flex items-end gap-1 h-16">
+                        {ultimosDias.map((d, i) => (
+                          <div key={i} className="flex-1 flex flex-col items-center">
+                            <div
+                              className={`w-full rounded-t ${i === 6 ? 'bg-pink-500' : 'bg-slate-600'}`}
+                              style={{ height: `${(d.count / maxLeadsDia) * 100}%`, minHeight: '4px' }}
+                            />
+                            <span className="text-xs text-slate-500 mt-1">{d.dia}</span>
+                          </div>
+                        ))}
                       </div>
+                      <div className="flex justify-between mt-2 text-sm">
+                        <span className="text-blue-400">Hoy: {leadsHoy}</span>
+                        <span className="text-slate-400">Ayer: {leadsAyer}</span>
+                      </div>
+                    </div>
+
+                    {/* Proyección */}
+                    <div className={`border rounded-xl p-4 ${leadsProyectados >= metaLeads ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
+                      <h3 className="font-semibold mb-2">🎯 Proyección Fin de Mes</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-3xl font-bold">{leadsProyectados}</p>
+                          <p className="text-xs text-slate-400">leads proyectados</p>
+                        </div>
+                        <div className="text-right">
+                          {leadsProyectados >= metaLeads ? (
+                            <>
+                              <p className="text-green-400 font-semibold">✅ En track</p>
+                              <p className="text-xs text-green-400/70">+{leadsProyectados - metaLeads} sobre meta</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-yellow-400 font-semibold">⚠️ Por debajo</p>
+                              <p className="text-xs text-yellow-400/70">Faltan {metaLeads - leadsProyectados} leads</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-slate-400">
+                        Necesitas {Math.ceil((metaLeads - leadsDelMes.length) / (diasEnMes - diasTranscurridos || 1))} leads/día para cumplir meta
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Funnel de Marketing */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">🔄 Funnel de Conversión</h3>
+                    <div className="flex items-center gap-2">
+                      {[
+                        { label: 'Leads', value: funnelMkt.total, color: 'bg-blue-500' },
+                        { label: 'Contactados', value: funnelMkt.contactados, color: 'bg-cyan-500' },
+                        { label: 'Calificados', value: funnelMkt.calificados, color: 'bg-purple-500' },
+                        { label: 'Citas', value: funnelMkt.citas, color: 'bg-orange-500' },
+                        { label: 'Cerrados', value: funnelMkt.cerrados, color: 'bg-green-500' }
+                      ].map((stage, i, arr) => (
+                        <div key={i} className="flex-1 text-center">
+                          <div className={`${stage.color} rounded-lg py-2 text-lg font-bold`}>{stage.value}</div>
+                          <p className="text-xs mt-1 text-slate-400">{stage.label}</p>
+                          {i < arr.length - 1 && funnelMkt.total > 0 && (
+                            <p className="text-xs text-slate-500">{Math.round((stage.value / funnelMkt.total) * 100)}%</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-xs text-slate-400 text-center">
+                      Tasa de conversión total: {funnelMkt.total > 0 ? ((funnelMkt.cerrados / funnelMkt.total) * 100).toFixed(1) : 0}%
                     </div>
                   </div>
 
                   {/* Performance por fuente */}
                   <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
-                    <h3 className="font-semibold mb-3">📈 Performance por Fuente</h3>
+                    <h3 className="font-semibold mb-3">📊 Performance por Fuente</h3>
                     <div className="space-y-2">
-                      {fuentes.slice(0, 5).map((f, i) => (
+                      {fuentes.slice(0, 6).map((f, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <div className="w-24 text-sm truncate">{f.name}</div>
-                          <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                          <div className="w-28 text-sm truncate">{f.name}</div>
+                          <div className="flex-1 h-7 bg-slate-700 rounded-full overflow-hidden relative">
                             <div
                               className="h-full bg-gradient-to-r from-pink-500 to-purple-500"
                               style={{ width: `${Math.max(5, (f.total / (fuentes[0]?.total || 1)) * 100)}%` }}
                             />
                             <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
-                              {f.total} leads
+                              {f.total} leads • {f.calidad}% calif • {f.conversion}% conv
                             </span>
                           </div>
-                          <div className="w-16 text-right text-sm">
-                            <span className={f.conversion >= 10 ? 'text-green-400' : f.conversion >= 5 ? 'text-yellow-400' : 'text-slate-400'}>
-                              {f.conversion}% conv
-                            </span>
-                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Por desarrollo */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">🏘️ Leads por Desarrollo</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {desarrollos.slice(0, 8).map((d, i) => (
+                        <div key={i} className="bg-slate-700/50 rounded-lg p-2 text-center">
+                          <p className="text-lg font-bold text-pink-400">{d.count}</p>
+                          <p className="text-xs text-slate-400 truncate">{d.name}</p>
                         </div>
                       ))}
                     </div>
@@ -2262,8 +2916,418 @@ function App() {
                     <button onClick={() => setView('marketing')} className="flex-1 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl font-medium">
                       📊 Ver campañas
                     </button>
-                    <button onClick={() => setView('leads')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
-                      📋 Ver todos los leads
+                    <button onClick={() => setView('promotions')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
+                      📣 Promociones
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ══════ DASHBOARD COORDINADOR ══════ */}
+            {currentUser?.role === 'coordinador' && (() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+              const today = now.toISOString().slice(0, 10)
+              const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10)
+
+              // Leads capturados
+              const leadsHoy = leads.filter(l => l.created_at?.startsWith(today))
+              const leadsSemana = leads.filter(l => l.created_at && l.created_at >= weekAgo)
+              const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth))
+
+              // Leads sin asignar o nuevos
+              const leadsSinAsignar = leads.filter(l => !l.assigned_to || l.assigned_to === '')
+              const leadsNuevos = leads.filter(l => l.status === 'new')
+              const leadsUrgentes = leadsNuevos.filter(l => {
+                if (!l.created_at) return false
+                const horasDesdeCreacion = (now.getTime() - new Date(l.created_at).getTime()) / (1000 * 60 * 60)
+                return horasDesdeCreacion > 2 // Más de 2 horas sin contactar
+              })
+
+              // Distribución por vendedor
+              const porVendedor: Record<string, { name: string, asignados: number, nuevos: number }> = {}
+              leads.forEach(l => {
+                if (l.assigned_to) {
+                  const vendedor = team.find(t => t.id === l.assigned_to)
+                  const vendedorName = vendedor?.name || 'Sin nombre'
+                  if (!porVendedor[l.assigned_to]) {
+                    porVendedor[l.assigned_to] = { name: vendedorName, asignados: 0, nuevos: 0 }
+                  }
+                  porVendedor[l.assigned_to].asignados++
+                  if (l.status === 'new') porVendedor[l.assigned_to].nuevos++
+                }
+              })
+              const vendedores = Object.values(porVendedor).sort((a, b) => b.asignados - a.asignados)
+
+              // Por fuente (leads del mes)
+              const porFuente: Record<string, number> = {}
+              leadsDelMes.forEach(l => {
+                const src = l.source || 'Directo'
+                porFuente[src] = (porFuente[src] || 0) + 1
+              })
+              const fuentes = Object.entries(porFuente)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+
+              // Actividad reciente (últimos 10 leads)
+              const actividadReciente = [...leads]
+                .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+                .slice(0, 8)
+
+              // Por desarrollo
+              const porDesarrollo: Record<string, number> = {}
+              leadsDelMes.forEach(l => {
+                const dev = l.property_interest || 'Sin especificar'
+                porDesarrollo[dev] = (porDesarrollo[dev] || 0) + 1
+              })
+              const desarrollos = Object.entries(porDesarrollo)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+
+              return (
+                <div className="space-y-4">
+                  {/* Header coordinador */}
+                  <div className="bg-gradient-to-r from-indigo-900/50 to-blue-900/50 border border-indigo-500/30 rounded-xl p-4">
+                    <h2 className="text-xl font-bold mb-1">📞 Panel de Coordinación</h2>
+                    <p className="text-sm text-slate-400">Captura y asignación de leads - {currentUser.name}</p>
+                  </div>
+
+                  {/* Alerta de leads urgentes */}
+                  {leadsUrgentes.length > 0 && (
+                    <div className="bg-red-900/30 border border-red-500/40 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">🚨</span>
+                        <span className="font-semibold text-red-400">{leadsUrgentes.length} leads sin contactar (+2 hrs)</span>
+                      </div>
+                      <div className="space-y-1">
+                        {leadsUrgentes.slice(0, 3).map(l => (
+                          <div key={l.id} className="text-sm flex items-center gap-2">
+                            <span className="text-slate-300">{l.name}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400">{l.phone}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-yellow-400">{l.source || 'Directo'}</span>
+                          </div>
+                        ))}
+                        {leadsUrgentes.length > 3 && <p className="text-xs text-slate-500">+{leadsUrgentes.length - 3} más</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Alerta sin asignar */}
+                  {leadsSinAsignar.length > 0 && (
+                    <div className="bg-yellow-900/30 border border-yellow-500/40 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">⚠️</span>
+                          <span className="font-semibold text-yellow-400">{leadsSinAsignar.length} leads sin asignar</span>
+                        </div>
+                        <button onClick={() => setView('leads')} className="text-sm bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded-lg">
+                          Asignar ahora
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KPIs principales */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Leads hoy */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
+                      <p className="text-3xl font-bold text-blue-400">{leadsHoy.length}</p>
+                      <p className="text-xs text-slate-500">capturados</p>
+                    </div>
+
+                    {/* Leads semana */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">ESTA SEMANA</p>
+                      <p className="text-3xl font-bold text-cyan-400">{leadsSemana.length}</p>
+                      <p className="text-xs text-slate-500">últimos 7 días</p>
+                    </div>
+
+                    {/* Leads nuevos (sin contactar) */}
+                    <div className={`rounded-xl p-4 border ${leadsNuevos.length > 10 ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-xs text-slate-400 mb-1">NUEVOS</p>
+                      <p className={`text-3xl font-bold ${leadsNuevos.length > 10 ? 'text-yellow-400' : 'text-green-400'}`}>{leadsNuevos.length}</p>
+                      <p className="text-xs text-slate-500">pendientes contactar</p>
+                    </div>
+
+                    {/* Total del mes */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">ESTE MES</p>
+                      <p className="text-3xl font-bold text-purple-400">{leadsDelMes.length}</p>
+                      <p className="text-xs text-slate-500">leads totales</p>
+                    </div>
+                  </div>
+
+                  {/* Distribución por vendedor */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">👥 Carga por Vendedor</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {vendedores.slice(0, 6).map((v, i) => (
+                        <div key={i} className="bg-slate-700/50 rounded-lg p-3 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm truncate">{v.name}</p>
+                            <p className="text-xs text-slate-400">{v.asignados} leads</p>
+                          </div>
+                          {v.nuevos > 0 && (
+                            <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded-full">
+                              {v.nuevos} nuevos
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Fila: Fuentes + Desarrollos */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Por fuente */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">📣 Por Fuente (mes)</h3>
+                      <div className="space-y-2">
+                        {fuentes.slice(0, 5).map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                              <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-blue-500"
+                                style={{ width: `${Math.max(10, (f.count / (fuentes[0]?.count || 1)) * 100)}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
+                                <span>{f.name}</span>
+                                <span className="font-bold">{f.count}</span>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Por desarrollo */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">🏘️ Por Desarrollo (mes)</h3>
+                      <div className="space-y-2">
+                        {desarrollos.slice(0, 5).map((d, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                              <div
+                                className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                                style={{ width: `${Math.max(10, (d.count / (desarrollos[0]?.count || 1)) * 100)}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
+                                <span className="truncate">{d.name}</span>
+                                <span className="font-bold">{d.count}</span>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actividad reciente */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">🕐 Últimos Leads</h3>
+                    <div className="space-y-2">
+                      {actividadReciente.map((l, i) => (
+                        <div key={i} className="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${l.status === 'new' ? 'bg-green-500' : 'bg-slate-500'}`} />
+                            <div>
+                              <p className="font-medium text-sm">{l.name}</p>
+                              <p className="text-xs text-slate-400">{l.phone} • {l.source || 'Directo'}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400">
+                              {l.created_at ? new Date(l.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) : '-'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {l.assigned_to ? team.find(t => t.id === l.assigned_to)?.name || 'Asignado' : 'Sin asignar'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Acciones rápidas - Fila 1 */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowNewLead(true)} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-medium">
+                      ➕ Nuevo Lead
+                    </button>
+                    <button onClick={() => setView('leads')} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium">
+                      📋 Ver Leads
+                    </button>
+                    <button onClick={() => setView('calendar')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
+                      📅 Agenda
+                    </button>
+                  </div>
+
+                  {/* Acciones rápidas - Fila 2 */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setView('properties')} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-medium">
+                      🏘️ Propiedades
+                    </button>
+                    <button onClick={() => setView('promotions')} className="flex-1 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl font-medium">
+                      📣 Promociones
+                    </button>
+                    <button onClick={() => setView('team')} className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl font-medium">
+                      👥 Equipo
+                    </button>
+                  </div>
+
+                  {/* Acciones rápidas - Fila 3 */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setView('followups')} className="flex-1 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-xl font-medium">
+                      🔔 Seguimientos
+                    </button>
+                    <button onClick={() => setView('events')} className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-medium">
+                      🎉 Eventos
+                    </button>
+                    <button onClick={() => setView('encuestas')} className="flex-1 py-3 bg-slate-600 hover:bg-slate-700 rounded-xl font-medium">
+                      📝 Encuestas
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ══════ DASHBOARD ASESOR HIPOTECARIO ══════ */}
+            {currentUser?.role === 'asesor' && (() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+
+              // Filtrar solicitudes del asesor
+              const misSolicitudes = mortgages.filter(m => m.assigned_advisor_id === currentUser.id)
+              const solicitudesDelMes = misSolicitudes.filter(m => m.created_at?.startsWith(currentMonth))
+
+              // Por estado
+              const pendientes = misSolicitudes.filter(m => m.status === 'pending').length
+              const enRevision = misSolicitudes.filter(m => m.status === 'in_review').length
+              const enviadasBanco = misSolicitudes.filter(m => m.status === 'sent_to_bank').length
+              const aprobadas = misSolicitudes.filter(m => m.status === 'approved')
+              const rechazadas = misSolicitudes.filter(m => m.status === 'rejected')
+
+              // KPIs del mes
+              const aprobadasMes = aprobadas.filter(m => m.decision_at?.startsWith(currentMonth)).length
+              const rechazadasMes = rechazadas.filter(m => m.decision_at?.startsWith(currentMonth)).length
+              const totalDecisionMes = aprobadasMes + rechazadasMes
+              const tasaAprobacion = totalDecisionMes > 0 ? Math.round((aprobadasMes / totalDecisionMes) * 100) : 0
+
+              // Monto total aprobado
+              const montoAprobadoMes = aprobadas
+                .filter(m => m.decision_at?.startsWith(currentMonth))
+                .reduce((sum, m) => sum + (m.requested_amount || 0), 0)
+
+              // Solicitudes estancadas (más de 3 días en mismo estado)
+              const estancadas = misSolicitudes.filter(m => {
+                if (['approved', 'rejected', 'cancelled'].includes(m.status)) return false
+                return getDaysInStatus(m) > 3
+              })
+
+              // Tiempo promedio de procesamiento (de pending a decisión)
+              const conDecision = misSolicitudes.filter(m => m.decision_at && m.pending_at)
+              const tiempoPromedio = conDecision.length > 0
+                ? Math.round(conDecision.reduce((sum, m) => {
+                    const inicio = new Date(m.pending_at!).getTime()
+                    const fin = new Date(m.decision_at!).getTime()
+                    return sum + (fin - inicio) / (1000 * 60 * 60 * 24)
+                  }, 0) / conDecision.length)
+                : 0
+
+              const estadoAprobacion = tasaAprobacion >= 70 ? 'good' : tasaAprobacion >= 50 ? 'warning' : 'critical'
+
+              return (
+                <div className="space-y-4">
+                  {/* Header asesor */}
+                  <div className="bg-gradient-to-r from-teal-900/50 to-cyan-900/50 border border-teal-500/30 rounded-xl p-4">
+                    <h2 className="text-xl font-bold mb-1">💳 Dashboard Asesor Hipotecario</h2>
+                    <p className="text-sm text-slate-400">Gestión de solicitudes de crédito - {currentUser.name}</p>
+                  </div>
+
+                  {/* Alerta de estancadas */}
+                  {estancadas.length > 0 && (
+                    <div className="bg-red-900/30 border border-red-500/40 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">🚨</span>
+                        <span className="font-semibold text-red-400">{estancadas.length} solicitudes estancadas</span>
+                      </div>
+                      <div className="space-y-1">
+                        {estancadas.slice(0, 3).map(m => (
+                          <div key={m.id} className="text-sm flex items-center gap-2">
+                            <span className="text-slate-300">{m.lead_name}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-yellow-400">{getDaysInStatus(m)} días en {m.status}</span>
+                          </div>
+                        ))}
+                        {estancadas.length > 3 && <p className="text-xs text-slate-500">+{estancadas.length - 3} más</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KPIs principales */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Solicitudes activas */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">ACTIVAS</p>
+                      <p className="text-3xl font-bold text-blue-400">{pendientes + enRevision + enviadasBanco}</p>
+                      <p className="text-xs text-slate-500">{pendientes} pend. • {enRevision} rev. • {enviadasBanco} banco</p>
+                    </div>
+
+                    {/* Tasa de aprobación */}
+                    <div className={`rounded-xl p-4 border ${estadoAprobacion === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoAprobacion === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-xs text-slate-400 mb-1">TASA APROBACIÓN</p>
+                      <p className={`text-3xl font-bold ${estadoAprobacion === 'good' ? 'text-green-400' : estadoAprobacion === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {tasaAprobacion}%
+                      </p>
+                      <p className="text-xs text-slate-500">{aprobadasMes} de {totalDecisionMes} este mes</p>
+                    </div>
+
+                    {/* Monto aprobado */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">MONTO APROBADO</p>
+                      <p className="text-3xl font-bold text-emerald-400">${(montoAprobadoMes / 1000000).toFixed(1)}M</p>
+                      <p className="text-xs text-slate-500">este mes</p>
+                    </div>
+
+                    {/* Tiempo promedio */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">TIEMPO PROM.</p>
+                      <p className={`text-3xl font-bold ${tiempoPromedio <= 7 ? 'text-green-400' : tiempoPromedio <= 14 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {tiempoPromedio}d
+                      </p>
+                      <p className="text-xs text-slate-500">solicitud a decisión</p>
+                    </div>
+                  </div>
+
+                  {/* Pipeline visual */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">📊 Mi Pipeline de Créditos</h3>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { label: 'Pendiente', count: pendientes, color: 'bg-slate-500' },
+                        { label: 'Revisión', count: enRevision, color: 'bg-blue-500' },
+                        { label: 'En Banco', count: enviadasBanco, color: 'bg-purple-500' },
+                        { label: 'Aprobadas', count: aprobadas.length, color: 'bg-green-500' },
+                        { label: 'Rechazadas', count: rechazadas.length, color: 'bg-red-500' }
+                      ].map((stage, i) => (
+                        <div key={i} className="text-center">
+                          <div className={`${stage.color} rounded-lg py-3 text-xl font-bold`}>{stage.count}</div>
+                          <p className="text-xs mt-1 text-slate-400">{stage.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Acciones rápidas */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setView('mortgage')} className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 rounded-xl font-medium">
+                      💳 Ver mis solicitudes
+                    </button>
+                    <button onClick={() => setShowNewMortgage(true)} className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl font-medium">
+                      ➕ Nueva solicitud
                     </button>
                   </div>
                 </div>
