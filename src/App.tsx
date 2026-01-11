@@ -317,17 +317,23 @@ function App() {
     // SIDEBAR - qué secciones puede ver cada rol
     puedeVerSeccion: (seccion: string) => {
       if (!currentUser) return false
+      // Externos: agencia (mkt) y asesor - acceso limitado
       const acceso: Record<string, string[]> = {
-        dashboard: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
-        leads: ['admin', 'vendedor', 'agencia', 'coordinador'],
-        properties: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
-        team: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
-        mortgage: ['admin', 'asesor', 'coordinador'],
-        marketing: ['admin', 'agencia', 'coordinador'],
+        dashboard: ['admin', 'vendedor', 'coordinador'], // Externos NO ven dashboard general
+        leads: ['admin', 'vendedor', 'coordinador'], // Externos NO ven leads
+        properties: ['admin', 'vendedor', 'coordinador'], // Externos NO ven propiedades
+        team: ['admin', 'coordinador'],
+        mortgage: ['admin', 'asesor', 'coordinador'], // Asesor solo ve hipotecas
+        marketing: ['admin', 'agencia', 'coordinador'], // Agencia solo ve marketing
         goals: ['admin', 'vendedor', 'coordinador'],
         calendar: ['admin', 'vendedor', 'coordinador'],
-        promotions: ['admin', 'coordinador'],
+        promotions: ['admin', 'coordinador', 'agencia'], // Agencia puede ver promociones
         events: ['admin', 'coordinador'],
+        followups: ['admin', 'vendedor', 'coordinador'],
+        reportes: ['admin'],
+        encuestas: ['admin', 'coordinador'],
+        referrals: ['admin', 'coordinador', 'vendedor'],
+        config: ['admin'],
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -1109,7 +1115,7 @@ function App() {
   }
 
   // Enviar promoción real usando el backend
-  async function sendPromoReal(segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) {
+  async function sendPromoReal(segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean, filters?: any }) {
     if (!selectedPromoToSend) return
     setPromoSending(true)
 
@@ -1120,6 +1126,7 @@ function App() {
         body: JSON.stringify({
           promotion_id: selectedPromoToSend.id,
           segment: segment,
+          segment_type: options.filters?.segmentType || 'basic',
           send_image: options.sendImage,
           send_video: options.sendVideo,
           send_pdf: options.sendPdf
@@ -1554,6 +1561,14 @@ function App() {
       setCurrentUser(user)
       setLoginError('')
       localStorage.setItem('sara_user_phone', cleanPhone)
+      // Redirigir a la sección correcta según el rol (externos no ven dashboard)
+      if (user.role === 'agencia') {
+        setView('marketing')
+      } else if (user.role === 'asesor') {
+        setView('mortgage')
+      } else {
+        setView('dashboard')
+      }
     } else {
       setLoginError('Número no registrado en el equipo')
     }
@@ -1707,7 +1722,14 @@ function App() {
             <div className="flex gap-2 mt-2 flex-wrap">
               <select
                 value={currentUser.role}
-                onChange={(e) => setCurrentUser({ ...currentUser, role: e.target.value as any })}
+                onChange={(e) => {
+                  const newRole = e.target.value as any
+                  setCurrentUser({ ...currentUser, role: newRole })
+                  // Redirigir a la sección correcta según el rol
+                  if (newRole === 'agencia') setView('marketing')
+                  else if (newRole === 'asesor') setView('mortgage')
+                  else setView('dashboard')
+                }}
                 className="text-xs px-2 py-1 bg-slate-700 border border-slate-600 rounded cursor-pointer"
                 title="Cambiar rol para testing"
               >
@@ -1790,26 +1812,36 @@ function App() {
               <CalendarIcon size={20} /> Calendario
             </button>
           )}
-          <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <Clock size={20} /> Follow-ups
-          </button>
-          <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'reportes' ? 'bg-gradient-to-r from-amber-600 to-orange-600' : 'hover:bg-slate-700'}`}>
-            <BarChart3 size={20} /> Reportes CEO
-          </button>
-          <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'encuestas' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'hover:bg-slate-700'}`}>
-            <Star size={20} /> Encuestas
-          </button>
-          <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'referrals' ? 'bg-gradient-to-r from-pink-500 to-rose-500' : 'hover:bg-slate-700'}`}>
-            <Gift size={20} /> Referidos
-            {leads.filter(l => l.source === 'referral').length > 0 && (
-              <span className="bg-pink-500 text-xs px-2 py-1 rounded-full ml-auto">
-                {leads.filter(l => l.source === 'referral').length}
-              </span>
-            )}
-          </button>
-          <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'config' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <Settings size={20} /> Configuración
-          </button>
+          {permisos.puedeVerSeccion('followups') && (
+            <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <Clock size={20} /> Follow-ups
+            </button>
+          )}
+          {permisos.puedeVerSeccion('reportes') && (
+            <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'reportes' ? 'bg-gradient-to-r from-amber-600 to-orange-600' : 'hover:bg-slate-700'}`}>
+              <BarChart3 size={20} /> Reportes CEO
+            </button>
+          )}
+          {permisos.puedeVerSeccion('encuestas') && (
+            <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'encuestas' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'hover:bg-slate-700'}`}>
+              <Star size={20} /> Encuestas
+            </button>
+          )}
+          {permisos.puedeVerSeccion('referrals') && (
+            <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'referrals' ? 'bg-gradient-to-r from-pink-500 to-rose-500' : 'hover:bg-slate-700'}`}>
+              <Gift size={20} /> Referidos
+              {leads.filter(l => l.source === 'referral').length > 0 && (
+                <span className="bg-pink-500 text-xs px-2 py-1 rounded-full ml-auto">
+                  {leads.filter(l => l.source === 'referral').length}
+                </span>
+              )}
+            </button>
+          )}
+          {permisos.puedeVerSeccion('config') && (
+            <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'config' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <Settings size={20} /> Configuración
+            </button>
+          )}
         </nav>
       </div>
 
@@ -5678,13 +5710,16 @@ function App() {
         />
       )}
 
-      {/* Modal Enviar Promocion */}
+      {/* Modal Enviar Promocion con Segmentación Especializada */}
       {showSendPromoModal && selectedPromoToSend && (
         <SendPromoModal
           promo={selectedPromoToSend}
           onSend={sendPromoReal}
           onClose={() => { setShowSendPromoModal(false); setSelectedPromoToSend(null); }}
           sending={promoSending}
+          leads={leads}
+          properties={properties}
+          team={team}
         />
       )}
 
@@ -7032,24 +7067,61 @@ function SendPromoModal({
   promo,
   onSend,
   onClose,
-  sending
+  sending,
+  leads,
+  properties,
+  team
 }: {
   promo: Promotion,
-  onSend: (segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) => void,
+  onSend: (segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean, filters?: any }) => void,
   onClose: () => void,
-  sending: boolean
+  sending: boolean,
+  leads: Lead[],
+  properties: Property[],
+  team: TeamMember[]
 }) {
+  const [segmentType, setSegmentType] = useState<'basic' | 'status' | 'source' | 'property' | 'vendedor'>('basic')
   const [segment, setSegment] = useState('todos')
   const [sendImage, setSendImage] = useState(true)
   const [sendVideo, setSendVideo] = useState(true)
   const [sendPdf, setSendPdf] = useState(true)
+
+  // Opciones dinámicas basadas en datos reales
+  const sources = [...new Set(leads.map(l => l.source).filter(Boolean))]
+  const propertyInterests = [...new Set(leads.map(l => l.property_interest).filter(Boolean))]
+  const vendedores = team.filter(t => t.role === 'vendedor' && t.active)
+
+  // Conteo de leads por segmento seleccionado
+  const getLeadCount = () => {
+    let filtered = leads.filter(l => !['lost', 'fallen', 'closed', 'delivered', 'sold'].includes(l.status))
+
+    if (segmentType === 'basic') {
+      switch (segment) {
+        case 'hot': filtered = filtered.filter(l => l.score >= 7); break
+        case 'warm': filtered = filtered.filter(l => l.score >= 4 && l.score < 7); break
+        case 'cold': filtered = filtered.filter(l => l.score < 4); break
+        case 'compradores': filtered = leads.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)); break
+        case 'new': filtered = filtered.filter(l => l.status === 'new'); break
+      }
+    } else if (segmentType === 'status') {
+      filtered = filtered.filter(l => l.status === segment)
+    } else if (segmentType === 'source') {
+      filtered = filtered.filter(l => l.source === segment)
+    } else if (segmentType === 'property') {
+      filtered = filtered.filter(l => l.property_interest === segment)
+    } else if (segmentType === 'vendedor') {
+      filtered = filtered.filter(l => l.assigned_to === segment)
+    }
+
+    return segment === 'todos' ? leads.filter(l => !['lost', 'fallen'].includes(l.status)).length : filtered.length
+  }
 
   const startDate = new Date(promo.start_date)
   const formattedDate = startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2"><Megaphone size={24} /> Enviar Promocion</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
@@ -7065,21 +7137,101 @@ function SendPromoModal({
           </div>
         </div>
 
-        {/* Segmento */}
+        {/* Tipo de segmentación */}
         <div className="mb-4">
-          <label className="block text-sm text-slate-400 mb-2">Enviar a segmento:</label>
+          <label className="block text-sm text-slate-400 mb-2">Tipo de segmentación:</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'basic', label: 'Basico', icon: '📊' },
+              { key: 'status', label: 'Por Etapa', icon: '🎯' },
+              { key: 'source', label: 'Por Fuente', icon: '📣' },
+              { key: 'property', label: 'Por Desarrollo', icon: '🏠' },
+              { key: 'vendedor', label: 'Por Vendedor', icon: '👤' }
+            ].map(tipo => (
+              <button
+                key={tipo.key}
+                onClick={() => { setSegmentType(tipo.key as any); setSegment('todos'); }}
+                className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-all ${
+                  segmentType === tipo.key
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-slate-700 hover:bg-slate-600'
+                }`}
+              >
+                {tipo.icon} {tipo.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Segmento específico */}
+        <div className="mb-4">
+          <label className="block text-sm text-slate-400 mb-2">Enviar a:</label>
           <select
             value={segment}
             onChange={e => setSegment(e.target.value)}
             className="w-full bg-slate-700 rounded-xl p-3"
           >
-            <option value="todos">Todos los leads</option>
-            <option value="hot">Leads HOT (score 70+)</option>
-            <option value="warm">Leads WARM (score 40-69)</option>
-            <option value="cold">Leads COLD (score menor a 40)</option>
-            <option value="compradores">Compradores</option>
-            <option value="new">Leads Nuevos</option>
+            <option value="todos">Todos los leads activos</option>
+
+            {segmentType === 'basic' && (
+              <>
+                <option value="hot">🔥 Leads HOT (score 7+)</option>
+                <option value="warm">🌡️ Leads WARM (score 4-6)</option>
+                <option value="cold">❄️ Leads COLD (score 0-3)</option>
+                <option value="compradores">✅ Compradores (ya cerraron)</option>
+                <option value="new">🆕 Leads Nuevos (sin contactar)</option>
+              </>
+            )}
+
+            {segmentType === 'status' && (
+              <>
+                <option value="new">🆕 Nuevos</option>
+                <option value="contacted">📞 Contactados</option>
+                <option value="scheduled">📅 Cita Agendada</option>
+                <option value="visited">🏠 Visitaron</option>
+                <option value="negotiation">💼 En Negociación</option>
+                <option value="reserved">📋 Reservado</option>
+              </>
+            )}
+
+            {segmentType === 'source' && sources.length > 0 && (
+              <>
+                {sources.map(src => (
+                  <option key={src} value={src}>
+                    {src === 'facebook' ? '📘 Facebook' :
+                     src === 'instagram' ? '📸 Instagram' :
+                     src === 'website' ? '🌐 Website' :
+                     src === 'referral' ? '🤝 Referidos' :
+                     src === 'whatsapp' ? '💬 WhatsApp' :
+                     src === 'google' ? '🔍 Google' :
+                     src}
+                  </option>
+                ))}
+              </>
+            )}
+
+            {segmentType === 'property' && propertyInterests.length > 0 && (
+              <>
+                {propertyInterests.map(prop => (
+                  <option key={prop} value={prop}>🏘️ {prop}</option>
+                ))}
+              </>
+            )}
+
+            {segmentType === 'vendedor' && vendedores.length > 0 && (
+              <>
+                {vendedores.map(v => (
+                  <option key={v.id} value={v.id}>👤 {v.name}</option>
+                ))}
+              </>
+            )}
           </select>
+
+          {/* Conteo de leads */}
+          <div className="mt-2 text-sm text-slate-400 flex items-center gap-2">
+            <Users size={14} />
+            <span>Se enviará a <strong className="text-purple-400">{getLeadCount()}</strong> leads</span>
+          </div>
         </div>
 
         {/* Opciones de contenido */}
@@ -7138,14 +7290,14 @@ function SendPromoModal({
             Cancelar
           </button>
           <button
-            onClick={() => onSend(segment, { sendImage, sendVideo, sendPdf })}
-            disabled={sending}
+            onClick={() => onSend(segment, { sendImage, sendVideo, sendPdf, filters: { segmentType } })}
+            disabled={sending || getLeadCount() === 0}
             className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50"
           >
             {sending ? (
               <>Enviando...</>
             ) : (
-              <><Send size={18} /> Enviar Promocion</>
+              <><Send size={18} /> Enviar a {getLeadCount()} leads</>
             )}
           </button>
         </div>
