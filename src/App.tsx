@@ -4070,25 +4070,24 @@ function App() {
               </div>
             </div>
 
-            {/* Bonos de Referidos por Vendedor */}
-            <div className="bg-slate-800/50 rounded-2xl p-6">
+            {/* Premios para Referidores - Seguimiento */}
+            <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <DollarSign size={24} className="text-green-400" />
-                  Bonos por Referidos (Este Mes)
+                  🎁 Premios para Referidores
                 </h3>
                 <button
                   onClick={() => setEditandoBono(true)}
                   className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm flex items-center gap-1"
                 >
-                  ✏️ Editar Bono
+                  ✏️ Editar Premio
                 </button>
               </div>
 
-              {/* Editor de Bono */}
+              {/* Editor de Premio */}
               {editandoBono && (
-                <div className="bg-slate-700/50 p-4 rounded-xl mb-4 flex items-center gap-4">
-                  <label className="text-sm text-slate-400">Monto por referido vendido:</label>
+                <div className="bg-slate-700/50 p-4 rounded-xl mb-4 flex flex-wrap items-center gap-4">
+                  <label className="text-sm text-slate-400">Premio por referido que compre:</label>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-400">$</span>
                     <input
@@ -4117,31 +4116,94 @@ function App() {
                 </div>
               )}
 
-              <p className="text-slate-400 text-sm mb-4">${bonoReferido.toLocaleString()} MXN por cada referido que resulte en venta</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {team.filter(t => t.active && t.role === 'vendedor').map(member => {
-                  const mesActual = new Date()
-                  const inicioMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1)
-                  const referidosVendidos = leads.filter(l =>
-                    l.source === 'referral' &&
-                    l.status === 'sold' &&
-                    l.assigned_to === member.id &&
-                    new Date(l.referral_date || l.created_at) >= inicioMes
-                  ).length
-                  const bono = referidosVendidos * bonoReferido
-                  return (
-                    <div key={member.id} className="bg-slate-700/50 rounded-xl p-4 flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{member.name}</div>
-                        <div className="text-sm text-slate-400">{referidosVendidos} referido{referidosVendidos !== 1 ? 's' : ''} vendido{referidosVendidos !== 1 ? 's' : ''}</div>
-                      </div>
-                      <div className={`text-2xl font-bold ${bono > 0 ? 'text-green-400' : 'text-slate-500'}`}>
-                        ${bono.toLocaleString()}
-                      </div>
+              <p className="text-slate-400 text-sm mb-4">
+                💰 Premio actual: <span className="text-green-400 font-bold">${bonoReferido.toLocaleString()} MXN</span> para quien refiera a alguien que compre
+              </p>
+
+              {/* Premios Pendientes */}
+              {(() => {
+                const referidosVendidos = leads.filter(l =>
+                  l.source === 'referral' &&
+                  (l.status === 'sold' || l.status === 'closed' || l.status === 'delivered') &&
+                  l.referred_by
+                )
+                const pendientes = referidosVendidos.filter(l => !l.notes?.reward_delivered)
+                const entregados = referidosVendidos.filter(l => l.notes?.reward_delivered)
+
+                return (
+                  <>
+                    {/* Pendientes */}
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                        ⏳ Premios Pendientes de Entregar ({pendientes.length})
+                      </h4>
+                      {pendientes.length === 0 ? (
+                        <p className="text-slate-500 text-sm">No hay premios pendientes</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {pendientes.map(lead => {
+                            const vendedor = team.find(t => t.id === lead.assigned_to)
+                            return (
+                              <div key={lead.id} className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                  <div className="flex-1 min-w-[200px]">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-amber-400 font-bold">🎁 Premio para:</span>
+                                      <span className="text-white font-semibold">{lead.referred_by_name || 'Sin nombre'}</span>
+                                    </div>
+                                    <div className="text-sm text-slate-400 mt-1">
+                                      Por referir a <span className="text-pink-400">{lead.name}</span> quien compró
+                                    </div>
+                                    <div className="text-sm text-slate-500">
+                                      Vendedor responsable: <span className="text-blue-400">{vendedor?.name || 'Sin asignar'}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-2xl font-bold text-green-400">${bonoReferido.toLocaleString()}</div>
+                                    <button
+                                      onClick={async () => {
+                                        const newNotes = { ...(lead.notes || {}), reward_delivered: true, reward_delivered_at: new Date().toISOString() }
+                                        await supabase.from('leads').update({ notes: newNotes }).eq('id', lead.id)
+                                        loadData()
+                                      }}
+                                      className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold"
+                                    >
+                                      ✅ Marcar Entregado
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )
-                })}
-              </div>
+
+                    {/* Entregados */}
+                    {entregados.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-green-400 mb-3 flex items-center gap-2">
+                          ✅ Premios Entregados ({entregados.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {entregados.slice(0, 5).map(lead => (
+                            <div key={lead.id} className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center justify-between">
+                              <div>
+                                <span className="text-green-400">{lead.referred_by_name || 'Sin nombre'}</span>
+                                <span className="text-slate-500 text-sm ml-2">por referir a {lead.name}</span>
+                              </div>
+                              <div className="text-green-400 font-bold">${bonoReferido.toLocaleString()}</div>
+                            </div>
+                          ))}
+                          {entregados.length > 5 && (
+                            <p className="text-slate-500 text-sm text-center">... y {entregados.length - 5} más</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
         )}
