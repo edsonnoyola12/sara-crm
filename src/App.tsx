@@ -1671,8 +1671,11 @@ function App() {
           <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Megaphone size={20} /> Marketing
           </button>
+          <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
+            <Target size={20} /> Metas
+          </button>
           <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
-            <Target size={20} /> Promociones
+            <Gift size={20} /> Promociones
             {promotions.filter(p => p.status === 'active').length > 0 && (
               <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
                 {promotions.filter(p => p.status === 'active').length}
@@ -1689,9 +1692,6 @@ function App() {
           </button>
           <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <CalendarIcon size={20} /> Calendario
-          </button>
-          <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
-            <Target size={20} /> Metas
           </button>
           <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Clock size={20} /> Follow-ups
@@ -1728,6 +1728,33 @@ function App() {
                 <div className="text-xs sm:text-sm text-slate-400">
                   {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
                 </div>
+                {/* Botón exportar resumen */}
+                <button
+                  onClick={() => {
+                    const now = new Date()
+                    const currentMonth = now.toISOString().slice(0, 7)
+                    const [y, m] = currentMonth.split('-')
+                    const monthName = new Date(parseInt(y), parseInt(m) - 1, 15).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+                    const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
+                    const ventasDelMes = filteredLeads.filter(l => (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
+                    const metaMes = monthlyGoals.company_goal || 0
+                    const ventasFaltantes = Math.max(0, metaMes - ventasDelMes)
+                    const porcentajeMeta = metaMes > 0 ? Math.round((ventasDelMes / metaMes) * 100) : 0
+                    const leadsActivos = filteredLeads.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)).length
+                    const tasaConversion = filteredLeads.length > 0 ? ((filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered' || l.status === 'sold').length / filteredLeads.length) * 100).toFixed(1) : '0'
+                    const printContent = '<html><head><title>Resumen Dashboard</title><style>body{font-family:Arial,sans-serif;padding:30px;max-width:800px;margin:0 auto}h1{color:#333;text-align:center;border-bottom:3px solid #6366f1;padding-bottom:15px}h2{color:#666;margin-top:30px}.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:30px 0}.kpi-box{padding:25px;border-radius:12px;text-align:center}.kpi-box.green{background:#d1fae5;border:2px solid #10b981}.kpi-box.yellow{background:#fef3c7;border:2px solid #f59e0b}.kpi-box.red{background:#fee2e2;border:2px solid #ef4444}.kpi-number{font-size:48px;font-weight:bold;margin:10px 0}.kpi-label{font-size:14px;color:#666;text-transform:uppercase}.kpi-detail{font-size:12px;color:#888;margin-top:10px}.summary{background:#f8fafc;padding:20px;border-radius:8px;margin-top:30px}.footer{margin-top:40px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:15px}</style></head><body><h1>Resumen Ejecutivo - ' + monthName + '</h1><div class="kpi-grid"><div class="kpi-box ' + (porcentajeMeta >= 80 ? 'green' : porcentajeMeta >= 50 ? 'yellow' : 'red') + '"><div class="kpi-label">Meta del Mes</div><div class="kpi-number">' + ventasDelMes + '/' + metaMes + '</div><div class="kpi-detail">' + porcentajeMeta + '% completado<br>Faltan ' + ventasFaltantes + ' ventas en ' + diasRestantes + ' dias</div></div><div class="kpi-box ' + (leadsActivos >= 30 ? 'green' : leadsActivos >= 15 ? 'yellow' : 'red') + '"><div class="kpi-label">Pipeline</div><div class="kpi-number">' + leadsActivos + '</div><div class="kpi-detail">Leads activos en funnel</div></div><div class="kpi-box ' + (parseFloat(tasaConversion) >= 10 ? 'green' : parseFloat(tasaConversion) >= 5 ? 'yellow' : 'red') + '"><div class="kpi-label">Conversion</div><div class="kpi-number">' + tasaConversion + '%</div><div class="kpi-detail">Lead a venta (meta: 10%)</div></div></div><div class="summary"><h3>Resumen</h3><ul><li><strong>Meta anual:</strong> ' + (annualGoal.goal || 0) + ' casas (' + Math.round((annualGoal.goal || 0) / 12) + '/mes)</li><li><strong>Ventas este mes:</strong> ' + ventasDelMes + ' de ' + metaMes + '</li><li><strong>Leads en pipeline:</strong> ' + leadsActivos + '</li><li><strong>Tasa de conversion:</strong> ' + tasaConversion + '%</li></ul></div><div class="footer">Generado el ' + new Date().toLocaleString('es-MX') + ' - SARA CRM</div></body></html>'
+                    const printWindow = window.open('', '_blank')
+                    if (printWindow) {
+                      printWindow.document.write(printContent)
+                      printWindow.document.close()
+                      printWindow.print()
+                    }
+                  }}
+                  className="px-2 py-1 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg text-xs sm:text-sm hover:from-green-700 hover:to-emerald-700 flex items-center gap-1"
+                  title="Exportar resumen PDF"
+                >
+                  <Download size={14} /> PDF
+                </button>
                 <button
                   onClick={() => window.location.reload()}
                   className="px-2 py-1 bg-slate-700 rounded-lg text-xs sm:text-sm hover:bg-slate-600 flex items-center gap-1"
