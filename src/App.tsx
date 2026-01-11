@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronRight, RefreshCw, Gift } from 'lucide-react'
 
-type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events'
+type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas'
 
 interface Lead {
   id: string
@@ -27,6 +27,18 @@ interface Lead {
   template_sent_at?: string
   sara_activated?: boolean
   sara_activated_at?: string
+  // Campos de encuesta
+  survey_completed?: boolean
+  survey_rating?: number
+  survey_feedback?: string
+  survey_step?: number
+  // Campos de segmentación
+  temperature?: string
+  needs_mortgage?: boolean
+  // Campos de referidos
+  referred_by?: string
+  referred_by_name?: string
+  referral_date?: string
 }
 
 interface Property {
@@ -197,7 +209,10 @@ interface Promotion {
   end_date: string
   message: string
   image_url?: string
+  video_url?: string
+  pdf_url?: string
   target_segment: string
+  segment_filters?: string | object  // JSON de filtros avanzados
   reminder_enabled: boolean
   reminder_frequency: string
   last_reminder_sent?: string
@@ -222,7 +237,11 @@ interface CRMEvent {
   max_capacity?: number
   registered_count: number
   image_url?: string
+  video_url?: string
   pdf_url?: string
+  invitation_message?: string
+  target_segment?: string
+  segment_filters?: string | object  // JSON de filtros avanzados
   status: string
   created_at: string
   created_by?: string
@@ -236,10 +255,12 @@ interface EventRegistration {
   registered_at: string
   lead_name?: string
   lead_phone?: string
+  attended?: boolean
 }
 
 function App() {
   const [view, setView] = useState<View>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [leads, setLeads] = useState<Lead[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
@@ -282,6 +303,7 @@ function App() {
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [newAppointment, setNewAppointment] = useState<any>({})
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
+  const [showAllAppointments, setShowAllAppointments] = useState(false) // Toggle: ver todas las citas vs solo las mías
   const [showNewEvent, setShowNewEvent] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
@@ -293,6 +315,9 @@ function App() {
   const [editingCrmEvent, setEditingCrmEvent] = useState<CRMEvent | null>(null)
   const [showNewPromotion, setShowNewPromotion] = useState(false)
   const [showNewCrmEvent, setShowNewCrmEvent] = useState(false)
+  const [showInviteEventModal, setShowInviteEventModal] = useState(false)
+  const [selectedEventForInvite, setSelectedEventForInvite] = useState<CRMEvent | null>(null)
+  const [inviteSending, setInviteSending] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -828,30 +853,86 @@ function App() {
     }
   }
 
-  // Enviar mensaje a segmento desde promoción
-  async function sendPromoToSegment(promo: Promotion) {
-    if (!confirm(`¿Enviar promoción "${promo.name}" a segmento ${promo.target_segment}?`)) return
+  // Enviar invitaciones de evento
+  async function sendEventInvitations(event: CRMEvent, segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) {
+    setInviteSending(true)
+    try {
+      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/events/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.id,
+          segment,
+          send_image: options.sendImage,
+          send_video: options.sendVideo,
+          send_pdf: options.sendPdf
+        })
+      })
 
-    // Obtener leads del segmento
-    let query = supabase.from('leads').select('id, name, phone, lead_score, score, status, property_interest')
-
-    const { data: leadsData } = await query
-    if (!leadsData) return
-
-    let segmentLeads = leadsData.filter((l: any) => l.phone)
-    const seg = promo.target_segment
-
-    if (seg === 'hot') {
-      segmentLeads = segmentLeads.filter((l: any) => (l.lead_score || l.score || 0) >= 70)
-    } else if (seg === 'warm') {
-      segmentLeads = segmentLeads.filter((l: any) => (l.lead_score || l.score || 0) >= 40 && (l.lead_score || l.score || 0) < 70)
-    } else if (seg === 'cold') {
-      segmentLeads = segmentLeads.filter((l: any) => (l.lead_score || l.score || 0) < 40)
-    } else if (seg === 'compradores') {
-      segmentLeads = segmentLeads.filter((l: any) => ['closed_won', 'delivered'].includes(l.status))
+      const result = await response.json()
+      if (result.success) {
+        alert(`Invitaciones enviadas: ${result.sent} enviados, ${result.errors} errores`)
+      } else {
+        alert('Error al enviar invitaciones: ' + (result.error || 'Error desconocido'))
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message)
+    } finally {
+      setInviteSending(false)
+      setShowInviteEventModal(false)
+      setSelectedEventForInvite(null)
     }
+  }
 
-    alert(`Se enviaría a ${segmentLeads.length} leads del segmento ${seg}.\n\n(El envío real se hace desde WhatsApp con el comando:\nenviar a ${seg}: ${promo.message})`)
+  // Estados para modal de envío de promoción
+  const [showSendPromoModal, setShowSendPromoModal] = useState(false)
+  const [selectedPromoToSend, setSelectedPromoToSend] = useState<Promotion | null>(null)
+  const [promoSending, setPromoSending] = useState(false)
+
+  // Abrir modal de envío de promoción
+  function openSendPromoModal(promo: Promotion) {
+    setSelectedPromoToSend(promo)
+    setShowSendPromoModal(true)
+  }
+
+  // Enviar promoción real usando el backend
+  async function sendPromoReal(segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) {
+    if (!selectedPromoToSend) return
+    setPromoSending(true)
+
+    try {
+      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/promotions/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          promotion_id: selectedPromoToSend.id,
+          segment: segment,
+          send_image: options.sendImage,
+          send_video: options.sendVideo,
+          send_pdf: options.sendPdf
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(`Promocion enviada!\n\nEnviados: ${result.sent}\nErrores: ${result.errors}\nTotal: ${result.total}`)
+        loadData()
+      } else {
+        alert('Error: ' + (result.error || 'Error desconocido'))
+      }
+    } catch (err: any) {
+      alert('Error de conexion: ' + err.message)
+    } finally {
+      setPromoSending(false)
+      setShowSendPromoModal(false)
+      setSelectedPromoToSend(null)
+    }
+  }
+
+  // Funcion legacy (ya no se usa directamente)
+  async function sendPromoToSegment(promo: Promotion) {
+    openSendPromoModal(promo)
   }
 
   function getDaysInStatus(mortgage: MortgageApplication): number {
@@ -1278,12 +1359,17 @@ function App() {
 
   // Filtrar solicitudes hipotecarias
   const filteredMortgages = currentUser && currentUser.role !== 'admin'
-    ? mortgages.filter(m => 
-        currentUser.role === 'asesor' 
+    ? mortgages.filter(m =>
+        currentUser.role === 'asesor'
           ? m.assigned_advisor_id === currentUser.id
           : leads.some(l => l.id === m.lead_id && l.assigned_to === currentUser.id)
       )
     : mortgages
+
+  // Filtrar citas por vendedor (toggle)
+  const filteredAppointments = showAllAppointments || currentUser?.role === 'admin'
+    ? appointments
+    : appointments.filter(a => a.vendedor_id === currentUser?.id)
 
   // Pantalla de login
   if (!currentUser) {
@@ -1309,7 +1395,29 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex">
-      <div className="w-64 bg-gradient-to-b from-slate-900 to-slate-950 border-r border-slate-800 p-6 flex flex-col">
+      {/* Overlay para móvil */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Botón hamburguesa móvil */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 bg-slate-800 rounded-lg"
+      >
+        {sidebarOpen ? '✕' : '☰'}
+      </button>
+
+      {/* Sidebar */}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 bg-gradient-to-b from-slate-900 to-slate-950 border-r border-slate-800 p-6 flex flex-col
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">S</div><h1 className="text-2xl font-bold">SARA</h1></div>
         <p className="text-slate-400 text-sm mb-4">Real Estate AI</p>
         
@@ -1326,20 +1434,20 @@ function App() {
           </div>
         )}
         
-        <nav className="flex-1 space-y-2">
-          <button onClick={() => setView('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+        <nav className="flex-1 space-y-2 overflow-y-auto">
+          <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <TrendingUp size={20} /> Dashboard
           </button>
-          <button onClick={() => setView('leads')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'leads' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'leads' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Users size={20} /> Leads
           </button>
-          <button onClick={() => setView('properties')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'properties' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'properties' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Building size={20} /> Propiedades
           </button>
-          <button onClick={() => setView('team')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'team' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'team' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <UserCheck size={20} /> Equipo
           </button>
-          <button onClick={() => setView('mortgage')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mortgage' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mortgage' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <CreditCard size={20} /> Hipotecas
             {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
               <span className="bg-red-500 text-xs px-2 py-1 rounded-full">
@@ -1347,10 +1455,10 @@ function App() {
               </span>
             )}
           </button>
-          <button onClick={() => setView('marketing')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Megaphone size={20} /> Marketing
           </button>
-          <button onClick={() => setView('promotions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
             <Target size={20} /> Promociones
             {promotions.filter(p => p.status === 'active').length > 0 && (
               <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
@@ -1358,7 +1466,7 @@ function App() {
               </span>
             )}
           </button>
-          <button onClick={() => setView('events')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'events' ? 'bg-emerald-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'events' ? 'bg-emerald-600' : 'hover:bg-slate-700'}`}>
             <CalendarIcon size={20} /> Eventos
             {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
               <span className="bg-emerald-500 text-xs px-2 py-1 rounded-full ml-auto">
@@ -1366,40 +1474,54 @@ function App() {
               </span>
             )}
           </button>
-          <button onClick={() => setView('calendar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <CalendarIcon size={20} /> Calendario
           </button>
           {(!currentUser || currentUser.role === 'admin') && (
-            <button onClick={() => setView('goals')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
               <Target size={20} /> Metas
             </button>
           )}
-          <button onClick={() => setView('followups')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Clock size={20} /> Follow-ups
           </button>
-          <button onClick={() => setView('config')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'config' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+          <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'reportes' ? 'bg-gradient-to-r from-amber-600 to-orange-600' : 'hover:bg-slate-700'}`}>
+            <BarChart3 size={20} /> Reportes CEO
+          </button>
+          <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'encuestas' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'hover:bg-slate-700'}`}>
+            <Star size={20} /> Encuestas
+          </button>
+          <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'referrals' ? 'bg-gradient-to-r from-pink-500 to-rose-500' : 'hover:bg-slate-700'}`}>
+            <Gift size={20} /> Referidos
+            {leads.filter(l => l.source === 'referral').length > 0 && (
+              <span className="bg-pink-500 text-xs px-2 py-1 rounded-full ml-auto">
+                {leads.filter(l => l.source === 'referral').length}
+              </span>
+            )}
+          </button>
+          <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'config' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Settings size={20} /> Configuración
           </button>
         </nav>
       </div>
 
-      <div className="flex-1 p-8 overflow-auto">
+      <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
         {view === 'dashboard' && (
           <div className="space-y-4">
             {/* HEADER - Hora y última actualización */}
-            <div className="flex justify-between items-center">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                Dashboard Ejecutivo
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                Dashboard
               </h2>
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-slate-400">
-                  Actualizado: {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="text-xs sm:text-sm text-slate-400">
+                  {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
                 </div>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  className="px-3 py-1 bg-slate-700 rounded-lg text-sm hover:bg-slate-600 flex items-center gap-2"
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-2 py-1 bg-slate-700 rounded-lg text-xs sm:text-sm hover:bg-slate-600 flex items-center gap-1"
                 >
-                  🔄 Refrescar
+                  🔄
                 </button>
               </div>
             </div>
@@ -1446,10 +1568,10 @@ function App() {
             })()}
 
             {/* GAUGE DE SALUD DEL FUNNEL - Visual rápido */}
-            <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
-              <div className="flex items-center gap-8">
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 lg:p-5 rounded-xl">
+              <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-8">
                 {/* Donut Chart */}
-                <div className="relative w-40 h-40 flex-shrink-0">
+                <div className="relative w-32 h-32 lg:w-40 lg:h-40 flex-shrink-0">
                   <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
                     {(() => {
                       const cerrados = filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length
@@ -1515,26 +1637,26 @@ function App() {
                 </div>
 
                 {/* Leyenda y conteos */}
-                <div className="flex-1 grid grid-cols-4 gap-3">
+                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 w-full">
                   {[
                     { label: 'CERRADOS', color: 'bg-green-500', emoji: '✅', count: filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length, desc: 'Meta lograda' },
                     { label: 'HOT', color: 'bg-red-500', emoji: '🔥', count: filteredLeads.filter(l => ['negotiation', 'reserved'].includes(l.status)).length, desc: 'Por cerrar' },
                     { label: 'WARM', color: 'bg-orange-500', emoji: '🌡️', count: filteredLeads.filter(l => ['scheduled', 'visited'].includes(l.status)).length, desc: 'En proceso' },
                     { label: 'COLD', color: 'bg-blue-500', emoji: '❄️', count: filteredLeads.filter(l => ['new', 'contacted'].includes(l.status)).length, desc: 'Sin avance' },
                   ].map((item, i) => (
-                    <div key={i} className="text-center p-3 bg-slate-700/30 rounded-lg">
-                      <div className="flex items-center justify-center gap-2 mb-1">
-                        <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                        <span className="text-xs text-slate-400">{item.label}</span>
+                    <div key={i} className="text-center p-2 lg:p-3 bg-slate-700/30 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <div className={`w-2 h-2 lg:w-3 lg:h-3 rounded-full ${item.color}`}></div>
+                        <span className="text-[10px] lg:text-xs text-slate-400">{item.label}</span>
                       </div>
-                      <p className="text-2xl font-bold">{item.emoji} {item.count}</p>
-                      <p className="text-xs text-slate-500">{item.desc}</p>
+                      <p className="text-lg lg:text-2xl font-bold">{item.emoji} {item.count}</p>
+                      <p className="text-[10px] lg:text-xs text-slate-500">{item.desc}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Interpretación rápida */}
-                <div className="w-64 p-4 bg-slate-700/30 rounded-lg">
+                <div className="w-full lg:w-64 p-3 lg:p-4 bg-slate-700/30 rounded-lg">
                   <p className="text-sm font-bold mb-2">📊 Estado del Funnel</p>
                   {(() => {
                     const cerrados = filteredLeads.filter(l => l.status === 'closed' || l.status === 'delivered').length
@@ -1560,7 +1682,7 @@ function App() {
             </div>
 
             {/* KPIs PRINCIPALES - Cards grandes */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
               {/* Pipeline Value */}
               <div className="bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 p-5 rounded-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 text-6xl opacity-10">💰</div>
@@ -1666,7 +1788,7 @@ function App() {
             </div>
 
             {/* ROW 2: Ranking + Tendencia + ROI */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               
               {/* RANKING VENDEDORES con badges */}
               <div className="bg-slate-800/50 border border-slate-700/50 p-5 rounded-xl">
@@ -1765,7 +1887,7 @@ function App() {
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   <span className="text-2xl">🔄</span> Tasas de Conversión
                 </h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { from: 'Lead', to: 'Cita', rate: conversionByStage.find(s => s.stage === 'Cita')?.conversion || 0, target: 40 },
                     { from: 'Cita', to: 'Visita', rate: (() => {
@@ -1850,7 +1972,7 @@ function App() {
                 <span className="text-2xl">📈</span> KPIs de Conversión Inmobiliaria
                 <span className="text-xs text-slate-400 font-normal ml-auto">Métricas clave del funnel</span>
               </h3>
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {/* Lead to Sale */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
                   <p className="text-xs text-slate-400 mb-1">Lead ↑ Venta</p>
@@ -1936,7 +2058,7 @@ function App() {
             </div>
 
             {/* ROW 5: RENDIMIENTO POR DESARROLLO */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Card: Más Unidades Vendidas */}
               <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-blue-500/30 p-5 rounded-xl">
                 <div className="flex items-center gap-2 mb-3">
@@ -2372,7 +2494,7 @@ function App() {
                 <Plus size={20} /> Agregar Propiedad
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {properties.map(prop => (
                 <div key={prop.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden group relative">
                   <div className="h-40 bg-slate-700 flex items-center justify-center">
@@ -2429,7 +2551,7 @@ function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <h3 className="text-xl font-semibold mb-4">Vendedores</h3>
                 <div className="space-y-3">
@@ -2544,7 +2666,7 @@ function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {mortgageStatuses.map(status => {
                 const StatusIcon = status.icon
                 const statusMortgages = mortgages.filter(m => m.status === status.key)
@@ -2589,28 +2711,28 @@ function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <p className="text-slate-400 mb-1">Presupuesto Total</p>
-                <p className="text-2xl font-bold">${totalBudget.toLocaleString()}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <p className="text-slate-400 text-xs md:text-sm mb-1">Presupuesto Total</p>
+                <p className="text-lg md:text-2xl font-bold">${totalBudget.toLocaleString()}</p>
               </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <p className="text-slate-400 mb-1">Gastado</p>
-                <p className="text-2xl font-bold text-orange-500">${totalSpent.toLocaleString()}</p>
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <p className="text-slate-400 text-xs md:text-sm mb-1">Gastado</p>
+                <p className="text-lg md:text-2xl font-bold text-orange-500">${totalSpent.toLocaleString()}</p>
               </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <p className="text-slate-400 mb-1">CPL Promedio</p>
-                <p className="text-2xl font-bold">${avgCPL.toFixed(0)}</p>
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <p className="text-slate-400 text-xs md:text-sm mb-1">CPL Promedio</p>
+                <p className="text-lg md:text-2xl font-bold">${avgCPL.toFixed(0)}</p>
               </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <p className="text-slate-400 mb-1">ROI</p>
-                <p className={`text-2xl font-bold ${roi >= 0 ? 'text-green-400 bg-green-500/20 p-2 rounded-xl' : 'text-red-400 bg-red-500/20 p-2 rounded-xl'}`}>{roi.toFixed(0)}%</p>
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <p className="text-slate-400 text-xs md:text-sm mb-1">ROI</p>
+                <p className={`text-lg md:text-2xl font-bold ${roi >= 0 ? 'text-green-400 bg-green-500/20 p-1 md:p-2 rounded-xl' : 'text-red-400 bg-red-500/20 p-1 md:p-2 rounded-xl'}`}>{roi.toFixed(0)}%</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <h3 className="text-xl font-semibold mb-4">Inversión vs Leads por Canal</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <h3 className="text-lg md:text-xl font-semibold mb-4">Inversión vs Leads por Canal</h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={roiByChannel}>
                     <XAxis dataKey="channel" stroke="#9ca3af" />
@@ -2623,8 +2745,8 @@ function App() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <h3 className="text-xl font-semibold mb-4">Revenue vs Inversión</h3>
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
+                <h3 className="text-lg md:text-xl font-semibold mb-4">Revenue vs Inversión</h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={roiByChannel}>
                     <XAxis dataKey="channel" stroke="#9ca3af" />
@@ -2699,16 +2821,16 @@ function App() {
             </div>
 
             {/* Tarjetas de Integraciones */}
-            <div className="grid grid-cols-2 gap-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mt-6">
               {/* Tarjeta Conexión Facebook/Instagram Leads */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl">
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-blue-600 rounded-xl">
-                    <Facebook size={24} />
+                  <div className="p-2 md:p-3 bg-blue-600 rounded-xl">
+                    <Facebook size={20} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold">Conexión Facebook/Instagram Leads</h3>
-                    <p className="text-slate-400 text-sm">Recibe leads automáticamente desde tus anuncios</p>
+                    <h3 className="text-base md:text-xl font-semibold">Facebook/Instagram Leads</h3>
+                    <p className="text-slate-400 text-xs md:text-sm">Recibe leads automáticamente desde tus anuncios</p>
                   </div>
                 </div>
 
@@ -2782,14 +2904,14 @@ function App() {
               </div>
 
               {/* Tarjeta Importar Leads CSV/Excel */}
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl">
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-green-600 rounded-xl">
-                    <Upload size={24} />
+                  <div className="p-2 md:p-3 bg-green-600 rounded-xl">
+                    <Upload size={20} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold">Importar Leads (CSV/Excel)</h3>
-                    <p className="text-slate-400 text-sm">Carga leads masivamente desde archivos</p>
+                    <h3 className="text-base md:text-xl font-semibold">Leads (CSV/Excel)</h3>
+                    <p className="text-slate-400 text-xs md:text-sm">Carga leads masivamente desde archivos</p>
                   </div>
                 </div>
 
@@ -3150,8 +3272,15 @@ function App() {
                       )}
 
                       <div className="flex gap-2 mt-4">
-                        <button onClick={() => setEditingCrmEvent(event)} className="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-700 flex items-center justify-center gap-1">
-                          <Edit size={16} /> Editar
+                        <button
+                          onClick={() => { setSelectedEventForInvite(event); setShowInviteEventModal(true) }}
+                          className="flex-1 bg-emerald-600 p-2 rounded hover:bg-emerald-700 flex items-center justify-center gap-1"
+                          disabled={isPast}
+                        >
+                          <Send size={16} /> Invitar
+                        </button>
+                        <button onClick={() => setEditingCrmEvent(event)} className="bg-blue-600 p-2 rounded hover:bg-blue-700 flex items-center justify-center gap-1">
+                          <Edit size={16} />
                         </button>
                         <button onClick={() => deleteCrmEvent(event.id)} className="bg-red-600 p-2 rounded hover:bg-red-700">
                           <Trash2 size={16} />
@@ -3187,22 +3316,35 @@ function App() {
                 >
                   ➕ Nueva Cita
                 </button>
-                <a 
-                  href="https://calendar.google.com/calendar/u/0/r" 
-                  target="_blank" 
+                <a
+                  href="https://calendar.google.com/calendar/embed?src=edsonnoyola%40gmail.com&ctz=America/Mexico_City"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold flex items-center gap-2"
                 >
-                  🗓️ Abrir Google Calendar
+                  🗓️ Ver Calendario Citas
                 </a>
-                <span className="px-3 py-2 bg-green-600/30 border border-green-500 rounded-xl text-sm">✅ {appointments.filter(a => a.status === 'scheduled').length} Programadas</span>
-                <span className="px-3 py-2 bg-red-600/30 border border-red-500 rounded-xl text-sm">❌ {appointments.filter(a => a.status === 'cancelled').length} Canceladas</span>
+                {/* Toggle ver todas vs solo mías */}
+                {currentUser?.role !== 'admin' && (
+                  <button
+                    onClick={() => setShowAllAppointments(!showAllAppointments)}
+                    className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
+                      showAllAppointments
+                        ? 'bg-purple-600 hover:bg-purple-700'
+                        : 'bg-slate-600 hover:bg-slate-700'
+                    }`}
+                  >
+                    {showAllAppointments ? '👥 Todas las citas' : '👤 Solo mis citas'}
+                  </button>
+                )}
+                <span className="px-3 py-2 bg-green-600/30 border border-green-500 rounded-xl text-sm">✅ {filteredAppointments.filter(a => a.status === 'scheduled').length} Programadas</span>
+                <span className="px-3 py-2 bg-red-600/30 border border-red-500 rounded-xl text-sm">❌ {filteredAppointments.filter(a => a.status === 'cancelled').length} Canceladas</span>
               </div>
             </div>
 
             {/* Lista de citas programadas */}
             <div className="grid grid-cols-1 gap-4">
-              {appointments.filter(a => a.status === 'scheduled').map((appt) => {
+              {filteredAppointments.filter(a => a.status === 'scheduled').map((appt) => {
                 const fecha = new Date(appt.scheduled_date + 'T' + appt.scheduled_time)
                 return (
                   <div key={appt.id} className="bg-slate-800 border border-slate-700 p-5 rounded-2xl">
@@ -3288,7 +3430,7 @@ function App() {
                 )
               })}
               
-              {appointments.filter(a => a.status === 'scheduled').length === 0 && (
+              {filteredAppointments.filter(a => a.status === 'scheduled').length === 0 && (
                 <div className="text-center py-16 bg-slate-800/50 rounded-2xl">
                   <div className="text-6xl mb-4">📅</div>
                   <p className="text-slate-400 text-xl mb-4">No hay citas programadas</p>
@@ -3303,11 +3445,11 @@ function App() {
             </div>
 
             {/* Citas Canceladas */}
-            {appointments.filter(a => a.status === 'cancelled').length > 0 && (
+            {filteredAppointments.filter(a => a.status === 'cancelled').length > 0 && (
               <div className="mt-8">
-                <h3 className="text-lg font-bold mb-4 text-slate-400">❌ Citas Canceladas ({appointments.filter(a => a.status === 'cancelled').length})</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-400">❌ Citas Canceladas ({filteredAppointments.filter(a => a.status === 'cancelled').length})</h3>
                 <div className="space-y-2">
-                  {appointments.filter(a => a.status === 'cancelled').slice(0, 5).map((appt) => {
+                  {filteredAppointments.filter(a => a.status === 'cancelled').slice(0, 5).map((appt) => {
                     const fecha = new Date(appt.scheduled_date + 'T' + appt.scheduled_time)
                     return (
                       <div key={appt.id} className="bg-slate-800/30 border border-slate-700/30 p-3 rounded-xl opacity-60">
@@ -3711,10 +3853,257 @@ function App() {
           <FollowupsView supabase={supabase} />
         )}
 
+        {view === 'reportes' && (
+          <ReportesCEOView />
+        )}
+
+        {view === 'encuestas' && (
+          <EncuestasEventosView
+            leads={leads}
+            crmEvents={crmEvents}
+            eventRegistrations={eventRegistrations}
+            properties={properties}
+            teamMembers={team}
+            onSendSurvey={async (config) => {
+              console.log('Enviando encuestas:', config)
+              try {
+                // Llamar al backend para enviar por WhatsApp
+                const response = await fetch('https://sara-backend.edson-633.workers.dev/api/send-surveys', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    template: config.template,
+                    leads: config.leads,
+                    message: config.message,
+                    targetType: config.targetType // Importante para diferenciar vendedores de leads
+                  })
+                })
+                const result = await response.json()
+                if (result.ok) {
+                  const destinatarioTipo = config.targetType === 'vendedores' ? 'vendedores' : 'leads'
+                  alert(`Encuesta "${config.template.name}" enviada a ${result.enviados} ${destinatarioTipo} por WhatsApp.${result.errores > 0 ? `\n\n${result.errores} errores.` : ''}`)
+                } else {
+                  throw new Error(result.error || 'Error desconocido')
+                }
+              } catch (error) {
+                console.error('Error enviando encuestas:', error)
+                alert('Error al enviar encuestas. Intenta de nuevo.')
+              }
+            }}
+          />
+        )}
+
+        {view === 'referrals' && (
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">
+              Programa de Referidos
+            </h2>
+
+            {/* Estadísticas generales */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-pink-600/20 to-rose-600/20 border border-pink-500/30 rounded-2xl p-6">
+                <div className="text-4xl font-bold text-pink-400">
+                  {leads.filter(l => l.source === 'referral').length}
+                </div>
+                <div className="text-slate-400 text-sm">Total Referidos</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-2xl p-6">
+                <div className="text-4xl font-bold text-green-400">
+                  {leads.filter(l => l.source === 'referral' && l.status === 'sold').length}
+                </div>
+                <div className="text-slate-400 text-sm">Referidos Vendidos</div>
+              </div>
+              <div className="bg-gradient-to-br from-amber-600/20 to-yellow-600/20 border border-amber-500/30 rounded-2xl p-6">
+                <div className="text-4xl font-bold text-amber-400">
+                  {leads.filter(l => l.source === 'referral' && ['visited', 'reserved', 'negotiation'].includes(l.status)).length}
+                </div>
+                <div className="text-slate-400 text-sm">En Proceso</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-2xl p-6">
+                <div className="text-4xl font-bold text-purple-400">
+                  {(() => {
+                    const referidores = new Set(leads.filter(l => l.source === 'referral' && l.referred_by).map(l => l.referred_by))
+                    return referidores.size
+                  })()}
+                </div>
+                <div className="text-slate-400 text-sm">Clientes Referidores</div>
+              </div>
+            </div>
+
+            {/* Tasa de conversión */}
+            <div className="bg-slate-800/50 rounded-2xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <TrendingUp size={24} className="text-green-400" />
+                Tasa de Conversión de Referidos
+              </h3>
+              <div className="flex items-center gap-8">
+                <div>
+                  <div className="text-5xl font-bold text-green-400">
+                    {leads.filter(l => l.source === 'referral').length > 0
+                      ? Math.round((leads.filter(l => l.source === 'referral' && l.status === 'sold').length / leads.filter(l => l.source === 'referral').length) * 100)
+                      : 0}%
+                  </div>
+                  <div className="text-slate-400">Referidos que compraron</div>
+                </div>
+                <div className="flex-1 h-4 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all duration-500"
+                    style={{ width: `${leads.filter(l => l.source === 'referral').length > 0
+                      ? (leads.filter(l => l.source === 'referral' && l.status === 'sold').length / leads.filter(l => l.source === 'referral').length) * 100
+                      : 0}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-slate-500 mt-4">
+                Los leads referidos tienen mayor probabilidad de conversión porque vienen con confianza previa del referidor.
+              </p>
+            </div>
+
+            {/* Top Referidores */}
+            <div className="bg-slate-800/50 rounded-2xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Award size={24} className="text-amber-400" />
+                Top Clientes Referidores
+              </h3>
+              <div className="space-y-3">
+                {(() => {
+                  const referidorCounts: Record<string, { count: number; name: string; vendidos: number }> = {}
+                  leads.filter(l => l.source === 'referral' && l.referred_by).forEach(l => {
+                    if (!referidorCounts[l.referred_by!]) {
+                      referidorCounts[l.referred_by!] = { count: 0, name: l.referred_by_name || 'Sin nombre', vendidos: 0 }
+                    }
+                    referidorCounts[l.referred_by!].count++
+                    if (l.status === 'sold') referidorCounts[l.referred_by!].vendidos++
+                  })
+                  const sorted = Object.entries(referidorCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 5)
+                  if (sorted.length === 0) {
+                    return <p className="text-slate-500">Aún no hay clientes que hayan referido leads</p>
+                  }
+                  return sorted.map(([id, data], idx) => (
+                    <div key={id} className="flex items-center gap-4 bg-slate-700/50 rounded-xl p-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                        idx === 0 ? 'bg-amber-500 text-black' :
+                        idx === 1 ? 'bg-slate-300 text-black' :
+                        idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-600'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold">{data.name}</div>
+                        <div className="text-sm text-slate-400">
+                          {data.count} referido{data.count !== 1 ? 's' : ''}
+                          {data.vendidos > 0 && <span className="text-green-400 ml-2">({data.vendidos} vendido{data.vendidos !== 1 ? 's' : ''})</span>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-pink-400">{data.count}</div>
+                      </div>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
+
+            {/* Lista de Referidos */}
+            <div className="bg-slate-800/50 rounded-2xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Users size={24} className="text-blue-400" />
+                Leads Referidos
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-slate-400 border-b border-slate-700">
+                      <th className="pb-3 pr-4">Lead</th>
+                      <th className="pb-3 pr-4">Referido por</th>
+                      <th className="pb-3 pr-4">Vendedor</th>
+                      <th className="pb-3 pr-4">Status</th>
+                      <th className="pb-3 pr-4">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {leads.filter(l => l.source === 'referral').length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500">
+                          No hay leads referidos aún. Los clientes que ya compraron pueden enviar contactos por WhatsApp.
+                        </td>
+                      </tr>
+                    ) : (
+                      leads.filter(l => l.source === 'referral').sort((a, b) =>
+                        new Date(b.referral_date || b.created_at).getTime() - new Date(a.referral_date || a.created_at).getTime()
+                      ).map(lead => (
+                        <tr key={lead.id} className="hover:bg-slate-700/30">
+                          <td className="py-3 pr-4">
+                            <div className="font-semibold">{lead.name}</div>
+                            <div className="text-sm text-slate-400">{lead.phone}</div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="text-pink-400">{lead.referred_by_name || 'Desconocido'}</div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            {team.find(t => t.id === lead.assigned_to)?.name || 'Sin asignar'}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                              lead.status === 'sold' ? 'bg-green-500/20 text-green-400' :
+                              lead.status === 'reserved' ? 'bg-purple-500/20 text-purple-400' :
+                              lead.status === 'visited' ? 'bg-blue-500/20 text-blue-400' :
+                              lead.status === 'contacted' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-slate-500/20 text-slate-400'
+                            }`}>
+                              {lead.status}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-sm text-slate-400">
+                            {new Date(lead.referral_date || lead.created_at).toLocaleDateString('es-MX')}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Bonos de Referidos por Vendedor */}
+            <div className="bg-slate-800/50 rounded-2xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <DollarSign size={24} className="text-green-400" />
+                Bonos por Referidos (Este Mes)
+              </h3>
+              <p className="text-slate-400 text-sm mb-4">$500 MXN por cada referido que resulte en venta</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {team.filter(t => t.active && t.role === 'vendedor').map(member => {
+                  const mesActual = new Date()
+                  const inicioMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1)
+                  const referidosVendidos = leads.filter(l =>
+                    l.source === 'referral' &&
+                    l.status === 'sold' &&
+                    l.assigned_to === member.id &&
+                    new Date(l.referral_date || l.created_at) >= inicioMes
+                  ).length
+                  const bono = referidosVendidos * 500
+                  return (
+                    <div key={member.id} className="bg-slate-700/50 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold">{member.name}</div>
+                        <div className="text-sm text-slate-400">{referidosVendidos} referido{referidosVendidos !== 1 ? 's' : ''} vendido{referidosVendidos !== 1 ? 's' : ''}</div>
+                      </div>
+                      <div className={`text-2xl font-bold ${bono > 0 ? 'text-green-400' : 'text-slate-500'}`}>
+                        ${bono.toLocaleString()}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {view === 'config' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Configuración</h2>
-            
+
             <div className="bg-slate-800/50 rounded-2xl p-6">
               <h3 className="text-xl font-bold mb-4">⏰ Alertas de Estancamiento - Leads</h3>
               <p className="text-slate-400 text-sm mb-4">Días máximos antes de alertar al vendedor</p>
@@ -3926,6 +4315,8 @@ function App() {
           promotion={editingPromotion}
           onSave={savePromotion}
           onClose={() => { setEditingPromotion(null); setShowNewPromotion(false); }}
+          leads={leads}
+          properties={properties}
         />
       )}
 
@@ -3934,6 +4325,27 @@ function App() {
           event={editingCrmEvent}
           onSave={saveCrmEvent}
           onClose={() => { setEditingCrmEvent(null); setShowNewCrmEvent(false); }}
+          leads={leads}
+          properties={properties}
+        />
+      )}
+
+      {showInviteEventModal && selectedEventForInvite && (
+        <InviteEventModal
+          event={selectedEventForInvite}
+          onSend={sendEventInvitations}
+          onClose={() => { setShowInviteEventModal(false); setSelectedEventForInvite(null); }}
+          sending={inviteSending}
+        />
+      )}
+
+      {/* Modal Enviar Promocion */}
+      {showSendPromoModal && selectedPromoToSend && (
+        <SendPromoModal
+          promo={selectedPromoToSend}
+          onSend={sendPromoReal}
+          onClose={() => { setShowSendPromoModal(false); setSelectedPromoToSend(null); }}
+          sending={promoSending}
         />
       )}
 
@@ -4022,15 +4434,95 @@ function App() {
                 <p><span className="font-semibold">Crédito:</span> <span className={selectedLead.credit_status === 'approved' ? 'text-green-400' : selectedLead.credit_status === 'active' ? 'text-yellow-400' : 'text-red-400'}>{selectedLead.credit_status}</span></p>
               )}
               <p><span className="font-semibold">Interés:</span> {selectedLead.property_interest || 'No definido'}</p>
+
+              {/* Sección de Apartado - Solo si tiene datos de apartado */}
+              {selectedLead.status === 'reserved' && selectedLead.notes?.apartado && (
+                <div className="mt-4 p-4 bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 rounded-xl">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-emerald-400">
+                    📋 Datos de Apartado
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-slate-400">💰 Enganche:</span>
+                      <span className="ml-2 font-semibold text-emerald-300">
+                        ${selectedLead.notes.apartado.enganche?.toLocaleString('es-MX') || '0'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">🏠 Propiedad:</span>
+                      <span className="ml-2 font-semibold">
+                        {selectedLead.notes.apartado.propiedad || selectedLead.property_interest || 'Por definir'}
+                      </span>
+                    </div>
+                    {selectedLead.notes.apartado.fecha_apartado && (
+                      <div>
+                        <span className="text-slate-400">📅 Fecha apartado:</span>
+                        <span className="ml-2">
+                          {new Date(selectedLead.notes.apartado.fecha_apartado + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedLead.notes.apartado.fecha_pago && (
+                      <div>
+                        <span className="text-slate-400">⏰ Fecha pago:</span>
+                        <span className="ml-2 font-semibold text-yellow-300">
+                          {new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {selectedLead.notes.apartado.fecha_pago && (() => {
+                    const hoy = new Date();
+                    const fechaPago = new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00');
+                    const diasRestantes = Math.ceil((fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div className={`mt-3 p-2 rounded-lg text-center font-semibold ${
+                        diasRestantes < 0 ? 'bg-red-600/30 text-red-300' :
+                        diasRestantes <= 3 ? 'bg-orange-600/30 text-orange-300' :
+                        diasRestantes <= 7 ? 'bg-yellow-600/30 text-yellow-300' :
+                        'bg-emerald-600/30 text-emerald-300'
+                      }`}>
+                        {diasRestantes < 0
+                          ? `⚠️ Pago vencido hace ${Math.abs(diasRestantes)} día(s)`
+                          : diasRestantes === 0
+                          ? '🔔 ¡Hoy es el día del pago!'
+                          : `📆 Faltan ${diasRestantes} día(s) para el pago`
+                        }
+                      </div>
+                    );
+                  })()}
+                  {selectedLead.notes.apartado.vendedor_nombre && (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Registrado por: {selectedLead.notes.apartado.vendedor_nombre}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4">
                 <h4 className="font-semibold mb-2">Historial de conversación:</h4>
                 <div className="bg-slate-700 p-4 rounded-xl max-h-96 overflow-y-auto">
                   {selectedLead.conversation_history && selectedLead.conversation_history.length > 0 ? (
-                    selectedLead.conversation_history.map((msg: any, i: number) => (
-                      <div key={i} className={`mb-3 ${msg.role === 'user' ? 'text-blue-400' : 'text-green-400'}`}>
-                        <span className="font-semibold">{msg.role === 'user' ? 'Cliente' : 'SARA'}:</span> {msg.content}
-                      </div>
-                    ))
+                    selectedLead.conversation_history.map((msg: any, i: number) => {
+                      // Determinar color y etiqueta según el rol
+                      let colorClass = 'text-green-400';
+                      let label = 'SARA';
+
+                      if (msg.role === 'user') {
+                        colorClass = 'text-blue-400';
+                        label = 'Cliente';
+                      } else if (msg.role === 'vendedor') {
+                        colorClass = 'text-orange-400';
+                        label = msg.vendedor_name ? `Vendedor (${msg.vendedor_name})` : 'Vendedor';
+                      }
+
+                      return (
+                        <div key={i} className={`mb-3 ${colorClass}`}>
+                          <span className="font-semibold">{label}:</span> {msg.content}
+                          {msg.via_bridge && <span className="text-xs text-slate-500 ml-2">(chat directo)</span>}
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-slate-500">Sin historial de conversación</p>
                   )}
@@ -4636,16 +5128,294 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
   )
 }
 
-function PromotionModal({ promotion, onSave, onClose }: { promotion: Promotion | null, onSave: (p: Partial<Promotion>) => void, onClose: () => void }) {
+// ═══════════════════════════════════════════════════════════════
+// COMPONENTE DE SEGMENTACIÓN AVANZADA
+// ═══════════════════════════════════════════════════════════════
+interface SegmentFilters {
+  status: string[]
+  temperature: string[]
+  desarrollos: string[]
+  needs_mortgage: boolean | null
+  is_buyer: boolean | null
+  source: string[]
+  min_score: number | null
+  max_score: number | null
+}
+
+function SegmentSelector({
+  filters,
+  onChange,
+  leads,
+  properties
+}: {
+  filters: SegmentFilters,
+  onChange: (f: SegmentFilters) => void,
+  leads: Lead[],
+  properties: Property[]
+}) {
+  // Contar leads que coinciden con los filtros actuales
+  const matchingLeads = leads.filter(lead => {
+    // Filtro por status
+    if (filters.status.length > 0 && !filters.status.includes(lead.status)) return false
+
+    // Filtro por temperatura (basado en score)
+    if (filters.temperature.length > 0) {
+      const temp = lead.score >= 70 ? 'hot' : lead.score >= 40 ? 'warm' : 'cold'
+      if (!filters.temperature.includes(temp)) return false
+    }
+
+    // Filtro por desarrollo
+    if (filters.desarrollos.length > 0 && lead.property_interest) {
+      const matchDesarrollo = filters.desarrollos.some(d =>
+        lead.property_interest?.toLowerCase().includes(d.toLowerCase())
+      )
+      if (!matchDesarrollo) return false
+    }
+
+    // Filtro por hipoteca
+    if (filters.needs_mortgage === true && lead.credit_status !== 'active' && lead.credit_status !== 'approved') return false
+    if (filters.needs_mortgage === false && (lead.credit_status === 'active' || lead.credit_status === 'approved')) return false
+
+    // Filtro por comprador
+    if (filters.is_buyer === true && lead.status !== 'closed_won' && lead.status !== 'delivered') return false
+    if (filters.is_buyer === false && (lead.status === 'closed_won' || lead.status === 'delivered')) return false
+
+    // Filtro por source
+    if (filters.source.length > 0 && lead.source && !filters.source.includes(lead.source)) return false
+
+    // Filtro por score
+    if (filters.min_score !== null && lead.score < filters.min_score) return false
+    if (filters.max_score !== null && lead.score > filters.max_score) return false
+
+    return true
+  })
+
+  // Obtener desarrollos únicos de propiedades
+  const desarrollosUnicos = [...new Set(properties.map(p => p.name).filter(Boolean))]
+
+  // Sources únicos
+  const sourcesUnicos = [...new Set(leads.map(l => l.source).filter(Boolean))]
+
+  const toggleArrayValue = (arr: string[], value: string) => {
+    return arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]
+  }
+
+  return (
+    <div className="bg-slate-700/50 rounded-xl p-4 space-y-4">
+      <div className="flex justify-between items-center border-b border-slate-600 pb-2">
+        <h4 className="font-semibold text-purple-400">Segmentación Avanzada</h4>
+        <span className="bg-purple-600 px-3 py-1 rounded-full text-sm font-bold">
+          {matchingLeads.length} leads
+        </span>
+      </div>
+
+      {/* Status del Lead */}
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Estado del Lead</label>
+        <div className="flex flex-wrap gap-2">
+          {['new', 'contacted', 'qualified', 'appointment_scheduled', 'closed_won', 'fallen'].map(status => (
+            <button
+              key={status}
+              onClick={() => onChange({...filters, status: toggleArrayValue(filters.status, status)})}
+              className={`px-3 py-1 rounded-lg text-sm transition-all ${
+                filters.status.includes(status)
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+              }`}
+            >
+              {status === 'new' ? 'Nuevos' :
+               status === 'contacted' ? 'Contactados' :
+               status === 'qualified' ? 'Calificados' :
+               status === 'appointment_scheduled' ? 'Cita Agendada' :
+               status === 'closed_won' ? 'Compradores' :
+               status === 'fallen' ? 'Caídos' : status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Temperatura */}
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Temperatura</label>
+        <div className="flex gap-2">
+          {[
+            { value: 'hot', label: 'HOT', color: 'bg-red-600' },
+            { value: 'warm', label: 'WARM', color: 'bg-yellow-600' },
+            { value: 'cold', label: 'COLD', color: 'bg-blue-600' }
+          ].map(temp => (
+            <button
+              key={temp.value}
+              onClick={() => onChange({...filters, temperature: toggleArrayValue(filters.temperature, temp.value)})}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                filters.temperature.includes(temp.value)
+                  ? temp.color + ' text-white'
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+              }`}
+            >
+              {temp.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Desarrollos */}
+      <div>
+        <label className="block text-sm text-slate-400 mb-2">Desarrollo de Interés</label>
+        <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+          {desarrollosUnicos.slice(0, 10).map(desarrollo => (
+            <button
+              key={desarrollo}
+              onClick={() => onChange({...filters, desarrollos: toggleArrayValue(filters.desarrollos, desarrollo)})}
+              className={`px-3 py-1 rounded-lg text-sm transition-all ${
+                filters.desarrollos.includes(desarrollo)
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+              }`}
+            >
+              {desarrollo}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hipoteca y Compradores */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-slate-400 mb-2">Crédito Hipotecario</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onChange({...filters, needs_mortgage: filters.needs_mortgage === true ? null : true})}
+              className={`px-3 py-2 rounded-lg text-sm flex-1 ${
+                filters.needs_mortgage === true ? 'bg-orange-600' : 'bg-slate-600 hover:bg-slate-500'
+              }`}
+            >
+              Con Hipoteca
+            </button>
+            <button
+              onClick={() => onChange({...filters, needs_mortgage: filters.needs_mortgage === false ? null : false})}
+              className={`px-3 py-2 rounded-lg text-sm flex-1 ${
+                filters.needs_mortgage === false ? 'bg-slate-500' : 'bg-slate-600 hover:bg-slate-500'
+              }`}
+            >
+              Sin Hipoteca
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm text-slate-400 mb-2">Tipo</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onChange({...filters, is_buyer: filters.is_buyer === true ? null : true})}
+              className={`px-3 py-2 rounded-lg text-sm flex-1 ${
+                filters.is_buyer === true ? 'bg-green-600' : 'bg-slate-600 hover:bg-slate-500'
+              }`}
+            >
+              Compradores
+            </button>
+            <button
+              onClick={() => onChange({...filters, is_buyer: filters.is_buyer === false ? null : false})}
+              className={`px-3 py-2 rounded-lg text-sm flex-1 ${
+                filters.is_buyer === false ? 'bg-blue-600' : 'bg-slate-600 hover:bg-slate-500'
+              }`}
+            >
+              Prospectos
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Source */}
+      {sourcesUnicos.length > 0 && (
+        <div>
+          <label className="block text-sm text-slate-400 mb-2">Origen</label>
+          <div className="flex flex-wrap gap-2">
+            {sourcesUnicos.slice(0, 6).map(source => (
+              <button
+                key={source}
+                onClick={() => onChange({...filters, source: toggleArrayValue(filters.source, source!)})}
+                className={`px-3 py-1 rounded-lg text-sm transition-all ${
+                  filters.source.includes(source!)
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                }`}
+              >
+                {source}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Limpiar filtros */}
+      <button
+        onClick={() => onChange({
+          status: [], temperature: [], desarrollos: [],
+          needs_mortgage: null, is_buyer: null, source: [],
+          min_score: null, max_score: null
+        })}
+        className="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm text-slate-300"
+      >
+        Limpiar Filtros (Enviar a Todos)
+      </button>
+    </div>
+  )
+}
+
+function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
+  promotion: Promotion | null,
+  onSave: (p: Partial<Promotion>) => void,
+  onClose: () => void,
+  leads: Lead[],
+  properties: Property[]
+}) {
   const [form, setForm] = useState<Partial<Promotion>>(promotion || {
     name: '', description: '', start_date: '', end_date: '', message: '',
-    image_url: '', target_segment: 'todos', reminder_enabled: true,
+    image_url: '', video_url: '', pdf_url: '', target_segment: 'todos', reminder_enabled: true,
     reminder_frequency: 'weekly', status: 'scheduled'
   })
 
+  // Estado para segmentación avanzada
+  const defaultFilters: SegmentFilters = {
+    status: [], temperature: [], desarrollos: [],
+    needs_mortgage: null, is_buyer: null, source: [],
+    min_score: null, max_score: null
+  }
+
+  // Parsear filtros existentes si los hay
+  const parseExistingFilters = (): SegmentFilters => {
+    if (promotion?.segment_filters) {
+      try {
+        const parsed = typeof promotion.segment_filters === 'string'
+          ? JSON.parse(promotion.segment_filters)
+          : promotion.segment_filters
+        return { ...defaultFilters, ...parsed }
+      } catch { return defaultFilters }
+    }
+    return defaultFilters
+  }
+
+  const [segmentFilters, setSegmentFilters] = useState<SegmentFilters>(parseExistingFilters())
+  const [showAdvancedSegment, setShowAdvancedSegment] = useState(false)
+
+  // Guardar con filtros
+  const handleSave = () => {
+    const hasFilters = segmentFilters.status.length > 0 ||
+      segmentFilters.temperature.length > 0 ||
+      segmentFilters.desarrollos.length > 0 ||
+      segmentFilters.needs_mortgage !== null ||
+      segmentFilters.is_buyer !== null ||
+      segmentFilters.source.length > 0
+
+    onSave({
+      ...form,
+      target_segment: hasFilters ? 'custom' : form.target_segment,
+      segment_filters: hasFilters ? JSON.stringify(segmentFilters) : null
+    })
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{promotion ? 'Editar Promocion' : 'Nueva Promocion'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
@@ -4663,19 +5433,40 @@ function PromotionModal({ promotion, onSave, onClose }: { promotion: Promotion |
             <label className="block text-sm text-slate-400 mb-1">Fecha Fin</label>
             <input type="date" value={form.end_date || ''} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Segmento Objetivo</label>
-            <select value={form.target_segment || 'todos'} onChange={e => setForm({...form, target_segment: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
-              <option value="todos">Todos los leads</option>
-              <option value="hot">Solo HOT</option>
-              <option value="warm">Solo WARM</option>
-              <option value="cold">Solo COLD</option>
-              <option value="compradores">Compradores</option>
-              <option value="caidos">Caidos</option>
-              <option value="new">Nuevos</option>
-            </select>
+
+          {/* Toggle para segmentación avanzada */}
+          <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm text-slate-400">Segmentación de Audiencia</label>
+              <button
+                onClick={() => setShowAdvancedSegment(!showAdvancedSegment)}
+                className={`px-3 py-1 rounded-lg text-sm ${showAdvancedSegment ? 'bg-purple-600' : 'bg-slate-600'}`}
+              >
+                {showAdvancedSegment ? 'Ocultar Avanzado' : 'Segmentación Avanzada'}
+              </button>
+            </div>
+
+            {!showAdvancedSegment ? (
+              <select value={form.target_segment || 'todos'} onChange={e => setForm({...form, target_segment: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+                <option value="todos">Todos los leads</option>
+                <option value="hot">Solo HOT</option>
+                <option value="warm">Solo WARM</option>
+                <option value="cold">Solo COLD</option>
+                <option value="compradores">Compradores</option>
+                <option value="caidos">Caidos</option>
+                <option value="new">Nuevos</option>
+              </select>
+            ) : (
+              <SegmentSelector
+                filters={segmentFilters}
+                onChange={setSegmentFilters}
+                leads={leads}
+                properties={properties}
+              />
+            )}
           </div>
-          <div>
+
+          <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
             <select value={form.status || 'scheduled'} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
               <option value="scheduled">Programada</option>
@@ -4694,6 +5485,15 @@ function PromotionModal({ promotion, onSave, onClose }: { promotion: Promotion |
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL de Imagen (opcional)</label>
             <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/imagen.jpg" />
+            {form.image_url && <img src={form.image_url} alt="Preview" className="mt-2 h-20 rounded-lg object-cover" />}
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">URL de Video (opcional)</label>
+            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://youtube.com/watch?v=..." />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">URL de PDF/Brochure (opcional)</label>
+            <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/brochure.pdf" />
           </div>
           <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
             <div className="flex items-center gap-3 mb-3">
@@ -4715,7 +5515,7 @@ function PromotionModal({ promotion, onSave, onClose }: { promotion: Promotion |
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-gray-600">Cancelar</button>
-          <button onClick={() => onSave(form)} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 flex items-center gap-2">
+          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 flex items-center gap-2">
             <Save size={20} /> Guardar
           </button>
         </div>
@@ -4724,16 +5524,59 @@ function PromotionModal({ promotion, onSave, onClose }: { promotion: Promotion |
   )
 }
 
-function CrmEventModal({ event, onSave, onClose }: { event: CRMEvent | null, onSave: (e: Partial<CRMEvent>) => void, onClose: () => void }) {
+function CrmEventModal({ event, onSave, onClose, leads, properties }: {
+  event: CRMEvent | null,
+  onSave: (e: Partial<CRMEvent>) => void,
+  onClose: () => void,
+  leads: Lead[],
+  properties: Property[]
+}) {
   const [form, setForm] = useState<Partial<CRMEvent>>(event || {
     name: '', description: '', event_type: 'open_house', event_date: '',
     event_time: '10:00', location: '', location_url: '', max_capacity: 50,
-    image_url: '', pdf_url: '', status: 'scheduled'
+    image_url: '', video_url: '', pdf_url: '', invitation_message: '', status: 'scheduled'
   })
+
+  // Estado para segmentación avanzada
+  const defaultFilters: SegmentFilters = {
+    status: [], temperature: [], desarrollos: [],
+    needs_mortgage: null, is_buyer: null, source: [],
+    min_score: null, max_score: null
+  }
+
+  const parseExistingFilters = (): SegmentFilters => {
+    if (event?.segment_filters) {
+      try {
+        const parsed = typeof event.segment_filters === 'string'
+          ? JSON.parse(event.segment_filters)
+          : event.segment_filters
+        return { ...defaultFilters, ...parsed }
+      } catch { return defaultFilters }
+    }
+    return defaultFilters
+  }
+
+  const [segmentFilters, setSegmentFilters] = useState<SegmentFilters>(parseExistingFilters())
+  const [showAdvancedSegment, setShowAdvancedSegment] = useState(false)
+
+  const handleSave = () => {
+    const hasFilters = segmentFilters.status.length > 0 ||
+      segmentFilters.temperature.length > 0 ||
+      segmentFilters.desarrollos.length > 0 ||
+      segmentFilters.needs_mortgage !== null ||
+      segmentFilters.is_buyer !== null ||
+      segmentFilters.source.length > 0
+
+    onSave({
+      ...form,
+      target_segment: hasFilters ? 'custom' : 'todos',
+      segment_filters: hasFilters ? JSON.stringify(segmentFilters) : null
+    })
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{event ? 'Editar Evento' : 'Nuevo Evento'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
@@ -4787,18 +5630,50 @@ function CrmEventModal({ event, onSave, onClose }: { event: CRMEvent | null, onS
             <label className="block text-sm text-slate-400 mb-1">Descripcion</label>
             <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={3} placeholder="Describe el evento..." />
           </div>
+          <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
+            <p className="text-sm text-emerald-400 font-semibold mb-3">Contenido para Invitaciones</p>
+          </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">URL Imagen (opcional)</label>
+            <label className="block text-sm text-slate-400 mb-1">URL Imagen</label>
             <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/imagen.jpg" />
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">URL PDF/Flyer (opcional)</label>
+            <label className="block text-sm text-slate-400 mb-1">URL Video</label>
+            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/video.mp4" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm text-slate-400 mb-1">URL PDF/Flyer</label>
             <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/flyer.pdf" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm text-slate-400 mb-1">Mensaje de Invitacion (opcional - se genera automaticamente si esta vacio)</label>
+            <textarea value={form.invitation_message || ''} onChange={e => setForm({...form, invitation_message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={4} placeholder="Hola! Te invitamos a nuestro evento..." />
+          </div>
+
+          {/* Segmentación para invitaciones */}
+          <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm text-emerald-400 font-semibold">Segmentación de Invitados</label>
+              <button
+                onClick={() => setShowAdvancedSegment(!showAdvancedSegment)}
+                className={`px-3 py-1 rounded-lg text-sm ${showAdvancedSegment ? 'bg-emerald-600' : 'bg-slate-600'}`}
+              >
+                {showAdvancedSegment ? 'Ocultar' : 'Segmentación Avanzada'}
+              </button>
+            </div>
+            {showAdvancedSegment && (
+              <SegmentSelector
+                filters={segmentFilters}
+                onChange={setSegmentFilters}
+                leads={leads}
+                properties={properties}
+              />
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-gray-600">Cancelar</button>
-          <button onClick={() => onSave(form)} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
+          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
             <Save size={20} /> Guardar
           </button>
         </div>
@@ -4808,7 +5683,272 @@ function CrmEventModal({ event, onSave, onClose }: { event: CRMEvent | null, onS
 }
 
 // ═══════════════════════════════════════════════════════
-// COMPONENTE FOLLOWUPS VIEW - Sistema de seguimiento 90 días
+// MODAL INVITACIONES EVENTO
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// COMPONENTE SENDPROMOMODAL - Modal para enviar promociones
+// ═══════════════════════════════════════════════════════
+function SendPromoModal({
+  promo,
+  onSend,
+  onClose,
+  sending
+}: {
+  promo: Promotion,
+  onSend: (segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) => void,
+  onClose: () => void,
+  sending: boolean
+}) {
+  const [segment, setSegment] = useState('todos')
+  const [sendImage, setSendImage] = useState(true)
+  const [sendVideo, setSendVideo] = useState(true)
+  const [sendPdf, setSendPdf] = useState(true)
+
+  const startDate = new Date(promo.start_date)
+  const formattedDate = startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold flex items-center gap-2"><Megaphone size={24} /> Enviar Promocion</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+        </div>
+
+        {/* Preview de la promocion */}
+        <div className="bg-slate-700/50 p-4 rounded-xl mb-4">
+          <h4 className="font-bold text-lg mb-2">{promo.name}</h4>
+          <div className="text-sm text-slate-300 space-y-1">
+            <p><CalendarIcon size={14} className="inline mr-2" />Vigente desde: {formattedDate}</p>
+            {promo.target_segment && <p><Users size={14} className="inline mr-2" />Segmento original: {promo.target_segment}</p>}
+            <p className="text-slate-400 mt-2">{promo.description || promo.message?.slice(0, 100)}...</p>
+          </div>
+        </div>
+
+        {/* Segmento */}
+        <div className="mb-4">
+          <label className="block text-sm text-slate-400 mb-2">Enviar a segmento:</label>
+          <select
+            value={segment}
+            onChange={e => setSegment(e.target.value)}
+            className="w-full bg-slate-700 rounded-xl p-3"
+          >
+            <option value="todos">Todos los leads</option>
+            <option value="hot">Leads HOT (score 70+)</option>
+            <option value="warm">Leads WARM (score 40-69)</option>
+            <option value="cold">Leads COLD (score menor a 40)</option>
+            <option value="compradores">Compradores</option>
+            <option value="new">Leads Nuevos</option>
+          </select>
+        </div>
+
+        {/* Opciones de contenido */}
+        <div className="mb-6">
+          <label className="block text-sm text-slate-400 mb-2">Contenido a enviar:</label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendImage}
+                onChange={e => setSendImage(e.target.checked)}
+                disabled={!promo.image_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!promo.image_url ? 'text-slate-500' : ''}>
+                Imagen {!promo.image_url && '(no configurada)'}
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendVideo}
+                onChange={e => setSendVideo(e.target.checked)}
+                disabled={!promo.video_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!promo.video_url ? 'text-slate-500' : ''}>
+                Video {!promo.video_url && '(no configurado)'}
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendPdf}
+                onChange={e => setSendPdf(e.target.checked)}
+                disabled={!promo.pdf_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!promo.pdf_url ? 'text-slate-500' : ''}>
+                PDF/Brochure {!promo.pdf_url && '(no configurado)'}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Preview del mensaje */}
+        <div className="bg-slate-900/50 p-4 rounded-xl mb-6 text-sm">
+          <p className="text-slate-400 mb-2">Vista previa del mensaje:</p>
+          <div className="text-white whitespace-pre-line max-h-32 overflow-y-auto">
+            {promo.message || 'Sin mensaje configurado'}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSend(segment, { sendImage, sendVideo, sendPdf })}
+            disabled={sending}
+            className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50"
+          >
+            {sending ? (
+              <>Enviando...</>
+            ) : (
+              <><Send size={18} /> Enviar Promocion</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InviteEventModal({
+  event,
+  onSend,
+  onClose,
+  sending
+}: {
+  event: CRMEvent,
+  onSend: (event: CRMEvent, segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) => void,
+  onClose: () => void,
+  sending: boolean
+}) {
+  const [segment, setSegment] = useState('todos')
+  const [sendImage, setSendImage] = useState(true)
+  const [sendVideo, setSendVideo] = useState(true)
+  const [sendPdf, setSendPdf] = useState(true)
+
+  const eventDate = new Date(event.event_date)
+  const formattedDate = eventDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold">Enviar Invitaciones</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+        </div>
+
+        {/* Preview del evento */}
+        <div className="bg-slate-700/50 p-4 rounded-xl mb-4">
+          <h4 className="font-bold text-lg mb-2">{event.name}</h4>
+          <div className="text-sm text-slate-300 space-y-1">
+            <p><Calendar size={14} className="inline mr-2" />{formattedDate} {event.event_time && `a las ${event.event_time}`}</p>
+            {event.location && <p><MapPin size={14} className="inline mr-2" />{event.location}</p>}
+          </div>
+        </div>
+
+        {/* Segmento */}
+        <div className="mb-4">
+          <label className="block text-sm text-slate-400 mb-2">Enviar a segmento:</label>
+          <select
+            value={segment}
+            onChange={e => setSegment(e.target.value)}
+            className="w-full bg-slate-700 rounded-xl p-3"
+          >
+            <option value="todos">Todos los leads</option>
+            <option value="hot">Leads HOT (score 70+)</option>
+            <option value="warm">Leads WARM (score 40-69)</option>
+            <option value="cold">Leads COLD (score menor a 40)</option>
+            <option value="compradores">Compradores</option>
+          </select>
+        </div>
+
+        {/* Opciones de contenido */}
+        <div className="mb-6">
+          <label className="block text-sm text-slate-400 mb-2">Contenido a enviar:</label>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendImage}
+                onChange={e => setSendImage(e.target.checked)}
+                disabled={!event.image_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!event.image_url ? 'text-slate-500' : ''}>
+                Imagen {!event.image_url && '(no configurada)'}
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendVideo}
+                onChange={e => setSendVideo(e.target.checked)}
+                disabled={!event.video_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!event.video_url ? 'text-slate-500' : ''}>
+                Video {!event.video_url && '(no configurado)'}
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendPdf}
+                onChange={e => setSendPdf(e.target.checked)}
+                disabled={!event.pdf_url}
+                className="w-5 h-5 rounded"
+              />
+              <span className={!event.pdf_url ? 'text-slate-500' : ''}>
+                PDF/Flyer {!event.pdf_url && '(no configurado)'}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Preview del mensaje */}
+        <div className="bg-slate-900/50 p-4 rounded-xl mb-6 text-sm">
+          <p className="text-slate-400 mb-2">Vista previa del mensaje:</p>
+          <div className="text-white whitespace-pre-line">
+            {event.invitation_message || `Hola! Te invitamos a *${event.name}*
+
+${event.description || ''}
+
+Fecha: ${formattedDate}
+${event.event_time ? `Hora: ${event.event_time}` : ''}
+${event.location ? `Lugar: ${event.location}` : ''}
+
+Responde *SI* para confirmar tu asistencia.`}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSend(event, segment, { sendImage, sendVideo, sendPdf })}
+            disabled={sending}
+            className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50"
+          >
+            {sending ? (
+              <>Enviando...</>
+            ) : (
+              <><Send size={18} /> Enviar Invitaciones</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPONENTE FOLLOWUPS VIEW - Sistema de seguimiento 90 dias
 // ═══════════════════════════════════════════════════════
 
 interface FollowupRule {
@@ -4839,6 +5979,1605 @@ interface ScheduledFollowup {
   cancelled: boolean
   cancel_reason: string | null
   created_at: string
+}
+
+// ═══════════════════════════════════════════════════════════
+// REPORTES CEO VIEW - Diario, Semanal, Mensual
+// ═══════════════════════════════════════════════════════════
+function ReportesCEOView() {
+  const [activeTab, setActiveTab] = useState<'diario' | 'semanal' | 'mensual'>('mensual')
+  const [loading, setLoading] = useState(true)
+  const [reporteDiario, setReporteDiario] = useState<any>(null)
+  const [reporteSemanal, setReporteSemanal] = useState<any>(null)
+  const [reporteMensual, setReporteMensual] = useState<any>(null)
+
+  // Selector de mes/año
+  const hoy = new Date()
+  const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth() + 1) // 1-12
+  const [añoSeleccionado, setAñoSeleccionado] = useState(hoy.getFullYear())
+
+  // Chat IA
+  const [preguntaIA, setPreguntaIA] = useState('')
+  const [respuestaIA, setRespuestaIA] = useState('')
+  const [loadingIA, setLoadingIA] = useState(false)
+
+  const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+  useEffect(() => {
+    loadReportes()
+  }, [mesSeleccionado, añoSeleccionado])
+
+  async function loadReportes() {
+    setLoading(true)
+    try {
+      const [diario, semanal, mensual] = await Promise.all([
+        fetch('https://sara-backend.edson-633.workers.dev/api/reportes/diario').then(r => r.json()),
+        fetch('https://sara-backend.edson-633.workers.dev/api/reportes/semanal').then(r => r.json()),
+        fetch(`https://sara-backend.edson-633.workers.dev/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.json())
+      ])
+      setReporteDiario(diario)
+      setReporteSemanal(semanal)
+      setReporteMensual(mensual)
+    } catch (err) {
+      console.error('Error cargando reportes:', err)
+    }
+    setLoading(false)
+  }
+
+  async function preguntarIA() {
+    if (!preguntaIA.trim()) return
+    setLoadingIA(true)
+    setRespuestaIA('')
+    try {
+      const contexto = {
+        mensual: reporteMensual,
+        semanal: reporteSemanal,
+        diario: reporteDiario
+      }
+      const res = await fetch('https://sara-backend.edson-633.workers.dev/api/reportes/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta: preguntaIA, contexto })
+      })
+      const data = await res.json()
+      setRespuestaIA(data.respuesta || 'No pude procesar tu pregunta.')
+    } catch (err) {
+      setRespuestaIA('Error al consultar IA.')
+    }
+    setLoadingIA(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+          📊 Reportes CEO
+        </h2>
+        <div className="flex items-center gap-3">
+          {/* Selector de mes/año */}
+          <select
+            value={mesSeleccionado}
+            onChange={(e) => setMesSeleccionado(Number(e.target.value))}
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+          >
+            {meses.map((m, i) => (
+              <option key={i} value={i + 1}>{m}</option>
+            ))}
+          </select>
+          <select
+            value={añoSeleccionado}
+            onChange={(e) => setAñoSeleccionado(Number(e.target.value))}
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+          >
+            {[2024, 2025, 2026].map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <button onClick={loadReportes} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-2">
+            🔄 Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Chat IA */}
+      <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 p-4 rounded-2xl">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={preguntaIA}
+            onChange={(e) => setPreguntaIA(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && preguntarIA()}
+            placeholder="Pregunta sobre tus reportes... (ej: ¿Cuántos leads cerró Rosalía?)"
+            className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 placeholder-slate-500"
+          />
+          <button
+            onClick={preguntarIA}
+            disabled={loadingIA}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold disabled:opacity-50"
+          >
+            {loadingIA ? '🔄' : '🤖 Preguntar'}
+          </button>
+        </div>
+        {respuestaIA && (
+          <div className="mt-3 p-4 bg-slate-800/50 rounded-xl">
+            <p className="text-purple-300 whitespace-pre-wrap">{respuestaIA}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <button onClick={() => setActiveTab('diario')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'diario' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          📅 Diario
+        </button>
+        <button onClick={() => setActiveTab('semanal')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'semanal' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          📈 Semanal
+        </button>
+        <button onClick={() => setActiveTab('mensual')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'mensual' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          📉 Mensual
+        </button>
+      </div>
+
+      {/* REPORTE DIARIO */}
+      {activeTab === 'diario' && reporteDiario && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-amber-900/30 to-orange-900/30 border border-amber-500/30 p-6 rounded-2xl">
+            <h3 className="text-xl font-bold mb-4">☀️ Reporte del Día - {reporteDiario.fecha}</h3>
+
+            {/* KPIs principales */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-blue-400">{reporteDiario.ayer?.leads_nuevos || 0}</p>
+                <p className="text-sm text-slate-400">Leads Ayer</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-green-400">{reporteDiario.ayer?.cierres || 0}</p>
+                <p className="text-sm text-slate-400">Cierres Ayer</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-purple-400">{reporteDiario.hoy?.citas_agendadas || 0}</p>
+                <p className="text-sm text-slate-400">Citas Hoy</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-orange-400">{reporteDiario.pipeline?.leads_hot || 0}</p>
+                <p className="text-sm text-slate-400">Leads HOT 🔥</p>
+              </div>
+            </div>
+
+            {/* Alertas */}
+            {reporteDiario.pipeline?.leads_estancados > 0 && (
+              <div className="bg-red-900/30 border border-red-500/50 p-4 rounded-xl mb-4">
+                <p className="text-red-400 font-semibold">⚠️ {reporteDiario.pipeline.leads_estancados} leads sin contactar</p>
+              </div>
+            )}
+
+            {/* Citas de hoy */}
+            {reporteDiario.hoy?.citas?.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3">📅 Citas de Hoy</h4>
+                <div className="space-y-2">
+                  {reporteDiario.hoy.citas.map((cita: any, i: number) => (
+                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
+                      <div>
+                        <span className="font-semibold">{cita.hora?.substring(0,5)}</span>
+                        <span className="mx-2">-</span>
+                        <span>{cita.lead || 'Sin nombre'}</span>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs ${cita.status === 'scheduled' ? 'bg-green-600' : 'bg-slate-600'}`}>
+                        {cita.status === 'scheduled' ? 'Confirmada' : cita.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* REPORTE SEMANAL */}
+      {activeTab === 'semanal' && reporteSemanal && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/30 p-6 rounded-2xl">
+            <h3 className="text-xl font-bold mb-4">📈 Reporte Semanal ({reporteSemanal.fecha_inicio} al {reporteSemanal.fecha_fin})</h3>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-blue-400">{reporteSemanal.resumen?.leads_nuevos || 0}</p>
+                <p className="text-sm text-slate-400">Leads</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-purple-400">{reporteSemanal.resumen?.citas_totales || 0}</p>
+                <p className="text-sm text-slate-400">Citas</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-green-400">{reporteSemanal.resumen?.cierres || 0}</p>
+                <p className="text-sm text-slate-400">Cierres</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-amber-400">{reporteSemanal.resumen?.revenue_formatted || '$0'}</p>
+                <p className="text-sm text-slate-400">Revenue</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-cyan-400">{reporteSemanal.conversion?.lead_a_cierre || 0}%</p>
+                <p className="text-sm text-slate-400">Conversión</p>
+              </div>
+            </div>
+
+            {/* Insight */}
+            <div className={`p-4 rounded-xl mb-6 ${reporteSemanal.conversion?.lead_a_cierre >= 5 ? 'bg-green-900/30 border border-green-500/30' : 'bg-yellow-900/30 border border-yellow-500/30'}`}>
+              <p>{reporteSemanal.conversion?.lead_a_cierre >= 5 ? '✅' : '⚠️'} {reporteSemanal.conversion?.insight}</p>
+            </div>
+
+            {/* Ranking Vendedores */}
+            {reporteSemanal.ranking_vendedores?.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">🏆 Top Vendedores</h4>
+                <div className="space-y-2">
+                  {reporteSemanal.ranking_vendedores.map((v: any, i: number) => (
+                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '👤'}</span>
+                        <span className="font-semibold">{v.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-green-400 font-bold">{v.ventas} ventas</span>
+                        <span className="text-slate-400 mx-2">|</span>
+                        <span className="text-blue-400">{v.citas} citas</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fuentes */}
+            {reporteSemanal.fuentes?.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3">📣 Fuentes de Leads</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {reporteSemanal.fuentes.map((f: any, i: number) => (
+                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg text-center">
+                      <p className="text-xl font-bold text-blue-400">{f.leads}</p>
+                      <p className="text-xs text-slate-400 truncate">{f.fuente}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* REPORTE MENSUAL */}
+      {activeTab === 'mensual' && reporteMensual && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 p-6 rounded-2xl">
+            <h3 className="text-xl font-bold mb-4">📉 Reporte Mensual - {reporteMensual.mes} {reporteMensual.año}</h3>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-blue-400">{reporteMensual.resumen?.leads_nuevos || 0}</p>
+                <p className="text-sm text-slate-400">Leads</p>
+                {reporteMensual.resumen?.crecimiento_leads !== 0 && (
+                  <p className={`text-xs ${reporteMensual.resumen?.crecimiento_leads > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {reporteMensual.resumen?.crecimiento_leads > 0 ? '↑' : '↓'} {Math.abs(reporteMensual.resumen?.crecimiento_leads)}% vs mes anterior
+                  </p>
+                )}
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-green-400">{reporteMensual.resumen?.cierres || 0}</p>
+                <p className="text-sm text-slate-400">Cierres</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-amber-400">{reporteMensual.resumen?.revenue_formatted || '$0'}</p>
+                <p className="text-sm text-slate-400">Revenue</p>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
+                <p className="text-3xl font-bold text-cyan-400">{reporteMensual.conversion?.lead_a_cierre || 0}%</p>
+                <p className="text-sm text-slate-400">Conversión Total</p>
+              </div>
+            </div>
+
+            {/* Funnel de conversión */}
+            <div className="bg-slate-800/50 p-4 rounded-xl mb-6">
+              <h4 className="font-semibold mb-3">🔄 Funnel de Conversión</h4>
+              <div className="flex items-center justify-around">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-400">{reporteMensual.resumen?.leads_nuevos || 0}</p>
+                  <p className="text-xs text-slate-400">Leads</p>
+                </div>
+                <span className="text-slate-500">→ {reporteMensual.conversion?.lead_a_cita || 0}%</span>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">{reporteMensual.resumen?.citas_totales || 0}</p>
+                  <p className="text-xs text-slate-400">Citas</p>
+                </div>
+                <span className="text-slate-500">→ {reporteMensual.conversion?.cita_a_cierre || 0}%</span>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-400">{reporteMensual.resumen?.cierres || 0}</p>
+                  <p className="text-xs text-slate-400">Cierres</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ranking Vendedores */}
+            {reporteMensual.ranking_vendedores?.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">🏆 Ranking de Vendedores</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
+                        <th className="pb-2">#</th>
+                        <th className="pb-2">Vendedor</th>
+                        <th className="pb-2 text-right">Ventas</th>
+                        <th className="pb-2 text-right">Citas</th>
+                        <th className="pb-2 text-right">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reporteMensual.ranking_vendedores.map((v: any) => (
+                        <tr key={v.posicion} className="border-b border-slate-700/50">
+                          <td className="py-2 text-xl">{v.posicion === 1 ? '🥇' : v.posicion === 2 ? '🥈' : v.posicion === 3 ? '🥉' : v.posicion}</td>
+                          <td className="py-2 font-semibold">{v.name}</td>
+                          <td className="py-2 text-right text-green-400">{v.ventas}</td>
+                          <td className="py-2 text-right text-blue-400">{v.citas}</td>
+                          <td className="py-2 text-right text-amber-400">${(v.revenue/1000000).toFixed(1)}M</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Desarrollos */}
+            {reporteMensual.desarrollos?.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold mb-3">🏘️ Ventas por Desarrollo</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {reporteMensual.desarrollos.map((d: any, i: number) => (
+                    <div key={i} className="bg-slate-800/50 p-4 rounded-lg">
+                      <p className="font-semibold truncate">{d.desarrollo}</p>
+                      <p className="text-2xl font-bold text-green-400">{d.ventas}</p>
+                      <p className="text-xs text-amber-400">{d.revenue_formatted}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fuentes */}
+            {reporteMensual.fuentes?.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-3">📣 Fuentes de Leads</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {reporteMensual.fuentes.map((f: any, i: number) => (
+                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg text-center">
+                      <p className="text-xl font-bold text-blue-400">{f.leads}</p>
+                      <p className="text-xs text-slate-400 truncate">{f.fuente}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPONENTE: Encuestas y Eventos
+// ═══════════════════════════════════════════════════════════════
+function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties, teamMembers, onSendSurvey }: {
+  leads: Lead[],
+  crmEvents: CRMEvent[],
+  eventRegistrations: EventRegistration[],
+  properties: Property[],
+  teamMembers: TeamMember[],
+  onSendSurvey: (config: any) => void
+}) {
+  const [activeTab, setActiveTab] = useState<'encuestas' | 'resultados' | 'plantillas' | 'eventos'>('encuestas')
+  const [showNewSurvey, setShowNewSurvey] = useState(false)
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [surveyMessage, setSurveyMessage] = useState('')
+  const [showAdvancedSegment, setShowAdvancedSegment] = useState(false)
+  const [segmentFilters, setSegmentFilters] = useState<SegmentFilters>({
+    status: [],
+    temperature: [],
+    desarrollos: [],
+    needs_mortgage: null,
+    is_buyer: null,
+    source: [],
+    min_score: null,
+    max_score: null
+  })
+  const [sendingSurvey, setSendingSurvey] = useState(false)
+
+  // Nuevo: Tipo de destinatario y selección manual
+  const [targetType, setTargetType] = useState<'leads' | 'vendedores' | 'manual'>('leads')
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
+  const [selectedVendorIds, setSelectedVendorIds] = useState<string[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Estado para resultados de encuestas
+  const [surveyResults, setSurveyResults] = useState<any[]>([])
+  const [surveyMetrics, setSurveyMetrics] = useState<any>(null)
+  const [loadingSurveys, setLoadingSurveys] = useState(false)
+  const [surveyFilter, setSurveyFilter] = useState<'all' | 'sent' | 'answered' | 'awaiting_feedback'>('all')
+
+  // Cargar resultados de encuestas
+  useEffect(() => {
+    if (activeTab === 'resultados') {
+      fetchSurveyResults()
+    }
+  }, [activeTab, surveyFilter])
+
+  const fetchSurveyResults = async () => {
+    setLoadingSurveys(true)
+    try {
+      const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/surveys?status=${surveyFilter}`)
+      const data = await response.json()
+      setSurveyResults(data.surveys || [])
+      setSurveyMetrics(data.metrics || null)
+    } catch (error) {
+      console.error('Error fetching surveys:', error)
+    } finally {
+      setLoadingSurveys(false)
+    }
+  }
+
+  // Estado para nueva plantilla
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    type: 'nps' as 'nps' | 'satisfaction' | 'post_cita' | 'rescate' | 'custom',
+    greeting: '',
+    questions: [{ text: '', type: 'rating' as 'rating' | 'text' | 'yesno' }],
+    closing: ''
+  })
+
+  // Plantillas pre-hechas
+  const prebuiltTemplates = [
+    {
+      id: 'nps',
+      name: 'NPS - Net Promoter Score',
+      type: 'nps',
+      icon: '📊',
+      color: 'blue',
+      greeting: 'Hola {nombre}, nos encantaría conocer tu opinión.',
+      questions: [
+        { text: 'Del 0 al 10, ¿qué tan probable es que nos recomiendes con un amigo o familiar?', type: 'rating' },
+        { text: '¿Qué podríamos mejorar?', type: 'text' }
+      ],
+      closing: '¡Gracias por tu tiempo! Tu opinión nos ayuda a mejorar.'
+    },
+    {
+      id: 'post_cita',
+      name: 'Post-Cita',
+      type: 'post_cita',
+      icon: '🏠',
+      color: 'green',
+      greeting: 'Hola {nombre}, gracias por visitarnos.',
+      questions: [
+        { text: '¿Cómo calificarías la atención de nuestro asesor? (1-5)', type: 'rating' },
+        { text: '¿La propiedad cumplió tus expectativas?', type: 'yesno' },
+        { text: '¿Tienes algún comentario adicional?', type: 'text' }
+      ],
+      closing: '¡Gracias! Estamos para servirte.'
+    },
+    {
+      id: 'satisfaction',
+      name: 'Satisfacción General',
+      type: 'satisfaction',
+      icon: '⭐',
+      color: 'yellow',
+      greeting: 'Hola {nombre}, queremos saber cómo fue tu experiencia.',
+      questions: [
+        { text: 'Del 1 al 5, ¿qué tan satisfecho estás con nuestro servicio?', type: 'rating' },
+        { text: '¿Qué fue lo que más te gustó?', type: 'text' },
+        { text: '¿En qué podemos mejorar?', type: 'text' }
+      ],
+      closing: '¡Tu opinión es muy valiosa para nosotros!'
+    },
+    {
+      id: 'rescate',
+      name: 'Rescate de Lead',
+      type: 'rescate',
+      icon: '🔄',
+      color: 'purple',
+      greeting: 'Hola {nombre}, hace tiempo no sabemos de ti.',
+      questions: [
+        { text: '¿Sigues interesado en adquirir una propiedad?', type: 'yesno' },
+        { text: '¿Qué te ha detenido?', type: 'text' },
+        { text: '¿Te gustaría que te contactemos?', type: 'yesno' }
+      ],
+      closing: 'Estamos aquí cuando nos necesites. ¡Gracias!'
+    },
+    {
+      id: 'post_cierre',
+      name: 'Post-Cierre / Comprador',
+      type: 'post_cierre',
+      icon: '🎉',
+      color: 'emerald',
+      greeting: '¡Felicidades {nombre} por tu nueva casa!',
+      questions: [
+        { text: 'Del 1 al 10, ¿cómo calificarías todo el proceso de compra?', type: 'rating' },
+        { text: '¿Nos recomendarías con familiares o amigos?', type: 'yesno' },
+        { text: '¿Algún comentario sobre tu experiencia?', type: 'text' }
+      ],
+      closing: '¡Gracias por confiar en nosotros! Bienvenido a tu nuevo hogar.'
+    }
+  ]
+
+  const [customTemplates, setCustomTemplates] = useState<any[]>([])
+
+  // Calcular estadísticas de encuestas
+  const encuestasCompletadas = leads.filter(l => l.survey_completed)
+  const conRating = leads.filter(l => l.survey_rating)
+  const ratingPromedio = conRating.length > 0
+    ? (conRating.reduce((sum, l) => sum + (l.survey_rating || 0), 0) / conRating.length).toFixed(1)
+    : 0
+  const conFeedback = leads.filter(l => l.survey_feedback)
+
+  // Distribución de ratings
+  const ratingDistribution = [1, 2, 3, 4, 5].map(r => ({
+    rating: r,
+    count: conRating.filter(l => l.survey_rating === r).length,
+    emoji: r <= 2 ? '😞' : r === 3 ? '😐' : r === 4 ? '😊' : '🤩'
+  }))
+
+  // Estadísticas de eventos
+  const eventosActivos = crmEvents.filter(e => new Date(e.event_date) >= new Date())
+  const eventosPasados = crmEvents.filter(e => new Date(e.event_date) < new Date())
+
+  // Filtrar leads para encuestas según segmentación
+  const filteredLeadsForSurvey = leads.filter(lead => {
+    if (segmentFilters.status.length > 0 && !segmentFilters.status.includes(lead.status)) return false
+    if (segmentFilters.temperature.length > 0 && !segmentFilters.temperature.includes(lead.temperature || '')) return false
+    if (segmentFilters.desarrollos.length > 0) {
+      const leadDesarrollo = lead.property_interest || ''
+      if (!segmentFilters.desarrollos.some(d => leadDesarrollo.toLowerCase().includes(d.toLowerCase()))) return false
+    }
+    if (segmentFilters.needs_mortgage !== null && lead.needs_mortgage !== segmentFilters.needs_mortgage) return false
+    if (segmentFilters.is_buyer !== null) {
+      const isBuyer = lead.status === 'closed'
+      if (isBuyer !== segmentFilters.is_buyer) return false
+    }
+    if (segmentFilters.source.length > 0 && !segmentFilters.source.includes(lead.source || '')) return false
+    if (segmentFilters.min_score !== null && (lead.score || 0) < segmentFilters.min_score) return false
+    if (segmentFilters.max_score !== null && (lead.score || 0) > segmentFilters.max_score) return false
+    return true
+  })
+
+  const handleSendSurvey = async () => {
+    if (!selectedTemplate) {
+      alert('Selecciona una plantilla primero')
+      return
+    }
+
+    // Determinar destinatarios según el tipo seleccionado
+    let destinatarios: { id: string; phone: string; name: string }[] = []
+
+    if (targetType === 'vendedores') {
+      // Encuesta interna a vendedores
+      const vendedoresSeleccionados = selectedVendorIds.length > 0
+        ? teamMembers.filter(v => selectedVendorIds.includes(v.id))
+        : teamMembers.filter(v => v.active && v.phone)
+      destinatarios = vendedoresSeleccionados.map(v => ({ id: v.id, phone: v.phone || '', name: v.name }))
+    } else if (targetType === 'manual') {
+      // Leads seleccionados manualmente
+      const leadsSeleccionados = leads.filter(l => selectedLeadIds.includes(l.id))
+      destinatarios = leadsSeleccionados.map(l => ({ id: l.id, phone: l.phone, name: l.name }))
+    } else {
+      // Leads con filtros de segmentación
+      const leadsToSend = showAdvancedSegment ? filteredLeadsForSurvey : leads
+      destinatarios = leadsToSend.map(l => ({ id: l.id, phone: l.phone, name: l.name }))
+    }
+
+    if (destinatarios.length === 0) {
+      alert('No hay destinatarios seleccionados')
+      return
+    }
+
+    setSendingSurvey(true)
+    try {
+      await onSendSurvey({
+        template: selectedTemplate,
+        message: surveyMessage,
+        filters: showAdvancedSegment ? segmentFilters : null,
+        leads: destinatarios,
+        targetType
+      })
+      setShowNewSurvey(false)
+      setSelectedTemplate(null)
+      setSurveyMessage('')
+      setSelectedLeadIds([])
+      setSelectedVendorIds([])
+      setTargetType('leads')
+      setSearchTerm('')
+      setSegmentFilters({
+        status: [],
+        temperature: [],
+        desarrollos: [],
+        needs_mortgage: null,
+        is_buyer: null,
+        source: [],
+        min_score: null,
+        max_score: null
+      })
+    } catch (error) {
+      console.error('Error enviando encuesta:', error)
+      alert('Error al enviar encuestas')
+    } finally {
+      setSendingSurvey(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+          Encuestas & Eventos
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('encuestas')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'encuestas' ? 'bg-yellow-500 text-black' : 'bg-slate-700'}`}
+          >
+            <Send size={18} /> Enviar
+          </button>
+          <button
+            onClick={() => setActiveTab('resultados')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'resultados' ? 'bg-blue-500 text-white' : 'bg-slate-700'}`}
+          >
+            <Star size={18} /> Resultados
+          </button>
+          <button
+            onClick={() => setActiveTab('plantillas')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'plantillas' ? 'bg-purple-500 text-black' : 'bg-slate-700'}`}
+          >
+            <MessageSquare size={18} /> Plantillas
+          </button>
+          <button
+            onClick={() => setActiveTab('eventos')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${activeTab === 'eventos' ? 'bg-emerald-500 text-black' : 'bg-slate-700'}`}
+          >
+            <CalendarIcon size={18} /> Eventos
+          </button>
+        </div>
+      </div>
+
+      {/* TAB ENCUESTAS */}
+      {activeTab === 'encuestas' && (
+        <div className="space-y-6">
+          {/* Botón enviar encuesta */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowNewSurvey(true)}
+              className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-xl flex items-center gap-2"
+            >
+              <Send size={18} /> Enviar Encuesta
+            </button>
+          </div>
+
+          {/* KPIs de encuestas */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-yellow-900/50 to-amber-900/50 border border-yellow-500/30 p-5 rounded-xl">
+              <div className="text-yellow-400 text-sm mb-1">Rating Promedio</div>
+              <div className="text-4xl font-bold text-yellow-300">{ratingPromedio} <span className="text-2xl">/ 5</span></div>
+              <div className="text-yellow-400/60 text-xs mt-1">{conRating.length} calificaciones</div>
+            </div>
+            <div className="bg-gradient-to-br from-green-900/50 to-emerald-900/50 border border-green-500/30 p-5 rounded-xl">
+              <div className="text-green-400 text-sm mb-1">Encuestas Completadas</div>
+              <div className="text-4xl font-bold text-green-300">{encuestasCompletadas.length}</div>
+              <div className="text-green-400/60 text-xs mt-1">clientes satisfechos</div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-blue-500/30 p-5 rounded-xl">
+              <div className="text-blue-400 text-sm mb-1">Con Feedback</div>
+              <div className="text-4xl font-bold text-blue-300">{conFeedback.length}</div>
+              <div className="text-blue-400/60 text-xs mt-1">comentarios recibidos</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-500/30 p-5 rounded-xl">
+              <div className="text-purple-400 text-sm mb-1">Tasa de Respuesta</div>
+              <div className="text-4xl font-bold text-purple-300">
+                {leads.filter(l => l.status === 'closed').length > 0
+                  ? Math.round((encuestasCompletadas.length / leads.filter(l => l.status === 'closed').length) * 100)
+                  : 0}%
+              </div>
+              <div className="text-purple-400/60 text-xs mt-1">de ventas cerradas</div>
+            </div>
+          </div>
+
+          {/* Distribución de ratings */}
+          <div className="bg-slate-800/50 rounded-2xl p-6">
+            <h3 className="text-xl font-bold mb-4">Distribucion de Calificaciones</h3>
+            <div className="flex gap-4 items-end h-40">
+              {ratingDistribution.map(r => (
+                <div key={r.rating} className="flex-1 flex flex-col items-center">
+                  <div className="text-2xl mb-2">{r.emoji}</div>
+                  <div
+                    className={`w-full rounded-t-lg ${r.rating <= 2 ? 'bg-red-500' : r.rating === 3 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ height: `${Math.max((r.count / Math.max(...ratingDistribution.map(x => x.count), 1)) * 100, 10)}%` }}
+                  />
+                  <div className="text-lg font-bold mt-2">{r.count}</div>
+                  <div className="text-slate-400 text-sm">{r.rating} estrella{r.rating > 1 ? 's' : ''}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Lista de feedback */}
+          <div className="bg-slate-800/50 rounded-2xl p-6">
+            <h3 className="text-xl font-bold mb-4">Comentarios Recientes</h3>
+            {conFeedback.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">
+                <MessageSquare size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No hay comentarios todavia</p>
+                <p className="text-sm">Los comentarios apareceran cuando los clientes completen encuestas</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {conFeedback.slice(0, 20).map(lead => (
+                  <div key={lead.id} className="bg-slate-700/50 p-4 rounded-xl">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="font-medium">{lead.name || 'Cliente'}</div>
+                      <div className="flex items-center gap-1">
+                        {[1,2,3,4,5].map(s => (
+                          <Star key={s} size={14} className={s <= (lead.survey_rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-slate-300 text-sm italic">"{lead.survey_feedback}"</p>
+                    <div className="text-slate-500 text-xs mt-2">
+                      {new Date(lead.updated_at || '').toLocaleDateString('es-MX')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB RESULTADOS */}
+      {activeTab === 'resultados' && (
+        <div className="space-y-6">
+          {/* Métricas NPS */}
+          {surveyMetrics && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                <div className="text-3xl font-bold text-blue-400">{surveyMetrics.total}</div>
+                <div className="text-slate-400 text-sm">Total Encuestas</div>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                <div className="text-3xl font-bold text-green-400">{surveyMetrics.answered}</div>
+                <div className="text-slate-400 text-sm">Respondidas</div>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                <div className="text-3xl font-bold text-yellow-400">{surveyMetrics.avg_nps || '-'}</div>
+                <div className="text-slate-400 text-sm">NPS Promedio</div>
+              </div>
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400">{surveyMetrics.promoters}</span>
+                  <span className="text-slate-500">/</span>
+                  <span className="text-yellow-400">{surveyMetrics.passives}</span>
+                  <span className="text-slate-500">/</span>
+                  <span className="text-red-400">{surveyMetrics.detractors}</span>
+                </div>
+                <div className="text-slate-400 text-sm">Promotores / Pasivos / Detractores</div>
+              </div>
+            </div>
+          )}
+
+          {/* Filtros */}
+          <div className="flex items-center gap-4">
+            <span className="text-slate-400">Filtrar:</span>
+            <div className="flex gap-2">
+              {[
+                { value: 'all', label: 'Todas' },
+                { value: 'sent', label: 'Enviadas' },
+                { value: 'awaiting_feedback', label: 'Esperando' },
+                { value: 'answered', label: 'Respondidas' }
+              ].map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setSurveyFilter(f.value as any)}
+                  className={`px-3 py-1 rounded-lg text-sm ${surveyFilter === f.value ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={fetchSurveyResults}
+              className="ml-auto px-3 py-1 bg-slate-700 rounded-lg text-sm flex items-center gap-1"
+            >
+              <RefreshCw size={14} className={loadingSurveys ? 'animate-spin' : ''} /> Actualizar
+            </button>
+          </div>
+
+          {/* Lista de encuestas */}
+          {loadingSurveys ? (
+            <div className="text-center py-8">
+              <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-slate-400">Cargando encuestas...</p>
+            </div>
+          ) : surveyResults.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <Star size={48} className="mx-auto mb-4 opacity-50" />
+              <p>No hay encuestas registradas</p>
+              <p className="text-sm mt-1">Envía una encuesta desde la pestaña "Enviar"</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {surveyResults.map((survey) => (
+                <div key={survey.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-white">{survey.lead_name || 'Sin nombre'}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                          survey.status === 'answered' ? 'bg-green-500/20 text-green-400' :
+                          survey.status === 'awaiting_feedback' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {survey.status === 'answered' ? 'Respondida' :
+                           survey.status === 'awaiting_feedback' ? 'Esperando comentario' :
+                           'Enviada'}
+                        </span>
+                        <span className="text-slate-500 text-xs">
+                          {survey.survey_type?.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-slate-400 text-sm mt-1">
+                        {survey.lead_phone}
+                      </div>
+                      {survey.nps_score !== null && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-slate-400 text-sm">NPS:</span>
+                          <span className={`text-lg font-bold ${
+                            survey.nps_score >= 9 ? 'text-green-400' :
+                            survey.nps_score >= 7 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {survey.nps_score}
+                          </span>
+                          <span className={`text-xs ${
+                            survey.nps_score >= 9 ? 'text-green-400' :
+                            survey.nps_score >= 7 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {survey.nps_score >= 9 ? 'Promotor' :
+                             survey.nps_score >= 7 ? 'Pasivo' :
+                             'Detractor'}
+                          </span>
+                        </div>
+                      )}
+                      {survey.feedback && (
+                        <div className="mt-2 p-2 bg-slate-700/50 rounded-lg">
+                          <span className="text-slate-400 text-xs">Comentario:</span>
+                          <p className="text-white text-sm">{survey.feedback}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right text-xs text-slate-500">
+                      <div>Enviada: {new Date(survey.sent_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                      {survey.answered_at && (
+                        <div>Respondida: {new Date(survey.answered_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB PLANTILLAS */}
+      {activeTab === 'plantillas' && (
+        <div className="space-y-6">
+          {/* Botones de acción */}
+          <div className="flex justify-between items-center">
+            <p className="text-slate-400">Selecciona una plantilla para enviar o crea una nueva</p>
+            <button
+              onClick={() => setShowCreateTemplate(true)}
+              className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-xl flex items-center gap-2"
+            >
+              <Plus size={18} /> Crear Plantilla
+            </button>
+          </div>
+
+          {/* Plantillas Pre-hechas */}
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Lightbulb size={20} className="text-yellow-400" /> Plantillas Prediseñadas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {prebuiltTemplates.map(template => (
+                <div
+                  key={template.id}
+                  className={`bg-slate-800/80 border-2 border-${template.color}-500/30 rounded-xl p-5 hover:border-${template.color}-500/60 transition-all cursor-pointer group`}
+                  onClick={() => {
+                    setSelectedTemplate(template)
+                    setShowNewSurvey(true)
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-3xl">{template.icon}</div>
+                    <span className={`text-xs px-2 py-1 rounded bg-${template.color}-500/20 text-${template.color}-300`}>
+                      {template.type}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-lg mb-2">{template.name}</h4>
+                  <p className="text-slate-400 text-sm mb-3 line-clamp-2">{template.greeting}</p>
+                  <div className="text-xs text-slate-500 mb-3">
+                    {template.questions.length} pregunta{template.questions.length > 1 ? 's' : ''}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedTemplate(template)
+                        setShowNewSurvey(true)
+                      }}
+                      className={`flex-1 bg-${template.color}-600 hover:bg-${template.color}-700 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1`}
+                    >
+                      <Send size={14} /> Enviar
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Preview
+                        alert(`Vista previa:\n\n${template.greeting}\n\n${template.questions.map((q, i) => `${i+1}. ${q.text}`).join('\n')}\n\n${template.closing}`)
+                      }}
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Plantillas Personalizadas */}
+          {customTemplates.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Edit size={20} className="text-purple-400" /> Mis Plantillas
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customTemplates.map((template, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-800/80 border-2 border-purple-500/30 rounded-xl p-5 hover:border-purple-500/60 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="text-3xl">📝</div>
+                      <button
+                        onClick={() => {
+                          setCustomTemplates(prev => prev.filter((_, i) => i !== idx))
+                        }}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <h4 className="font-bold text-lg mb-2">{template.name}</h4>
+                    <p className="text-slate-400 text-sm mb-3 line-clamp-2">{template.greeting}</p>
+                    <div className="text-xs text-slate-500 mb-3">
+                      {template.questions.length} pregunta{template.questions.length > 1 ? 's' : ''}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedTemplate(template)
+                        setShowNewSurvey(true)
+                      }}
+                      className="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1"
+                    >
+                      <Send size={14} /> Enviar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tip de IA */}
+          <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-xl p-5">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">🤖</div>
+              <div>
+                <h4 className="font-bold text-lg mb-1">Tip: Usa IA para personalizar</h4>
+                <p className="text-slate-400 text-sm">
+                  Las encuestas se envían por WhatsApp y SARA puede adaptar las preguntas según el contexto de cada lead.
+                  Por ejemplo, si el lead visitó una propiedad específica, mencionará ese desarrollo en el mensaje.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB EVENTOS */}
+      {activeTab === 'eventos' && (
+        <div className="space-y-6">
+          {/* KPIs de eventos */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-emerald-900/50 to-green-900/50 border border-emerald-500/30 p-5 rounded-xl">
+              <div className="text-emerald-400 text-sm mb-1">Eventos Activos</div>
+              <div className="text-4xl font-bold text-emerald-300">{eventosActivos.length}</div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-blue-500/30 p-5 rounded-xl">
+              <div className="text-blue-400 text-sm mb-1">Total Registrados</div>
+              <div className="text-4xl font-bold text-blue-300">{eventRegistrations.length}</div>
+            </div>
+            <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-500/30 p-5 rounded-xl">
+              <div className="text-purple-400 text-sm mb-1">Eventos Pasados</div>
+              <div className="text-4xl font-bold text-purple-300">{eventosPasados.length}</div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-900/50 to-red-900/50 border border-orange-500/30 p-5 rounded-xl">
+              <div className="text-orange-400 text-sm mb-1">Tasa Asistencia</div>
+              <div className="text-4xl font-bold text-orange-300">
+                {eventRegistrations.length > 0
+                  ? Math.round((eventRegistrations.filter(r => r.attended).length / eventRegistrations.length) * 100)
+                  : 0}%
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de eventos con registrados */}
+          <div className="bg-slate-800/50 rounded-2xl p-6">
+            <h3 className="text-xl font-bold mb-4">Eventos y Registros</h3>
+            {crmEvents.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">
+                <CalendarIcon size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No hay eventos creados</p>
+                <p className="text-sm">Ve a la seccion Eventos para crear uno</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {crmEvents.map(evento => {
+                  const registrados = eventRegistrations.filter(r => r.event_id === evento.id)
+                  const asistieron = registrados.filter(r => r.attended).length
+                  const isPast = new Date(evento.event_date) < new Date()
+
+                  return (
+                    <div key={evento.id} className={`bg-slate-700/50 p-4 rounded-xl border-l-4 ${isPast ? 'border-slate-500' : 'border-emerald-500'}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-lg flex items-center gap-2">
+                            {evento.name}
+                            {isPast && <span className="text-xs bg-slate-600 px-2 py-0.5 rounded">Pasado</span>}
+                          </div>
+                          <div className="text-slate-400 text-sm">
+                            {new Date(evento.event_date).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            {evento.event_time && ` - ${evento.event_time}`}
+                          </div>
+                          {evento.location && <div className="text-slate-500 text-sm flex items-center gap-1"><MapPin size={12} /> {evento.location}</div>}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-emerald-400">{registrados.length}</div>
+                          <div className="text-slate-400 text-sm">
+                            {evento.max_capacity ? `/ ${evento.max_capacity}` : ''} registrados
+                          </div>
+                          {isPast && (
+                            <div className="text-xs text-slate-500 mt-1">
+                              {asistieron} asistieron ({registrados.length > 0 ? Math.round((asistieron / registrados.length) * 100) : 0}%)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lista de registrados */}
+                      {registrados.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-600">
+                          <div className="text-sm text-slate-400 mb-2">Registrados:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {registrados.slice(0, 10).map(reg => (
+                              <span key={reg.id} className={`px-2 py-1 rounded text-xs ${reg.attended ? 'bg-green-500/20 text-green-300' : 'bg-slate-600 text-slate-300'}`}>
+                                {reg.lead_name || 'Lead'} {reg.attended && '✓'}
+                              </span>
+                            ))}
+                            {registrados.length > 10 && (
+                              <span className="px-2 py-1 bg-slate-600 rounded text-xs">+{registrados.length - 10} mas</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ENVIAR ENCUESTA */}
+      {showNewSurvey && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+              <h3 className="text-2xl font-bold text-yellow-400">
+                {selectedTemplate ? `Enviar: ${selectedTemplate.name}` : 'Enviar Encuesta'}
+              </h3>
+              <button onClick={() => { setShowNewSurvey(false); setSelectedTemplate(null) }} className="text-slate-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Plantilla seleccionada */}
+              {selectedTemplate && (
+                <div className="bg-slate-900/50 rounded-xl p-4 border border-yellow-500/30">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-3xl">{selectedTemplate.icon || '📝'}</div>
+                    <div>
+                      <div className="font-bold">{selectedTemplate.name}</div>
+                      <div className="text-sm text-slate-400">{selectedTemplate.questions?.length || 0} preguntas</div>
+                    </div>
+                  </div>
+                  <div className="bg-green-900/30 rounded-lg p-3 text-sm">
+                    <p className="mb-2 text-green-300">{selectedTemplate.greeting}</p>
+                    {selectedTemplate.questions?.map((q: any, i: number) => (
+                      <p key={i} className="text-slate-300 mb-1">{i + 1}. {q.text}</p>
+                    ))}
+                    <p className="mt-2 text-slate-400 italic">{selectedTemplate.closing}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTemplate(null)}
+                    className="mt-3 text-sm text-slate-400 hover:text-white"
+                  >
+                    Cambiar plantilla
+                  </button>
+                </div>
+              )}
+
+              {/* Selector de plantilla si no hay una seleccionada */}
+              {!selectedTemplate && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Selecciona una Plantilla</label>
+                  <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+                    {[...prebuiltTemplates, ...customTemplates].map(template => (
+                      <button
+                        key={template.id}
+                        onClick={() => setSelectedTemplate(template)}
+                        className="p-3 rounded-xl border-2 border-slate-600 hover:border-yellow-500 text-left transition-all"
+                      >
+                        <div className="text-2xl mb-1">{template.icon || '📝'}</div>
+                        <div className="font-bold text-sm">{template.name}</div>
+                        <div className="text-xs text-slate-400">{template.questions?.length || 0} preguntas</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tipo de destinatario */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Enviar a</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => { setTargetType('leads'); setSelectedLeadIds([]); setSelectedVendorIds([]) }}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      targetType === 'leads' ? 'border-yellow-500 bg-yellow-500/20' : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <Users size={20} className="mx-auto mb-1" />
+                    <div className="text-sm font-medium">Leads</div>
+                    <div className="text-xs text-slate-400">Con filtros</div>
+                  </button>
+                  <button
+                    onClick={() => { setTargetType('manual'); setSelectedVendorIds([]) }}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      targetType === 'manual' ? 'border-blue-500 bg-blue-500/20' : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <UserCheck size={20} className="mx-auto mb-1" />
+                    <div className="text-sm font-medium">Específicos</div>
+                    <div className="text-xs text-slate-400">Seleccionar</div>
+                  </button>
+                  <button
+                    onClick={() => { setTargetType('vendedores'); setSelectedLeadIds([]) }}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      targetType === 'vendedores' ? 'border-purple-500 bg-purple-500/20' : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <Award size={20} className="mx-auto mb-1" />
+                    <div className="text-sm font-medium">Vendedores</div>
+                    <div className="text-xs text-slate-400">Interna</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Selección manual de leads */}
+              {targetType === 'manual' && (
+                <div className="border border-blue-500/30 rounded-xl p-4">
+                  <label className="block text-sm font-medium mb-2">Buscar y seleccionar leads</label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar por nombre o teléfono..."
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 mb-3"
+                  />
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {leads
+                      .filter(l =>
+                        l.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        l.phone?.includes(searchTerm)
+                      )
+                      .slice(0, 20)
+                      .map(lead => (
+                        <label key={lead.id} className="flex items-center gap-2 p-2 hover:bg-slate-700 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedLeadIds.includes(lead.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedLeadIds(prev => [...prev, lead.id])
+                              } else {
+                                setSelectedLeadIds(prev => prev.filter(id => id !== lead.id))
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span className="flex-1">{lead.name}</span>
+                          <span className="text-xs text-slate-400">{lead.phone?.slice(-4)}</span>
+                        </label>
+                      ))}
+                  </div>
+                  {selectedLeadIds.length > 0 && (
+                    <div className="mt-2 text-sm text-blue-400">
+                      {selectedLeadIds.length} lead{selectedLeadIds.length > 1 ? 's' : ''} seleccionado{selectedLeadIds.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selección de vendedores */}
+              {targetType === 'vendedores' && (
+                <div className="border border-purple-500/30 rounded-xl p-4">
+                  <label className="block text-sm font-medium mb-2">Seleccionar vendedores</label>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setSelectedVendorIds(teamMembers.filter(v => v.active && v.phone).map(v => v.id))}
+                      className="text-xs bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      onClick={() => setSelectedVendorIds([])}
+                      className="text-xs bg-slate-600 hover:bg-slate-500 px-2 py-1 rounded"
+                    >
+                      Ninguno
+                    </button>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {teamMembers.filter(v => v.active && v.phone).map(vendor => (
+                      <label key={vendor.id} className="flex items-center gap-2 p-2 hover:bg-slate-700 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedVendorIds.includes(vendor.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedVendorIds(prev => [...prev, vendor.id])
+                            } else {
+                              setSelectedVendorIds(prev => prev.filter(id => id !== vendor.id))
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="flex-1">{vendor.name}</span>
+                        <span className="text-xs text-slate-400">{vendor.role}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedVendorIds.length > 0 && (
+                    <div className="mt-2 text-sm text-purple-400">
+                      {selectedVendorIds.length} vendedor{selectedVendorIds.length > 1 ? 'es' : ''} seleccionado{selectedVendorIds.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mensaje adicional */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Mensaje Adicional (opcional)</label>
+                <textarea
+                  value={surveyMessage}
+                  onChange={(e) => setSurveyMessage(e.target.value)}
+                  placeholder="Agrega un contexto adicional si lo deseas..."
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 h-20 resize-none"
+                />
+              </div>
+
+              {/* Toggle segmentación avanzada - solo para leads */}
+              {targetType === 'leads' && (
+                <div className="border border-slate-600 rounded-xl p-4">
+                  <button
+                    onClick={() => setShowAdvancedSegment(!showAdvancedSegment)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Filter size={20} className="text-yellow-400" />
+                      <div>
+                        <div className="font-medium">Segmentación Avanzada</div>
+                        <div className="text-sm text-slate-400">Filtrar a quién enviar la encuesta</div>
+                      </div>
+                    </div>
+                    <ChevronRight size={20} className={`transition-transform ${showAdvancedSegment ? 'rotate-90' : ''}`} />
+                  </button>
+
+                  {showAdvancedSegment && (
+                    <div className="mt-4 pt-4 border-t border-slate-600">
+                      <SegmentSelector
+                        filters={segmentFilters}
+                        onChange={setSegmentFilters}
+                        leads={leads}
+                        properties={properties}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preview de destinatarios */}
+              <div className="bg-slate-700/50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-slate-400">Destinatarios</div>
+                  <div className="text-2xl font-bold text-yellow-400">
+                    {targetType === 'vendedores'
+                      ? (selectedVendorIds.length > 0 ? selectedVendorIds.length : teamMembers.filter(v => v.active && v.phone).length)
+                      : targetType === 'manual'
+                        ? selectedLeadIds.length
+                        : (showAdvancedSegment ? filteredLeadsForSurvey.length : leads.length)
+                    } {targetType === 'vendedores' ? 'vendedor(es)' : 'lead(s)'}
+                  </div>
+                </div>
+                {/* Preview para leads con filtros */}
+                {targetType === 'leads' && showAdvancedSegment && filteredLeadsForSurvey.length > 0 && (
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                    {filteredLeadsForSurvey.slice(0, 15).map(l => (
+                      <span key={l.id} className="bg-slate-600 px-2 py-0.5 rounded text-xs">
+                        {l.name}
+                      </span>
+                    ))}
+                    {filteredLeadsForSurvey.length > 15 && (
+                      <span className="bg-slate-600 px-2 py-0.5 rounded text-xs">
+                        +{filteredLeadsForSurvey.length - 15} más
+                      </span>
+                    )}
+                  </div>
+                )}
+                {/* Preview para selección manual */}
+                {targetType === 'manual' && selectedLeadIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                    {leads.filter(l => selectedLeadIds.includes(l.id)).map(l => (
+                      <span key={l.id} className="bg-blue-600/50 px-2 py-0.5 rounded text-xs">
+                        {l.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Preview para vendedores */}
+                {targetType === 'vendedores' && (
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                    {(selectedVendorIds.length > 0
+                      ? teamMembers.filter(v => selectedVendorIds.includes(v.id))
+                      : teamMembers.filter(v => v.active && v.phone)
+                    ).map(v => (
+                      <span key={v.id} className="bg-purple-600/50 px-2 py-0.5 rounded text-xs">
+                        {v.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-slate-800">
+              <button
+                onClick={() => { setShowNewSurvey(false); setSelectedTemplate(null); setTargetType('leads'); setSelectedLeadIds([]); setSelectedVendorIds([]) }}
+                className="px-6 py-2 bg-slate-600 rounded-lg hover:bg-slate-500"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendSurvey}
+                disabled={sendingSurvey || !selectedTemplate || (
+                  targetType === 'manual' && selectedLeadIds.length === 0
+                ) || (
+                  targetType === 'leads' && showAdvancedSegment && filteredLeadsForSurvey.length === 0
+                )}
+                className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingSurvey ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send size={18} />
+                    Enviar Encuesta ({showAdvancedSegment ? filteredLeadsForSurvey.length : leads.length})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CREAR PLANTILLA */}
+      {showCreateTemplate && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+              <h3 className="text-2xl font-bold text-purple-400">Crear Nueva Plantilla</h3>
+              <button onClick={() => setShowCreateTemplate(false)} className="text-slate-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Nombre de la plantilla */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Nombre de la Plantilla</label>
+                <input
+                  type="text"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ej: Encuesta de seguimiento mensual"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3"
+                />
+              </div>
+
+              {/* Saludo inicial */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Saludo Inicial</label>
+                <textarea
+                  value={newTemplate.greeting}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, greeting: e.target.value }))}
+                  placeholder="Hola {nombre}, ..."
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 h-20 resize-none"
+                />
+                <p className="text-xs text-slate-500 mt-1">Usa {'{nombre}'} para personalizar con el nombre del lead</p>
+              </div>
+
+              {/* Preguntas */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Preguntas</label>
+                <div className="space-y-3">
+                  {newTemplate.questions.map((q, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={q.text}
+                        onChange={(e) => {
+                          const newQuestions = [...newTemplate.questions]
+                          newQuestions[idx].text = e.target.value
+                          setNewTemplate(prev => ({ ...prev, questions: newQuestions }))
+                        }}
+                        placeholder={`Pregunta ${idx + 1}`}
+                        className="flex-1 bg-slate-700 border border-slate-600 rounded-lg p-2"
+                      />
+                      <select
+                        value={q.type}
+                        onChange={(e) => {
+                          const newQuestions = [...newTemplate.questions]
+                          newQuestions[idx].type = e.target.value as any
+                          setNewTemplate(prev => ({ ...prev, questions: newQuestions }))
+                        }}
+                        className="bg-slate-700 border border-slate-600 rounded-lg px-2"
+                      >
+                        <option value="rating">Rating (1-5)</option>
+                        <option value="text">Texto libre</option>
+                        <option value="yesno">Si/No</option>
+                      </select>
+                      {newTemplate.questions.length > 1 && (
+                        <button
+                          onClick={() => {
+                            setNewTemplate(prev => ({
+                              ...prev,
+                              questions: prev.questions.filter((_, i) => i !== idx)
+                            }))
+                          }}
+                          className="text-red-400 hover:text-red-300 px-2"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setNewTemplate(prev => ({
+                    ...prev,
+                    questions: [...prev.questions, { text: '', type: 'text' }]
+                  }))}
+                  className="mt-3 text-purple-400 hover:text-purple-300 text-sm flex items-center gap-1"
+                >
+                  <Plus size={16} /> Agregar pregunta
+                </button>
+              </div>
+
+              {/* Mensaje de cierre */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Mensaje de Cierre</label>
+                <textarea
+                  value={newTemplate.closing}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, closing: e.target.value }))}
+                  placeholder="Gracias por tu tiempo..."
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 h-20 resize-none"
+                />
+              </div>
+
+              {/* Vista previa */}
+              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-600">
+                <div className="text-sm text-slate-400 mb-2 flex items-center gap-2">
+                  <Eye size={14} /> Vista Previa (WhatsApp)
+                </div>
+                <div className="bg-green-900/30 rounded-lg p-3 text-sm">
+                  <p className="mb-2">{newTemplate.greeting || 'Hola {nombre}...'}</p>
+                  {newTemplate.questions.filter(q => q.text).map((q, i) => (
+                    <p key={i} className="mb-1">{i + 1}. {q.text}</p>
+                  ))}
+                  {newTemplate.closing && <p className="mt-2 text-slate-400">{newTemplate.closing}</p>}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-slate-800">
+              <button
+                onClick={() => setShowCreateTemplate(false)}
+                className="px-6 py-2 bg-slate-600 rounded-lg hover:bg-slate-500"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!newTemplate.name || !newTemplate.greeting || newTemplate.questions.every(q => !q.text)) {
+                    alert('Completa al menos el nombre, saludo y una pregunta')
+                    return
+                  }
+                  setCustomTemplates(prev => [...prev, { ...newTemplate, id: Date.now().toString() }])
+                  setNewTemplate({
+                    name: '',
+                    type: 'custom',
+                    greeting: '',
+                    questions: [{ text: '', type: 'rating' }],
+                    closing: ''
+                  })
+                  setShowCreateTemplate(false)
+                }}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold flex items-center gap-2"
+              >
+                <Save size={18} /> Guardar Plantilla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FollowupsView({ supabase }: { supabase: any }) {
