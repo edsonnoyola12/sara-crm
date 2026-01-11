@@ -268,6 +268,71 @@ function App() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [alertSettings, setAlertSettings] = useState<AlertSetting[]>([])
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null)
+
+  // ═══════════════════════════════════════════════════════════
+  // SISTEMA DE PERMISOS POR ROL
+  // ═══════════════════════════════════════════════════════════
+  const permisos = {
+    // LEADS
+    puedeVerTodosLeads: () => ['admin', 'coordinador'].includes(currentUser?.role || ''),
+    puedeVerLeadsReadOnly: () => currentUser?.role === 'agencia',
+    puedeEditarLead: (lead: Lead) => {
+      if (!currentUser) return false
+      if (['admin', 'coordinador'].includes(currentUser.role)) return true
+      if (currentUser.role === 'vendedor' && lead.assigned_to === currentUser.id) return true
+      return false
+    },
+    puedeCambiarStatusLead: (lead: Lead) => {
+      if (!currentUser) return false
+      if (['admin', 'coordinador'].includes(currentUser.role)) return true
+      if (currentUser.role === 'vendedor' && lead.assigned_to === currentUser.id) return true
+      return false
+    },
+    puedeAsignarVendedor: () => ['admin', 'coordinador'].includes(currentUser?.role || ''),
+    puedeCrearLead: () => ['admin', 'coordinador', 'vendedor'].includes(currentUser?.role || ''),
+
+    // EQUIPO
+    puedeEditarEquipo: () => currentUser?.role === 'admin',
+
+    // PROPIEDADES
+    puedeEditarPropiedades: () => currentUser?.role === 'admin',
+
+    // HIPOTECAS
+    puedeVerTodasHipotecas: () => ['admin', 'coordinador', 'asesor'].includes(currentUser?.role || ''),
+    puedeEditarHipoteca: (mortgage: MortgageApplication) => {
+      if (!currentUser) return false
+      if (['admin', 'coordinador'].includes(currentUser.role)) return true
+      if (currentUser.role === 'asesor' && mortgage.assigned_advisor_id === currentUser.id) return true
+      return false
+    },
+
+    // METAS
+    puedeVerTodasMetas: () => ['admin', 'coordinador'].includes(currentUser?.role || ''),
+    puedeEditarMetas: () => currentUser?.role === 'admin',
+
+    // MARKETING
+    puedeVerMarketing: () => ['admin', 'coordinador', 'agencia'].includes(currentUser?.role || ''),
+    puedeEditarMarketing: () => ['admin', 'agencia'].includes(currentUser?.role || ''),
+
+    // SIDEBAR - qué secciones puede ver cada rol
+    puedeVerSeccion: (seccion: string) => {
+      if (!currentUser) return false
+      const acceso: Record<string, string[]> = {
+        dashboard: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
+        leads: ['admin', 'vendedor', 'agencia', 'coordinador'],
+        properties: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
+        team: ['admin', 'vendedor', 'agencia', 'asesor', 'coordinador'],
+        mortgage: ['admin', 'asesor', 'coordinador'],
+        marketing: ['admin', 'agencia', 'coordinador'],
+        goals: ['admin', 'vendedor', 'coordinador'],
+        calendar: ['admin', 'vendedor', 'coordinador'],
+        promotions: ['admin', 'coordinador'],
+        events: ['admin', 'coordinador'],
+      }
+      return acceso[seccion]?.includes(currentUser.role) || false
+    }
+  }
+
   const [loginPhone, setLoginPhone] = useState('')
   const [loginError, setLoginError] = useState('')
   const [showAllData, setShowAllData] = useState(false)
@@ -1639,8 +1704,19 @@ function App() {
           <div className="bg-slate-800 rounded-xl p-3 mb-4">
             <p className="text-sm text-slate-400">Conectado como:</p>
             <p className="font-semibold">{currentUser.name}</p>
-            <p className="text-xs text-slate-500">{currentUser.role}</p>
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <select
+                value={currentUser.role}
+                onChange={(e) => setCurrentUser({ ...currentUser, role: e.target.value as any })}
+                className="text-xs px-2 py-1 bg-slate-700 border border-slate-600 rounded cursor-pointer"
+                title="Cambiar rol para testing"
+              >
+                <option value="admin">Admin</option>
+                <option value="vendedor">Vendedor</option>
+                <option value="agencia">Marketing</option>
+                <option value="coordinador">Coordinador</option>
+                <option value="asesor">Asesor</option>
+              </select>
               <button onClick={() => { setCurrentUser(null); localStorage.removeItem('sara_user_phone') }} className="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded hover:bg-red-600/30">
                 Salir
               </button>
@@ -1649,51 +1725,71 @@ function App() {
         )}
         
         <nav className="flex-1 space-y-2 overflow-y-auto">
-          <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <TrendingUp size={20} /> Dashboard
-          </button>
-          <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'leads' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <Users size={20} /> Leads
-          </button>
-          <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'properties' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <Building size={20} /> Propiedades
-          </button>
-          <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'team' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <UserCheck size={20} /> Equipo
-          </button>
-          <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mortgage' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <CreditCard size={20} /> Hipotecas
-            {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
-              <span className="bg-red-500 text-xs px-2 py-1 rounded-full">
-                {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length}
-              </span>
-            )}
-          </button>
-          <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <Megaphone size={20} /> Marketing
-          </button>
-          <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
-            <Target size={20} /> Metas
-          </button>
-          <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
-            <Gift size={20} /> Promociones
-            {promotions.filter(p => p.status === 'active').length > 0 && (
-              <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
-                {promotions.filter(p => p.status === 'active').length}
-              </span>
-            )}
-          </button>
-          <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'events' ? 'bg-emerald-600' : 'hover:bg-slate-700'}`}>
-            <CalendarIcon size={20} /> Eventos
-            {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
-              <span className="bg-emerald-500 text-xs px-2 py-1 rounded-full ml-auto">
-                {crmEvents.filter(e => e.status === 'upcoming').length}
-              </span>
-            )}
-          </button>
-          <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-            <CalendarIcon size={20} /> Calendario
-          </button>
+          {permisos.puedeVerSeccion('dashboard') && (
+            <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <TrendingUp size={20} /> Dashboard
+            </button>
+          )}
+          {permisos.puedeVerSeccion('leads') && (
+            <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'leads' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <Users size={20} /> Leads
+            </button>
+          )}
+          {permisos.puedeVerSeccion('properties') && (
+            <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'properties' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <Building size={20} /> Propiedades
+            </button>
+          )}
+          {permisos.puedeVerSeccion('team') && (
+            <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'team' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <UserCheck size={20} /> Equipo
+            </button>
+          )}
+          {permisos.puedeVerSeccion('mortgage') && (
+            <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mortgage' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <CreditCard size={20} /> Hipotecas
+              {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
+                <span className="bg-red-500 text-xs px-2 py-1 rounded-full">
+                  {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length}
+                </span>
+              )}
+            </button>
+          )}
+          {permisos.puedeVerSeccion('marketing') && (
+            <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <Megaphone size={20} /> Marketing
+            </button>
+          )}
+          {permisos.puedeVerSeccion('goals') && (
+            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
+              <Target size={20} /> Metas
+            </button>
+          )}
+          {permisos.puedeVerSeccion('promotions') && (
+            <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
+              <Gift size={20} /> Promociones
+              {promotions.filter(p => p.status === 'active').length > 0 && (
+                <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
+                  {promotions.filter(p => p.status === 'active').length}
+                </span>
+              )}
+            </button>
+          )}
+          {permisos.puedeVerSeccion('events') && (
+            <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'events' ? 'bg-emerald-600' : 'hover:bg-slate-700'}`}>
+              <CalendarIcon size={20} /> Eventos
+              {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
+                <span className="bg-emerald-500 text-xs px-2 py-1 rounded-full ml-auto">
+                  {crmEvents.filter(e => e.status === 'upcoming').length}
+                </span>
+              )}
+            </button>
+          )}
+          {permisos.puedeVerSeccion('calendar') && (
+            <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              <CalendarIcon size={20} /> Calendario
+            </button>
+          )}
           <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
             <Clock size={20} /> Follow-ups
           </button>
@@ -3163,9 +3259,14 @@ function App() {
                   <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'list' ? 'bg-blue-600' : 'bg-slate-700'}`}>Lista</button>
                   <button onClick={() => setLeadViewMode('funnel')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'funnel' ? 'bg-blue-600' : 'bg-slate-700'}`}>Funnel</button>
                 </div>
-                <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
-                  <Plus size={20} /> Agregar Lead
-                </button>
+                {permisos.puedeCrearLead() && (
+                  <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
+                    <Plus size={20} /> Agregar Lead
+                  </button>
+                )}
+                {permisos.puedeVerLeadsReadOnly() && (
+                  <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+                )}
               </div>
               <div className="flex gap-2">
                 <span className="bg-red-500 px-3 py-1 rounded-full text-sm">HOT ({hotLeads})</span>
@@ -3194,7 +3295,7 @@ function App() {
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={async (e) => {
                         e.preventDefault()
-                        if (draggedLead && draggedLead.status !== stage.key) {
+                        if (draggedLead && draggedLead.status !== stage.key && permisos.puedeCambiarStatusLead(draggedLead)) {
                           await supabase.from('leads').update({ status: stage.key, status_changed_at: new Date().toISOString() }).eq('id', draggedLead.id)
                           setLeads(leads.map(l => l.id === draggedLead.id ? {...l, status: stage.key} : l))
                         }
@@ -3213,15 +3314,16 @@ function App() {
                           >
                             <p onClick={() => selectLead(lead)} className="font-semibold text-xs truncate cursor-pointer">{lead.name || 'Sin nombre'}</p>
                             <p className="text-xs text-slate-400">...{lead.phone?.slice(-4)}</p>
-                            <select 
-                              value={lead.status} 
+                            <select
+                              value={lead.status}
+                              disabled={!permisos.puedeCambiarStatusLead(lead)}
                               onChange={(e) => {
-                                if (e.target.value !== lead.status) {
+                                if (e.target.value !== lead.status && permisos.puedeCambiarStatusLead(lead)) {
                                   setStatusChange({lead, newStatus: e.target.value})
                                   setStatusNote('')
                                 }
                               }}
-                              className="w-full mt-1 p-1 text-xs bg-slate-600 rounded border-none"
+                              className={`w-full mt-1 p-1 text-xs bg-slate-600 rounded border-none ${!permisos.puedeCambiarStatusLead(lead) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                               <option value="new">Nuevo</option>
                               <option value="contacted">Contactado</option>
@@ -3374,9 +3476,13 @@ function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Propiedades ({properties.length})</h2>
-              <button onClick={() => setShowNewProperty(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
-                <Plus size={20} /> Agregar Propiedad
-              </button>
+              {permisos.puedeEditarPropiedades() ? (
+                <button onClick={() => setShowNewProperty(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
+                  <Plus size={20} /> Agregar Propiedad
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {properties.map(prop => (
@@ -3412,14 +3518,16 @@ function App() {
                       <span className="text-blue-400 bg-blue-500/20 p-2 rounded-xl">{(prop.total_units || 0) - (prop.sold_units || 0)} disponibles</span>
                     </div>
                   </div>
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                    <button onClick={() => setEditingProperty(prop)} className="bg-blue-600 p-2 rounded-xl hover:bg-blue-700">
-                      <Edit size={16} />
-                    </button>
-                    <button onClick={() => deleteProperty(prop.id)} className="bg-red-600 p-2 rounded-xl hover:bg-red-700">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {permisos.puedeEditarPropiedades() && (
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <button onClick={() => setEditingProperty(prop)} className="bg-blue-600 p-2 rounded-xl hover:bg-blue-700">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => deleteProperty(prop.id)} className="bg-red-600 p-2 rounded-xl hover:bg-red-700">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -3430,9 +3538,13 @@ function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Equipo ({team.length})</h2>
-              <button onClick={() => setShowNewMember(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
-                <Plus size={20} /> Agregar Miembro
-              </button>
+              {permisos.puedeEditarEquipo() ? (
+                <button onClick={() => setShowNewMember(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
+                  <Plus size={20} /> Agregar Miembro
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -3454,14 +3566,16 @@ function App() {
                         <div className="text-right">
                           <p className="text-green-400 bg-green-500/20 p-2 rounded-xl font-bold">{member.sales_count || 0} ventas</p>
                         </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100">
-                          <button onClick={() => setEditingMember(member)} className="bg-blue-600 p-2 rounded-xl hover:bg-blue-700">
-                            <Edit size={16} />
-                          </button>
-                          <button onClick={() => deleteMember(member.id)} className="bg-red-600 p-2 rounded-xl hover:bg-red-700">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {permisos.puedeEditarEquipo() && (
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+                            <button onClick={() => setEditingMember(member)} className="bg-blue-600 p-2 rounded-xl hover:bg-blue-700">
+                              <Edit size={16} />
+                            </button>
+                            <button onClick={() => deleteMember(member.id)} className="bg-red-600 p-2 rounded-xl hover:bg-red-700">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -3483,9 +3597,11 @@ function App() {
                           <p className="text-slate-400 text-sm">{member.phone}</p>
                         </div>
                       </div>
-                      <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
-                        <Edit size={16} />
-                      </button>
+                      {permisos.puedeEditarEquipo() && (
+                        <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
+                          <Edit size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                   {team.filter(t => t.role === 'asesor').length === 0 && <p className="text-slate-500 text-center py-4">Sin asesores</p>}
@@ -3507,9 +3623,11 @@ function App() {
                           <p className="text-slate-400 text-sm">{member.phone}</p>
                         </div>
                       </div>
-                      <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
-                        <Edit size={16} />
-                      </button>
+                      {permisos.puedeEditarEquipo() && (
+                        <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
+                          <Edit size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                   {team.filter(t => t.role === "coordinador").length === 0 && <p className="text-slate-500 text-center py-4">Sin coordinadoras</p>}
@@ -3529,9 +3647,11 @@ function App() {
                           <p className="text-slate-400 text-sm">{member.phone}</p>
                         </div>
                       </div>
-                      <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
-                        <Edit size={16} />
-                      </button>
+                      {permisos.puedeEditarEquipo() && (
+                        <button onClick={() => setEditingMember(member)} className="opacity-0 group-hover:opacity-100 bg-blue-600 p-2 rounded-xl">
+                          <Edit size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                   {team.filter(t => t.role === 'agencia').length === 0 && <p className="text-slate-500 text-center py-4">Sin personal de marketing</p>}
@@ -3545,15 +3665,23 @@ function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Solicitudes Hipotecarias ({mortgages.length})</h2>
-              <button onClick={() => setShowNewMortgage(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
-                <Plus size={20} /> Nueva Solicitud
-              </button>
+              {['admin', 'coordinador', 'asesor'].includes(currentUser?.role || '') ? (
+                <button onClick={() => setShowNewMortgage(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
+                  <Plus size={20} /> Nueva Solicitud
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {mortgageStatuses.map(status => {
                 const StatusIcon = status.icon
-                const statusMortgages = mortgages.filter(m => m.status === status.key)
+                // Filtrar hipotecas: asesor solo ve las suyas, admin/coordinador ven todas
+                const filteredMortgagesForRole = currentUser?.role === 'asesor'
+                  ? mortgages.filter(m => m.assigned_advisor_id === currentUser.id)
+                  : mortgages
+                const statusMortgages = filteredMortgagesForRole.filter(m => m.status === status.key)
                 return (
                   <div key={status.key} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4">
                     <div className="flex items-center gap-2 mb-4">
@@ -3567,7 +3695,7 @@ function App() {
                       {statusMortgages.map(mortgage => {
                         const daysInStatus = getDaysInStatus(mortgage)
                         return (
-                          <div key={mortgage.id} onClick={() => setEditingMortgage(mortgage)} className="bg-slate-700 p-3 rounded-xl cursor-pointer hover:bg-gray-600 relative">
+                          <div key={mortgage.id} onClick={() => permisos.puedeEditarHipoteca(mortgage) && setEditingMortgage(mortgage)} className={`bg-slate-700 p-3 rounded-xl relative ${permisos.puedeEditarHipoteca(mortgage) ? 'cursor-pointer hover:bg-gray-600' : 'opacity-70'}`}>
                             {daysInStatus > 3 && !['approved', 'rejected'].includes(mortgage.status) && (
                               <AlertTriangle className="absolute top-2 right-2 text-red-400 bg-red-500/20 p-2 rounded-xl" size={16} />
                             )}
@@ -3590,9 +3718,13 @@ function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Marketing ({campaigns.length} campañas)</h2>
-              <button onClick={() => setShowNewCampaign(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
-                <Plus size={20} /> Nueva Campaña
-              </button>
+              {permisos.puedeEditarMarketing() ? (
+                <button onClick={() => setShowNewCampaign(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
+                  <Plus size={20} /> Nueva Campaña
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -4622,8 +4754,11 @@ function App() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                Planeaci&oacute;n de Metas
+                {currentUser?.role === 'vendedor' ? 'Mi Meta' : 'Planeación de Metas'}
               </h2>
+              {!permisos.puedeEditarMetas() && (
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+              )}
               <div className="flex gap-2">
                 {/* Exportar CSV */}
                 <button
@@ -4712,8 +4847,9 @@ function App() {
                     <input
                       type="number"
                       value={annualGoal.goal}
-                      onChange={(e) => setAnnualGoal({...annualGoal, goal: parseInt(e.target.value) || 0})}
-                      className="bg-slate-700 px-4 py-3 rounded-lg w-full text-3xl font-bold text-center text-purple-400"
+                      onChange={(e) => permisos.puedeEditarMetas() && setAnnualGoal({...annualGoal, goal: parseInt(e.target.value) || 0})}
+                      readOnly={!permisos.puedeEditarMetas()}
+                      className={`bg-slate-700 px-4 py-3 rounded-lg w-full text-3xl font-bold text-center text-purple-400 ${!permisos.puedeEditarMetas() ? 'opacity-70 cursor-not-allowed' : ''}`}
                       placeholder="0"
                     />
                   </div>
@@ -4726,23 +4862,25 @@ function App() {
                   </p>
                 </div>
 
-                <div className="bg-slate-800/60 rounded-xl p-4 flex flex-col justify-center gap-2">
-                  <button
-                    onClick={() => saveAnnualGoal(annualGoal.goal)}
-                    className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Guardar Meta Anual
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await applyAnnualToMonthly()
-                      alert(`Meta de ${Math.round(annualGoal.goal / 12)} casas aplicada a los 12 meses de ${selectedGoalYear}`)
-                    }}
-                    className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 px-4 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Aplicar a Todos los Meses
-                  </button>
-                </div>
+                {permisos.puedeEditarMetas() && (
+                  <div className="bg-slate-800/60 rounded-xl p-4 flex flex-col justify-center gap-2">
+                    <button
+                      onClick={() => saveAnnualGoal(annualGoal.goal)}
+                      className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-medium text-sm"
+                    >
+                      Guardar Meta Anual
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await applyAnnualToMonthly()
+                        alert(`Meta de ${Math.round(annualGoal.goal / 12)} casas aplicada a los 12 meses de ${selectedGoalYear}`)
+                      }}
+                      className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 px-4 py-2 rounded-lg font-medium text-sm"
+                    >
+                      Aplicar a Todos los Meses
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -4766,17 +4904,20 @@ function App() {
                   <input
                     type="number"
                     value={monthlyGoals.company_goal}
-                    onChange={(e) => setMonthlyGoals({...monthlyGoals, company_goal: parseInt(e.target.value) || 0})}
-                    className="bg-slate-700 px-4 py-3 rounded-lg w-32 text-2xl font-bold text-center"
+                    onChange={(e) => permisos.puedeEditarMetas() && setMonthlyGoals({...monthlyGoals, company_goal: parseInt(e.target.value) || 0})}
+                    readOnly={!permisos.puedeEditarMetas()}
+                    className={`bg-slate-700 px-4 py-3 rounded-lg w-32 text-2xl font-bold text-center ${!permisos.puedeEditarMetas() ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                   <span className="text-xl text-slate-400">casas</span>
                 </div>
-                <button
-                  onClick={() => saveCompanyGoal(monthlyGoals.company_goal)}
-                  className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-medium"
-                >
-                  Guardar
-                </button>
+                {permisos.puedeEditarMetas() && (
+                  <button
+                    onClick={() => saveCompanyGoal(monthlyGoals.company_goal)}
+                    className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-medium"
+                  >
+                    Guardar
+                  </button>
+                )}
               </div>
 
               <div className="mt-4">
@@ -4800,16 +4941,18 @@ function App() {
                   <Users className="text-green-400" size={24} />
                   Metas por Vendedor
                 </h3>
-                <button
-                  onClick={async () => {
-                    await distributeGoalsEqually()
-                    alert('Metas distribuidas equitativamente entre vendedores')
-                  }}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2"
-                >
-                  <Users size={18} />
-                  Distribuir Equitativamente
-                </button>
+                {permisos.puedeEditarMetas() && (
+                  <button
+                    onClick={async () => {
+                      await distributeGoalsEqually()
+                      alert('Metas distribuidas equitativamente entre vendedores')
+                    }}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+                  >
+                    <Users size={18} />
+                    Distribuir Equitativamente
+                  </button>
+                )}
               </div>
 
               {vendorGoals.length === 0 ? (
