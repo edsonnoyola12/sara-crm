@@ -309,6 +309,7 @@ function App() {
   const [selectedGoalMonth, setSelectedGoalMonth] = useState(new Date().toISOString().slice(0, 7))
   const [annualGoal, setAnnualGoal] = useState<{year: number, goal: number}>({ year: new Date().getFullYear(), goal: 0 })
   const [selectedGoalYear, setSelectedGoalYear] = useState(new Date().getFullYear())
+  const [marketingGoals, setMarketingGoals] = useState<{month: string, leads_goal: number, budget: number}>({ month: '', leads_goal: 0, budget: 0 })
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [showNewAppointment, setShowNewAppointment] = useState(false)
   const [newAppointment, setNewAppointment] = useState<any>({})
@@ -1858,9 +1859,293 @@ function App() {
             </div>
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* 3 KPIs CRÍTICOS DEL CEO - Vista rápida de salud del negocio */}
+            {/* DASHBOARD PERSONALIZADO POR ROL */}
             {/* ═══════════════════════════════════════════════════════════ */}
-            {(() => {
+
+            {/* ══════ DASHBOARD VENDEDOR ══════ */}
+            {currentUser?.role === 'vendedor' && (() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+              const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
+
+              // Mis leads
+              const misLeads = leads.filter(l => l.assigned_to === currentUser.id)
+              const misLeadsActivos = misLeads.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status))
+              const misVentasMes = misLeads.filter(l =>
+                (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') &&
+                l.status_changed_at?.startsWith(currentMonth)
+              ).length
+              const miMeta = vendorGoals.find(v => v.vendor_id === currentUser.id)?.goal || 0
+              const miPorcentaje = miMeta > 0 ? Math.round((misVentasMes / miMeta) * 100) : 0
+              const miConversion = misLeads.length > 0 ? Math.round((misLeads.filter(l => l.status === 'closed' || l.status === 'delivered' || l.status === 'sold').length / misLeads.length) * 100) : 0
+
+              // Mi funnel
+              const miFunnel = {
+                new: misLeads.filter(l => l.status === 'new').length,
+                contacted: misLeads.filter(l => l.status === 'contacted').length,
+                scheduled: misLeads.filter(l => l.status === 'scheduled').length,
+                visited: misLeads.filter(l => l.status === 'visited').length,
+                negotiation: misLeads.filter(l => l.status === 'negotiation').length,
+                reserved: misLeads.filter(l => l.status === 'reserved').length
+              }
+
+              // Mis citas de hoy
+              const hoy = now.toISOString().slice(0, 10)
+              const misCitasHoy = appointments.filter(a => a.vendedor_id === currentUser.id && a.scheduled_date?.startsWith(hoy))
+
+              // Leads que necesitan atención (estancados)
+              const leadsUrgentes = misLeads.filter(l => {
+                if (['closed', 'delivered', 'sold', 'lost'].includes(l.status)) return false
+                const dias = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
+                return dias > 3
+              }).length
+
+              const estadoMeta = miMeta === 0 ? 'warning' : miPorcentaje >= 80 ? 'good' : miPorcentaje >= 50 ? 'warning' : 'critical'
+
+              return (
+                <div className="space-y-4">
+                  {/* Header personal */}
+                  <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-500/30 rounded-xl p-4">
+                    <h2 className="text-xl font-bold mb-1">👤 Mi Dashboard - {currentUser.name}</h2>
+                    <p className="text-sm text-slate-400">Tu rendimiento personal y leads asignados</p>
+                  </div>
+
+                  {/* KPIs personales */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Mi meta */}
+                    <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-xs text-slate-400 mb-1">MI META</p>
+                      <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {misVentasMes}/{miMeta || '?'}
+                      </p>
+                      <div className="h-1.5 bg-slate-700 rounded-full mt-2">
+                        <div className={`h-full rounded-full ${estadoMeta === 'good' ? 'bg-green-500' : estadoMeta === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(miPorcentaje, 100)}%` }} />
+                      </div>
+                      <p className="text-xs mt-1">{miMeta === 0 ? 'Sin meta asignada' : `${miPorcentaje}% completado`}</p>
+                    </div>
+
+                    {/* Leads activos */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">MIS LEADS</p>
+                      <p className="text-3xl font-bold text-blue-400">{misLeadsActivos.length}</p>
+                      <p className="text-xs text-slate-500">activos de {misLeads.length} total</p>
+                    </div>
+
+                    {/* Conversión */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">MI CONVERSIÓN</p>
+                      <p className={`text-3xl font-bold ${miConversion >= 10 ? 'text-green-400' : miConversion >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{miConversion}%</p>
+                      <p className="text-xs text-slate-500">lead → venta</p>
+                    </div>
+
+                    {/* Citas hoy */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">CITAS HOY</p>
+                      <p className="text-3xl font-bold text-purple-400">{misCitasHoy.length}</p>
+                      <p className="text-xs text-slate-500">{diasRestantes} días para cierre</p>
+                    </div>
+                  </div>
+
+                  {/* Alerta si hay leads urgentes */}
+                  {leadsUrgentes > 0 && (
+                    <div className="bg-orange-900/30 border border-orange-500/40 rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-2xl">⚠️</span>
+                      <div>
+                        <p className="font-semibold text-orange-300">Tienes {leadsUrgentes} leads sin seguimiento</p>
+                        <p className="text-sm text-slate-400">Llevan más de 3 días sin avance</p>
+                      </div>
+                      <button onClick={() => setView('leads')} className="ml-auto px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded-lg text-sm">
+                        Ver leads →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Mi Funnel */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">📊 Mi Funnel de Ventas</h3>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[
+                        { label: 'Nuevos', count: miFunnel.new, color: 'bg-blue-500' },
+                        { label: 'Contactados', count: miFunnel.contacted, color: 'bg-cyan-500' },
+                        { label: 'Cita', count: miFunnel.scheduled, color: 'bg-purple-500' },
+                        { label: 'Visitaron', count: miFunnel.visited, color: 'bg-pink-500' },
+                        { label: 'Negociación', count: miFunnel.negotiation, color: 'bg-orange-500' },
+                        { label: 'Reservado', count: miFunnel.reserved, color: 'bg-green-500' }
+                      ].map((stage, i) => (
+                        <div key={i} className="text-center">
+                          <div className={`${stage.color} rounded-lg py-3 text-xl font-bold`}>{stage.count}</div>
+                          <p className="text-xs mt-1 text-slate-400">{stage.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Acción rápida */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setView('leads')} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium">
+                      📋 Ver mis leads
+                    </button>
+                    <button onClick={() => setView('calendar')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
+                      📅 Ver mi agenda
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ══════ DASHBOARD MARKETING ══════ */}
+            {currentUser?.role === 'agencia' && (() => {
+              const now = new Date()
+              const currentMonth = now.toISOString().slice(0, 7)
+              const diasTranscurridos = now.getDate()
+              const diasEnMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+
+              // Leads del mes
+              const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth)).length
+              const leadsAyer = leads.filter(l => {
+                const ayer = new Date(now.getTime() - 86400000).toISOString().slice(0, 10)
+                return l.created_at?.startsWith(ayer)
+              }).length
+              const leadsHoy = leads.filter(l => l.created_at?.startsWith(now.toISOString().slice(0, 10))).length
+
+              // Meta de leads (estimación: 10 leads por cada venta de meta)
+              const metaLeads = marketingGoals.leads_goal || (monthlyGoals.company_goal * 10)
+              const porcentajeLeads = metaLeads > 0 ? Math.round((leadsDelMes / metaLeads) * 100) : 0
+              const leadsProyectados = diasTranscurridos > 0 ? Math.round((leadsDelMes / diasTranscurridos) * diasEnMes) : 0
+
+              // Por fuente
+              const fuentesData: Record<string, { total: number, cerrados: number }> = {}
+              leads.filter(l => l.created_at?.startsWith(currentMonth)).forEach(l => {
+                const src = l.source || 'Directo'
+                if (!fuentesData[src]) fuentesData[src] = { total: 0, cerrados: 0 }
+                fuentesData[src].total++
+                if (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') fuentesData[src].cerrados++
+              })
+              const fuentes = Object.entries(fuentesData).map(([name, data]) => ({
+                name,
+                total: data.total,
+                cerrados: data.cerrados,
+                conversion: data.total > 0 ? Math.round((data.cerrados / data.total) * 100) : 0
+              })).sort((a, b) => b.total - a.total)
+
+              // Calidad de leads (% que avanza en funnel)
+              const leadsQueAvanzan = leads.filter(l =>
+                l.created_at?.startsWith(currentMonth) &&
+                !['new', 'lost', 'inactive'].includes(l.status)
+              ).length
+              const calidadLeads = leadsDelMes > 0 ? Math.round((leadsQueAvanzan / leadsDelMes) * 100) : 0
+
+              // CPL estimado
+              const presupuesto = marketingGoals.budget || 50000 // default 50k
+              const cpl = leadsDelMes > 0 ? Math.round(presupuesto / leadsDelMes) : 0
+              const cplProyectado = leadsProyectados > 0 ? Math.round(presupuesto / leadsProyectados) : 0
+
+              const estadoLeads = porcentajeLeads >= 80 ? 'good' : porcentajeLeads >= 50 ? 'warning' : 'critical'
+
+              return (
+                <div className="space-y-4">
+                  {/* Header marketing */}
+                  <div className="bg-gradient-to-r from-pink-900/50 to-purple-900/50 border border-pink-500/30 rounded-xl p-4">
+                    <h2 className="text-xl font-bold mb-1">📣 Dashboard Marketing</h2>
+                    <p className="text-sm text-slate-400">Generación de leads y performance de campañas</p>
+                  </div>
+
+                  {/* KPIs marketing */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Leads del mes */}
+                    <div className={`rounded-xl p-4 border ${estadoLeads === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoLeads === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-xs text-slate-400 mb-1">LEADS DEL MES</p>
+                      <p className={`text-3xl font-bold ${estadoLeads === 'good' ? 'text-green-400' : estadoLeads === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {leadsDelMes}
+                      </p>
+                      <div className="h-1.5 bg-slate-700 rounded-full mt-2">
+                        <div className={`h-full rounded-full ${estadoLeads === 'good' ? 'bg-green-500' : estadoLeads === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(porcentajeLeads, 100)}%` }} />
+                      </div>
+                      <p className="text-xs mt-1">Meta: {metaLeads} ({porcentajeLeads}%)</p>
+                    </div>
+
+                    {/* Leads hoy */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
+                      <p className="text-3xl font-bold text-blue-400">{leadsHoy}</p>
+                      <p className="text-xs text-slate-500">Ayer: {leadsAyer}</p>
+                    </div>
+
+                    {/* CPL */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">CPL ACTUAL</p>
+                      <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
+                      <p className="text-xs text-slate-500">Proyectado: ${cplProyectado}</p>
+                    </div>
+
+                    {/* Calidad */}
+                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-xs text-slate-400 mb-1">CALIDAD</p>
+                      <p className={`text-3xl font-bold ${calidadLeads >= 40 ? 'text-green-400' : calidadLeads >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>{calidadLeads}%</p>
+                      <p className="text-xs text-slate-500">leads que avanzan</p>
+                    </div>
+                  </div>
+
+                  {/* Proyección */}
+                  <div className={`border rounded-xl p-4 ${leadsProyectados >= metaLeads ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-400">Proyección fin de mes</p>
+                        <p className="text-2xl font-bold">{leadsProyectados} leads</p>
+                      </div>
+                      <div className="text-right">
+                        {leadsProyectados >= metaLeads ? (
+                          <p className="text-green-400">✅ En track para cumplir meta</p>
+                        ) : (
+                          <p className="text-yellow-400">⚠️ Faltan {metaLeads - leadsProyectados} leads</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Performance por fuente */}
+                  <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">📈 Performance por Fuente</h3>
+                    <div className="space-y-2">
+                      {fuentes.slice(0, 5).map((f, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-24 text-sm truncate">{f.name}</div>
+                          <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
+                            <div
+                              className="h-full bg-gradient-to-r from-pink-500 to-purple-500"
+                              style={{ width: `${Math.max(5, (f.total / (fuentes[0]?.total || 1)) * 100)}%` }}
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center text-xs font-medium">
+                              {f.total} leads
+                            </span>
+                          </div>
+                          <div className="w-16 text-right text-sm">
+                            <span className={f.conversion >= 10 ? 'text-green-400' : f.conversion >= 5 ? 'text-yellow-400' : 'text-slate-400'}>
+                              {f.conversion}% conv
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Acciones rápidas */}
+                  <div className="flex gap-3">
+                    <button onClick={() => setView('marketing')} className="flex-1 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl font-medium">
+                      📊 Ver campañas
+                    </button>
+                    <button onClick={() => setView('leads')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
+                      📋 Ver todos los leads
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* 3 KPIs CRÍTICOS DEL CEO - Solo para Admin */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {(!currentUser || currentUser.role === 'admin' || currentUser.role === 'coordinador' || currentUser.role === 'asesor') && (() => {
               const now = new Date()
               const currentMonth = now.toISOString().slice(0, 7)
               const diasRestantes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
