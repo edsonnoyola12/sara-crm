@@ -301,6 +301,9 @@ function App() {
     return saved ? parseInt(saved) : 500
   })
   const [editandoBono, setEditandoBono] = useState(false)
+  const [dashboardPregunta, setDashboardPregunta] = useState('')
+  const [dashboardRespuesta, setDashboardRespuesta] = useState('')
+  const [dashboardCargando, setDashboardCargando] = useState(false)
   const [monthlyGoals, setMonthlyGoals] = useState<{month: string, company_goal: number}>({ month: "", company_goal: 0 })
   const [vendorGoals, setVendorGoals] = useState<{vendor_id: string, goal: number, name: string}[]>([])
   const [selectedGoalMonth, setSelectedGoalMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -351,6 +354,70 @@ function App() {
     setAppointments(appointmentsRes.data || [])
     setLastRefresh(new Date())
     generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
+  }
+
+  // Función para preguntar a la IA del dashboard
+  async function preguntarDashboardIA() {
+    if (!dashboardPregunta.trim()) return
+    setDashboardCargando(true)
+    setDashboardRespuesta('')
+    try {
+      // Preparar contexto con datos actuales del dashboard
+      const contexto = {
+        totalLeads: filteredLeads.length,
+        pipelineValue: pipelineValue,
+        cierresMes: monthComparison.thisMonthClosed,
+        cambioVsMesAnterior: monthComparison.closedChange,
+        leadsHot: filteredLeads.filter(l => ['negotiation', 'reserved'].includes(l.status)).length,
+        tiempoRespuesta: avgResponseTime,
+        funnel: {
+          new: filteredLeads.filter(l => l.status === 'new').length,
+          contacted: filteredLeads.filter(l => l.status === 'contacted').length,
+          scheduled: filteredLeads.filter(l => l.status === 'scheduled').length,
+          visited: filteredLeads.filter(l => l.status === 'visited').length,
+          negotiation: filteredLeads.filter(l => l.status === 'negotiation').length,
+          reserved: filteredLeads.filter(l => l.status === 'reserved').length,
+          closed: filteredLeads.filter(l => l.status === 'closed').length,
+        },
+        conversiones: {
+          leadToSale: conversionLeadToSale,
+          leadToCita: conversionLeadToCita,
+          visitaToClose: conversionCitaToClose,
+          ratioLeadsPorVenta: ratioLeadsPorVenta
+        },
+        topVendedores: vendedoresRanking.slice(0, 5).map(v => {
+          const vendorLeads = filteredLeads.filter(l => l.assigned_to === v.id)
+          const closedCount = vendorLeads.filter(l => l.status === 'closed').length
+          return {
+            name: v.name,
+            ventas: v.sales_count || 0,
+            leads: vendorLeads.length,
+            conversion: vendorLeads.length > 0 ? Math.round((closedCount / vendorLeads.length) * 100) : 0
+          }
+        }),
+        topDesarrollos: developmentPerformance.slice(0, 5).map(d => ({
+          name: d.name,
+          ventas: d.ventas + d.soldUnits,
+          revenue: d.revenue
+        })),
+        fuentesLeads: leadsBySource.slice(0, 5).map(s => ({
+          source: s.source,
+          count: s.total,
+          closed: s.ventas
+        }))
+      }
+
+      const res = await fetch('https://sara-backend.edson-633.workers.dev/api/dashboard/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta: dashboardPregunta, contexto })
+      })
+      const data = await res.json()
+      setDashboardRespuesta(data.respuesta || 'Sin respuesta')
+    } catch (err) {
+      setDashboardRespuesta('Error al procesar la pregunta. Intenta de nuevo.')
+    }
+    setDashboardCargando(false)
   }
 
   async function loadData() {
@@ -1571,6 +1638,32 @@ function App() {
                 </div>
               )
             })()}
+
+            {/* CHAT IA - Preguntas sobre el Dashboard */}
+            <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/30 p-4 rounded-xl">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={dashboardPregunta}
+                  onChange={(e) => setDashboardPregunta(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && preguntarDashboardIA()}
+                  placeholder="🤖 Pregunta a la IA: ¿Quién es mi mejor vendedor? ¿Cómo mejorar conversión?"
+                  className="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                />
+                <button
+                  onClick={preguntarDashboardIA}
+                  disabled={dashboardCargando || !dashboardPregunta.trim()}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                >
+                  {dashboardCargando ? '...' : 'Preguntar'}
+                </button>
+              </div>
+              {dashboardRespuesta && (
+                <div className="mt-3 bg-slate-800/50 border border-slate-600/50 rounded-lg p-3">
+                  <p className="text-sm whitespace-pre-wrap">{dashboardRespuesta}</p>
+                </div>
+              )}
+            </div>
 
             {/* GAUGE DE SALUD DEL FUNNEL - Visual rápido */}
             <div className="bg-slate-800/50 border border-slate-700/50 p-4 lg:p-5 rounded-xl">
