@@ -2209,6 +2209,32 @@ function App() {
                     </div>
                   </div>
 
+                  {/* CHAT IA - Preguntas sobre el Dashboard */}
+                  <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/30 p-4 rounded-xl">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={dashboardPregunta}
+                        onChange={(e) => setDashboardPregunta(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && preguntarDashboardIA()}
+                        placeholder="🤖 Pregunta a la IA: ¿Quién es mi mejor vendedor? ¿Cómo mejorar conversión?"
+                        className="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-purple-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={preguntarDashboardIA}
+                        disabled={dashboardCargando || !dashboardPregunta.trim()}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {dashboardCargando ? '...' : 'Preguntar'}
+                      </button>
+                    </div>
+                    {dashboardRespuesta && (
+                      <div className="mt-3 bg-slate-800/50 border border-slate-600/50 rounded-lg p-3">
+                        <p className="text-sm whitespace-pre-wrap">{dashboardRespuesta}</p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Proyección + Revenue */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className={`border rounded-xl p-4 ${ventasProyectadas >= metaMes ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
@@ -2520,6 +2546,32 @@ function App() {
                       <p className={`text-3xl font-bold ${misLeadsHot.length > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{misLeadsHot.length}</p>
                       <p className="text-xs text-slate-500">negociación + reservado</p>
                     </div>
+                  </div>
+
+                  {/* CHAT IA - Preguntas para Vendedor */}
+                  <div className="bg-gradient-to-br from-blue-900/40 to-indigo-900/40 border border-blue-500/30 p-4 rounded-xl">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={dashboardPregunta}
+                        onChange={(e) => setDashboardPregunta(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && preguntarDashboardIA()}
+                        placeholder="🤖 Pregunta a la IA: ¿Cómo mejorar mi conversión? ¿Qué leads priorizar?"
+                        className="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={preguntarDashboardIA}
+                        disabled={dashboardCargando || !dashboardPregunta.trim()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {dashboardCargando ? '...' : 'Preguntar'}
+                      </button>
+                    </div>
+                    {dashboardRespuesta && (
+                      <div className="mt-3 bg-slate-800/50 border border-slate-600/50 rounded-lg p-3">
+                        <p className="text-sm whitespace-pre-wrap">{dashboardRespuesta}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Proyección + Citas */}
@@ -3311,6 +3363,32 @@ function App() {
                     </div>
                   </div>
 
+                  {/* CHAT IA - Preguntas para Asesor */}
+                  <div className="bg-gradient-to-br from-teal-900/40 to-cyan-900/40 border border-teal-500/30 p-4 rounded-xl">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={dashboardPregunta}
+                        onChange={(e) => setDashboardPregunta(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && preguntarDashboardIA()}
+                        placeholder="🤖 Pregunta a la IA: ¿Cómo mejorar tasa de aprobación? ¿Qué banco conviene más?"
+                        className="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-teal-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={preguntarDashboardIA}
+                        disabled={dashboardCargando || !dashboardPregunta.trim()}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {dashboardCargando ? '...' : 'Preguntar'}
+                      </button>
+                    </div>
+                    {dashboardRespuesta && (
+                      <div className="mt-3 bg-slate-800/50 border border-slate-600/50 rounded-lg p-3">
+                        <p className="text-sm whitespace-pre-wrap">{dashboardRespuesta}</p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Pipeline visual */}
                   <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
                     <h3 className="font-semibold mb-3">📊 Mi Pipeline de Créditos</h3>
@@ -3525,32 +3603,6 @@ function App() {
                 </div>
               )
             })()}
-
-            {/* CHAT IA - Preguntas sobre el Dashboard */}
-            <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/30 p-4 rounded-xl">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={dashboardPregunta}
-                  onChange={(e) => setDashboardPregunta(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && preguntarDashboardIA()}
-                  placeholder="🤖 Pregunta a la IA: ¿Quién es mi mejor vendedor? ¿Cómo mejorar conversión?"
-                  className="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-purple-500 focus:outline-none"
-                />
-                <button
-                  onClick={preguntarDashboardIA}
-                  disabled={dashboardCargando || !dashboardPregunta.trim()}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-                >
-                  {dashboardCargando ? '...' : 'Preguntar'}
-                </button>
-              </div>
-              {dashboardRespuesta && (
-                <div className="mt-3 bg-slate-800/50 border border-slate-600/50 rounded-lg p-3">
-                  <p className="text-sm whitespace-pre-wrap">{dashboardRespuesta}</p>
-                </div>
-              )}
-            </div>
 
             {/* ============ META vs REALIDAD - ANÁLISIS CRÍTICO ============ */}
             {metaAnalysis.metaMensual > 0 && (
