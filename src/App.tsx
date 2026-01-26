@@ -411,7 +411,43 @@ function App() {
     const interval = setInterval(() => {
       loadDataSilent()
     }, 30000)
-    return () => clearInterval(interval)
+
+    // Realtime subscription para appointments (actualización instantánea)
+    const appointmentsSubscription = supabase
+      .channel('appointments-realtime')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'appointments' },
+        (payload) => {
+          console.log('📅 Realtime: Cambio en appointments', payload.eventType)
+          // Recargar appointments silenciosamente
+          supabase.from('appointments').select('*').order('scheduled_date', { ascending: true })
+            .then(({ data }) => {
+              if (data) setAppointments(data)
+            })
+        }
+      )
+      .subscribe()
+
+    // Realtime subscription para leads también
+    const leadsSubscription = supabase
+      .channel('leads-realtime')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        (payload) => {
+          console.log('👤 Realtime: Cambio en leads', payload.eventType)
+          supabase.from('leads').select('*').order('created_at', { ascending: false })
+            .then(({ data }) => {
+              if (data) setLeads(data)
+            })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      clearInterval(interval)
+      appointmentsSubscription.unsubscribe()
+      leadsSubscription.unsubscribe()
+    }
   }, [])
 
   // Carga silenciosa (sin loading spinner)
@@ -5577,7 +5613,8 @@ function App() {
                         </button>
                         <button 
                           onClick={async () => {
-                            if (confirm(`¿Cancelar cita con ${appt.lead_name}?\n\nSe notificará al cliente y vendedor por WhatsApp.`)) {
+                            const tipoTexto = appt.appointment_type === 'llamada' ? 'llamada' : 'cita';
+                            if (confirm(`¿Cancelar ${tipoTexto} con ${appt.lead_name}?\n\nSe notificará al cliente y vendedor por WhatsApp.`)) {
                               try {
                                 // Llamar al backend que envía WhatsApp y elimina de Google Calendar
                                 const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/appointments/${appt.id}/cancel`, {
@@ -5591,7 +5628,7 @@ function App() {
                                 })
                                 if (!response.ok) throw new Error('Error al cancelar')
                                 loadData()
-                                alert('✅ Cita cancelada. Se notificó al cliente y vendedor por WhatsApp.')
+                                alert(`✅ ${tipoTexto === 'llamada' ? 'Llamada' : 'Cita'} cancelada. Se notificó al cliente y vendedor por WhatsApp.`)
                               } catch (err: any) {
                                 alert('Error: ' + err.message)
                                 loadData()
@@ -7090,7 +7127,8 @@ function App() {
                                 const motivo = prompt('Motivo de cancelación (se enviará al vendedor y cliente):')
                                 if (!motivo) return
 
-                                if (!confirm(`¿Cancelar cita de ${cita.lead_name}?\nMotivo: ${motivo}`)) return
+                                const tipoTextoCita = (cita as any).appointment_type === 'llamada' ? 'llamada' : 'cita';
+                                if (!confirm(`¿Cancelar ${tipoTextoCita} de ${cita.lead_name}?\nMotivo: ${motivo}`)) return
 
                                 try {
                                   // Actualizar en base de datos
