@@ -1629,9 +1629,9 @@ function App() {
     : mortgages
 
   // HOT/WARM/COLD basados en filteredLeads (para el usuario actual)
-  const hotLeads = filteredLeads.filter(l => l.score >= 8).length
-  const warmLeads = filteredLeads.filter(l => l.score >= 5 && l.score < 8).length
-  const coldLeads = filteredLeads.filter(l => l.score < 5).length
+  const hotLeads = filteredLeads.filter(l => l.score >= 70).length
+  const warmLeads = filteredLeads.filter(l => l.score >= 40 && l.score < 70).length
+  const coldLeads = filteredLeads.filter(l => l.score < 40).length
 
   // scoreData para charts
   const scoreData = [
