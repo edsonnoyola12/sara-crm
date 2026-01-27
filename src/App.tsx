@@ -1552,14 +1552,14 @@ function App() {
   const topDevByRevenue = [...developmentPerformance].sort((a, b) => b.revenue - a.revenue)[0]
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return 'bg-red-500'
-    if (score >= 5) return 'bg-orange-500'
-    return 'bg-blue-500'
+    if (score >= 70) return 'bg-red-500'    // HOT
+    if (score >= 40) return 'bg-orange-500' // WARM
+    return 'bg-blue-500'                    // COLD
   }
 
   const getScoreLabel = (score: number) => {
-    if (score >= 8) return 'HOT'
-    if (score >= 5) return 'WARM'
+    if (score >= 70) return 'HOT'
+    if (score >= 40) return 'WARM'
     return 'COLD'
   }
 
