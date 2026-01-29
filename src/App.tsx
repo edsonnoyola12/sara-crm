@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift } from 'lucide-react'
 
-type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator'
+type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi'
 
 interface Lead {
   id: string
@@ -338,6 +338,7 @@ function App() {
         encuestas: ['admin', 'coordinador'],
         referrals: ['admin', 'coordinador', 'vendedor'],
         config: ['admin'],
+        bi: ['admin', 'coordinador'], // Business Intelligence
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -1865,6 +1866,11 @@ function App() {
           {permisos.puedeVerSeccion('reportes') && (
             <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'reportes' ? 'bg-gradient-to-r from-amber-600 to-orange-600' : 'hover:bg-slate-700'}`}>
               <BarChart3 size={20} /> Reportes CEO
+            </button>
+          )}
+          {permisos.puedeVerSeccion('bi') && (
+            <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'bi' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'hover:bg-slate-700'}`}>
+              <Lightbulb size={20} /> Business Intelligence
             </button>
           )}
           {permisos.puedeVerSeccion('encuestas') && (
@@ -6328,6 +6334,15 @@ function App() {
           />
         )}
 
+        {view === 'bi' && (
+          <BusinessIntelligenceView
+            leads={leads}
+            team={team}
+            appointments={appointments}
+            properties={properties}
+          />
+        )}
+
         {view === 'referrals' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">
@@ -9344,6 +9359,520 @@ interface ScheduledFollowup {
   cancelled: boolean
   cancel_reason: string | null
   created_at: string
+}
+
+// ═══════════════════════════════════════════════════════════
+// BUSINESS INTELLIGENCE VIEW - Servicios BI Avanzados
+// ═══════════════════════════════════════════════════════════
+function BusinessIntelligenceView({ leads, team, appointments, properties }: {
+  leads: Lead[]
+  team: TeamMember[]
+  appointments: Appointment[]
+  properties: Property[]
+}) {
+  const [activeSection, setActiveSection] = useState<'pipeline' | 'alerts' | 'market' | 'clv' | 'offers' | 'reports'>('pipeline')
+  const [loading, setLoading] = useState(false)
+  const [pipelineData, setPipelineData] = useState<any>(null)
+  const [alertsData, setAlertsData] = useState<any>(null)
+  const [marketData, setMarketData] = useState<any>(null)
+  const [clvData, setClvData] = useState<any>(null)
+  const [offersData, setOffersData] = useState<any>(null)
+
+  const API_BASE = 'https://sara-backend.edson-633.workers.dev'
+
+  // Cargar datos según la sección activa
+  useEffect(() => {
+    const loadSectionData = async () => {
+      setLoading(true)
+      try {
+        switch (activeSection) {
+          case 'pipeline':
+            const pRes = await fetch(`${API_BASE}/api/pipeline/summary?days=90`)
+            const pData = await pRes.json()
+            if (pData.success) setPipelineData(pData.summary)
+            break
+          case 'alerts':
+            const aRes = await fetch(`${API_BASE}/api/alerts`)
+            const aData = await aRes.json()
+            if (aData.success) setAlertsData(aData.summary)
+            break
+          case 'market':
+            const mRes = await fetch(`${API_BASE}/api/market?days=30`)
+            const mData = await mRes.json()
+            if (mData.success) setMarketData(mData.analysis)
+            break
+          case 'clv':
+            const cRes = await fetch(`${API_BASE}/api/clv`)
+            const cData = await cRes.json()
+            if (cData.success) setClvData(cData.analysis)
+            break
+          case 'offers':
+            const oRes = await fetch(`${API_BASE}/api/offers/summary?days=30`)
+            const oData = await oRes.json()
+            if (oData.success) setOffersData(oData.summary)
+            break
+        }
+      } catch (err) {
+        console.error('Error loading BI data:', err)
+      }
+      setLoading(false)
+    }
+    loadSectionData()
+  }, [activeSection])
+
+  // Tabs de navegación
+  const tabs = [
+    { id: 'pipeline', label: 'Pipeline', icon: '📊' },
+    { id: 'alerts', label: 'Alertas', icon: '🚨' },
+    { id: 'market', label: 'Mercado', icon: '📈' },
+    { id: 'clv', label: 'CLV', icon: '👥' },
+    { id: 'offers', label: 'Ofertas', icon: '💰' },
+    { id: 'reports', label: 'Reportes', icon: '📋' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+          Business Intelligence
+        </h2>
+        <button
+          onClick={() => window.location.reload()}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+        >
+          <RefreshCw size={16} /> Actualizar
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSection(tab.id as any)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+              activeSection === tab.id
+                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            <span>{tab.icon}</span> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-cyan-500 border-t-transparent"></div>
+        </div>
+      )}
+
+      {/* Pipeline Section */}
+      {activeSection === 'pipeline' && !loading && pipelineData && (
+        <div className="space-y-6">
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">LEADS ACTIVOS</p>
+              <p className="text-3xl font-bold text-cyan-400">{pipelineData.total_active_leads || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">VALOR PIPELINE</p>
+              <p className="text-3xl font-bold text-green-400">${((pipelineData.total_pipeline_value || 0) / 1000000).toFixed(1)}M</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">FORECAST 30D</p>
+              <p className="text-3xl font-bold text-purple-400">${((pipelineData.forecast_30d || 0) / 1000000).toFixed(1)}M</p>
+            </div>
+            <div className="bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
+              <p className="text-3xl font-bold text-amber-400">{pipelineData.conversion_rate || '0%'}</p>
+            </div>
+          </div>
+
+          {/* Funnel por etapa */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">Funnel de Ventas</h3>
+            <div className="space-y-3">
+              {pipelineData.by_stage?.map((stage: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-4">
+                  <div className="w-32 text-sm text-slate-400">{stage.stage}</div>
+                  <div className="flex-1 h-8 bg-slate-700 rounded-lg overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-end pr-2"
+                      style={{ width: `${Math.min((stage.count / (pipelineData.total_active_leads || 1)) * 100, 100)}%` }}
+                    >
+                      <span className="text-xs font-bold">{stage.count}</span>
+                    </div>
+                  </div>
+                  <div className="w-24 text-right text-sm text-green-400">${(stage.value / 1000000).toFixed(1)}M</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Leads en riesgo */}
+          {pipelineData.at_risk_leads?.length > 0 && (
+            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <AlertTriangle className="text-red-400" /> Leads en Riesgo ({pipelineData.at_risk_leads.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pipelineData.at_risk_leads.slice(0, 6).map((lead: any, idx: number) => (
+                  <div key={idx} className="bg-slate-800/50 rounded-lg p-3 flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{lead.name}</p>
+                      <p className="text-xs text-slate-400">{lead.days_inactive} días sin actividad</p>
+                    </div>
+                    <span className="text-xs px-2 py-1 bg-red-500/30 text-red-300 rounded">{lead.risk_reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Alerts Section */}
+      {activeSection === 'alerts' && !loading && alertsData && (
+        <div className="space-y-6">
+          {/* Resumen de alertas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">CRÍTICAS</p>
+              <p className="text-3xl font-bold text-red-400">{alertsData.by_priority?.critical || 0}</p>
+            </div>
+            <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">ALTAS</p>
+              <p className="text-3xl font-bold text-orange-400">{alertsData.by_priority?.high || 0}</p>
+            </div>
+            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">MEDIAS</p>
+              <p className="text-3xl font-bold text-yellow-400">{alertsData.by_priority?.medium || 0}</p>
+            </div>
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">BAJAS</p>
+              <p className="text-3xl font-bold text-blue-400">{alertsData.by_priority?.low || 0}</p>
+            </div>
+          </div>
+
+          {/* Lista de alertas */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">Alertas Activas</h3>
+            <div className="space-y-3">
+              {alertsData.alerts?.slice(0, 10).map((alert: any, idx: number) => (
+                <div key={idx} className={`p-4 rounded-lg border ${
+                  alert.priority === 'critical' ? 'bg-red-900/30 border-red-500/50' :
+                  alert.priority === 'high' ? 'bg-orange-900/30 border-orange-500/50' :
+                  alert.priority === 'medium' ? 'bg-yellow-900/30 border-yellow-500/50' :
+                  'bg-slate-700/50 border-slate-600/50'
+                }`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{alert.title}</p>
+                      <p className="text-sm text-slate-400">{alert.description}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      alert.priority === 'critical' ? 'bg-red-500/30 text-red-300' :
+                      alert.priority === 'high' ? 'bg-orange-500/30 text-orange-300' :
+                      'bg-yellow-500/30 text-yellow-300'
+                    }`}>{alert.type}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Market Intelligence Section */}
+      {activeSection === 'market' && !loading && marketData && (
+        <div className="space-y-6">
+          {/* KPIs de mercado */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">CONSULTAS TOTALES</p>
+              <p className="text-3xl font-bold text-cyan-400">{marketData.demand?.total_inquiries || 0}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">PRESUPUESTO PROM</p>
+              <p className="text-3xl font-bold text-green-400">${((marketData.pricing?.avg_budget || 0) / 1000000).toFixed(1)}M</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">SENSIBILIDAD PRECIO</p>
+              <p className="text-3xl font-bold text-amber-400">{marketData.pricing?.price_sensitivity || 'N/A'}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">DÍAS A DECISIÓN</p>
+              <p className="text-3xl font-bold text-purple-400">{marketData.timing?.avg_decision_days || 0}</p>
+            </div>
+          </div>
+
+          {/* Demanda por desarrollo */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">Demanda por Desarrollo</h3>
+            <div className="space-y-3">
+              {marketData.demand?.by_development?.slice(0, 8).map((dev: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-4">
+                  <div className="w-40 truncate">{dev.development}</div>
+                  <div className="flex-1 h-6 bg-slate-700 rounded-lg overflow-hidden">
+                    <div
+                      className={`h-full ${dev.trend === 'up' ? 'bg-green-500' : dev.trend === 'down' ? 'bg-red-500' : 'bg-blue-500'}`}
+                      style={{ width: `${Math.min((dev.inquiries / (marketData.demand?.total_inquiries || 1)) * 100 * 3, 100)}%` }}
+                    />
+                  </div>
+                  <div className="w-16 text-right">{dev.inquiries}</div>
+                  <div className={`w-16 text-right text-sm ${dev.trend === 'up' ? 'text-green-400' : dev.trend === 'down' ? 'text-red-400' : 'text-slate-400'}`}>
+                    {dev.trend === 'up' ? '↑' : dev.trend === 'down' ? '↓' : '→'} {Math.abs(dev.trend_percent || 0)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recomendaciones */}
+          {marketData.recommendations?.length > 0 && (
+            <div className="bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-500/30 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Lightbulb className="text-yellow-400" /> Recomendaciones
+              </h3>
+              <div className="space-y-2">
+                {marketData.recommendations.map((rec: string, idx: number) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="text-cyan-400">•</span>
+                    <p className="text-slate-300">{rec}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CLV Section */}
+      {activeSection === 'clv' && !loading && clvData && (
+        <div className="space-y-6">
+          {/* KPIs CLV */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">TOTAL CLIENTES</p>
+              <p className="text-3xl font-bold text-purple-400">{clvData.total_customers || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">CLV TOTAL</p>
+              <p className="text-3xl font-bold text-green-400">${((clvData.total_clv || 0) / 1000000).toFixed(1)}M</p>
+            </div>
+            <div className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">CLV PROMEDIO</p>
+              <p className="text-3xl font-bold text-cyan-400">${((clvData.avg_clv || 0) / 1000000).toFixed(2)}M</p>
+            </div>
+            <div className="bg-gradient-to-br from-pink-600/20 to-rose-600/20 border border-pink-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">REFERIDOS CONV</p>
+              <p className="text-3xl font-bold text-pink-400">{clvData.referrals?.conversion_rate || '0%'}</p>
+            </div>
+          </div>
+
+          {/* Segmentación */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">Segmentación de Clientes</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-yellow-400">👑 {clvData.by_segment?.vip || 0}</p>
+                <p className="text-sm text-slate-400">VIP</p>
+              </div>
+              <div className="bg-gradient-to-r from-purple-500/20 to-violet-500/20 border border-purple-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-purple-400">💎 {clvData.by_segment?.high_value || 0}</p>
+                <p className="text-sm text-slate-400">Alto Valor</p>
+              </div>
+              <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-blue-400">💰 {clvData.by_segment?.medium_value || 0}</p>
+                <p className="text-sm text-slate-400">Medio Valor</p>
+              </div>
+              <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-green-400">🆕 {clvData.by_segment?.new || 0}</p>
+                <p className="text-sm text-slate-400">Nuevos</p>
+              </div>
+              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-orange-400">⚠️ {clvData.by_segment?.at_risk || 0}</p>
+                <p className="text-sm text-slate-400">En Riesgo</p>
+              </div>
+              <div className="bg-gradient-to-r from-slate-500/20 to-gray-500/20 border border-slate-500/30 rounded-lg p-4 text-center">
+                <p className="text-3xl font-bold text-slate-400">❌ {clvData.by_segment?.churned || 0}</p>
+                <p className="text-sm text-slate-400">Perdidos</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Top referidores */}
+          {clvData.referrals?.top_referrers?.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4">🏆 Top Referidores</h3>
+              <div className="space-y-3">
+                {clvData.referrals.top_referrers.map((ref: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between bg-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '•'}</span>
+                      <div>
+                        <p className="font-medium">{ref.name}</p>
+                        <p className="text-sm text-slate-400">{ref.referrals} referidos, {ref.conversions} ventas</p>
+                      </div>
+                    </div>
+                    <p className="text-green-400 font-bold">${(ref.value_generated / 1000000).toFixed(2)}M</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Offers Section */}
+      {activeSection === 'offers' && !loading && offersData && (
+        <div className="space-y-6">
+          {/* KPIs ofertas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">OFERTAS ACTIVAS</p>
+              <p className="text-3xl font-bold text-cyan-400">{offersData.total_active || 0}</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">VALOR TOTAL</p>
+              <p className="text-3xl font-bold text-green-400">${((offersData.total_value || 0) / 1000000).toFixed(1)}M</p>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">TASA ACEPTACIÓN</p>
+              <p className="text-3xl font-bold text-purple-400">{offersData.acceptance_rate || '0%'}</p>
+            </div>
+            <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">POR VENCER</p>
+              <p className="text-3xl font-bold text-orange-400">{offersData.expiring_soon || 0}</p>
+            </div>
+          </div>
+
+          {/* Ofertas por estado */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">Ofertas por Estado</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {offersData.by_status?.map((status: any, idx: number) => (
+                <div key={idx} className="bg-slate-700/50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-white">{status.count}</p>
+                  <p className="text-sm text-slate-400">{status.status}</p>
+                  <p className="text-xs text-green-400">${(status.value / 1000000).toFixed(1)}M</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reports Section */}
+      {activeSection === 'reports' && !loading && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Reporte Semanal */}
+            <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                📊 Reporte Semanal
+              </h3>
+              <p className="text-slate-400 mb-4">Resumen ejecutivo de la última semana con KPIs, pipeline y rendimiento del equipo.</p>
+              <div className="flex gap-2">
+                <a
+                  href={`${API_BASE}/api/reports/weekly/html`}
+                  target="_blank"
+                  className="flex-1 text-center px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-500"
+                >
+                  Ver HTML
+                </a>
+                <button
+                  onClick={async () => {
+                    const res = await fetch(`${API_BASE}/api/reports/weekly/whatsapp`)
+                    const data = await res.json()
+                    if (data.success) {
+                      navigator.clipboard.writeText(data.message)
+                      alert('Reporte copiado al portapapeles')
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+                >
+                  Copiar WhatsApp
+                </button>
+              </div>
+            </div>
+
+            {/* Reporte Mensual */}
+            <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                📋 Reporte Mensual
+              </h3>
+              <p className="text-slate-400 mb-4">Análisis completo del mes con tendencias, comparativas y proyecciones.</p>
+              <div className="flex gap-2">
+                <a
+                  href={`${API_BASE}/api/reports/monthly/html`}
+                  target="_blank"
+                  className="flex-1 text-center px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-500"
+                >
+                  Ver HTML
+                </a>
+                <button
+                  onClick={async () => {
+                    const res = await fetch(`${API_BASE}/api/reports/monthly/whatsapp`)
+                    const data = await res.json()
+                    if (data.success) {
+                      navigator.clipboard.writeText(data.message)
+                      alert('Reporte copiado al portapapeles')
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+                >
+                  Copiar WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Info adicional */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">📡 Endpoints API Disponibles</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-mono">
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/pipeline/summary</p>
+                <p className="text-slate-500">Pipeline de ventas y forecast</p>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/alerts</p>
+                <p className="text-slate-500">Alertas inteligentes</p>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/market</p>
+                <p className="text-slate-500">Inteligencia de mercado</p>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/clv</p>
+                <p className="text-slate-500">Valor del cliente (CLV)</p>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/offers/summary</p>
+                <p className="text-slate-500">Tracking de ofertas</p>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3">
+                <p className="text-cyan-400">GET /api/reports/*</p>
+                <p className="text-slate-500">Reportes PDF/HTML</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !pipelineData && !alertsData && !marketData && !clvData && !offersData && activeSection !== 'reports' && (
+        <div className="text-center py-12 text-slate-400">
+          <p>No se pudieron cargar los datos. Verifica la conexión con el backend.</p>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ═══════════════════════════════════════════════════════════
