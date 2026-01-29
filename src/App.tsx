@@ -9407,9 +9407,16 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
             if (cData.success) setClvData(cData.analysis)
             break
           case 'offers':
-            const oRes = await fetch(`${API_BASE}/api/offers?days=30`)
-            const oData = await oRes.json()
-            if (oData.success) setOffersData(oData)
+            try {
+              const oRes = await fetch(`${API_BASE}/api/offers?days=30`)
+              const oData = await oRes.json()
+              console.log('Offers data:', oData)
+              if (oData.success) setOffersData(oData)
+              else setOffersData({ error: true, total_offers: 0, by_status: {} })
+            } catch (e) {
+              console.error('Offers fetch error:', e)
+              setOffersData({ error: true, total_offers: 0, by_status: {} })
+            }
             break
         }
       } catch (err) {
@@ -9731,66 +9738,74 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
       )}
 
       {/* Offers Section */}
-      {activeSection === 'offers' && !loading && offersData && (
+      {activeSection === 'offers' && !loading && (
         <div className="space-y-6">
-          {/* KPIs ofertas */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">OFERTAS TOTALES</p>
-              <p className="text-3xl font-bold text-cyan-400">{offersData.total_offers || 0}</p>
+          {!offersData ? (
+            <div className="text-center text-slate-400 py-12">
+              <p>Cargando datos de ofertas...</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">VALOR OFERTADO</p>
-              <p className="text-3xl font-bold text-green-400">${((offersData.total_offered_value || 0) / 1000000).toFixed(1)}M</p>
-            </div>
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">TASA ACEPTACIÓN</p>
-              <p className="text-3xl font-bold text-purple-400">{offersData.acceptance_rate || '0%'}</p>
-            </div>
-            <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">POR VENCER</p>
-              <p className="text-3xl font-bold text-orange-400">{offersData.expiring_soon?.length || 0}</p>
-            </div>
-          </div>
-
-          {/* Ofertas por estado */}
-          <div className="bg-slate-800/50 rounded-xl p-6">
-            <h3 className="text-xl font-bold mb-4">Ofertas por Estado</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {offersData.by_status && Object.entries(offersData.by_status)
-                .filter(([_, count]) => (count as number) > 0)
-                .map(([status, count]: [string, any], idx: number) => (
-                <div key={idx} className="bg-slate-700/50 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{count}</p>
-                  <p className="text-sm text-slate-400 capitalize">{status.replace('_', ' ')}</p>
+          ) : (
+            <>
+              {/* KPIs ofertas */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-xs text-slate-400 mb-1">OFERTAS TOTALES</p>
+                  <p className="text-3xl font-bold text-cyan-400">{offersData.total_offers || 0}</p>
                 </div>
-              ))}
-              {offersData.by_status && Object.values(offersData.by_status).every((v: any) => v === 0) && (
-                <div className="col-span-4 text-center text-slate-500 py-8">
-                  No hay ofertas registradas en este período
+                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-xs text-slate-400 mb-1">VALOR OFERTADO</p>
+                  <p className="text-3xl font-bold text-green-400">${((offersData.total_offered_value || 0) / 1000000).toFixed(1)}M</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-xs text-slate-400 mb-1">TASA ACEPTACIÓN</p>
+                  <p className="text-3xl font-bold text-purple-400">{offersData.acceptance_rate || '0%'}</p>
+                </div>
+                <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
+                  <p className="text-xs text-slate-400 mb-1">POR VENCER</p>
+                  <p className="text-3xl font-bold text-orange-400">{offersData.expiring_soon?.length || 0}</p>
+                </div>
+              </div>
+
+              {/* Ofertas por estado */}
+              <div className="bg-slate-800/50 rounded-xl p-6">
+                <h3 className="text-xl font-bold mb-4">Ofertas por Estado</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {offersData.by_status && Object.entries(offersData.by_status)
+                    .filter(([_, count]) => (count as number) > 0)
+                    .map(([status, count]: [string, any], idx: number) => (
+                    <div key={idx} className="bg-slate-700/50 rounded-lg p-4 text-center">
+                      <p className="text-2xl font-bold text-white">{count}</p>
+                      <p className="text-sm text-slate-400 capitalize">{status.replace('_', ' ')}</p>
+                    </div>
+                  ))}
+                  {(!offersData.by_status || Object.values(offersData.by_status).every((v: any) => v === 0)) && (
+                    <div className="col-span-4 text-center text-slate-500 py-8">
+                      No hay ofertas registradas en este período
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ofertas por vencer */}
+              {offersData.expiring_soon?.length > 0 && (
+                <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-6">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <Clock className="text-orange-400" /> Ofertas por Vencer
+                  </h3>
+                  <div className="space-y-2">
+                    {offersData.expiring_soon.map((offer: any, idx: number) => (
+                      <div key={idx} className="bg-slate-800/50 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{offer.lead_name}</p>
+                          <p className="text-sm text-slate-400">{offer.property_name}</p>
+                        </div>
+                        <span className="text-orange-400">${((offer.amount || 0) / 1000000).toFixed(1)}M</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Ofertas por vencer */}
-          {offersData.expiring_soon?.length > 0 && (
-            <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Clock className="text-orange-400" /> Ofertas por Vencer
-              </h3>
-              <div className="space-y-2">
-                {offersData.expiring_soon.map((offer: any, idx: number) => (
-                  <div key={idx} className="bg-slate-800/50 rounded-lg p-3 flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{offer.lead_name}</p>
-                      <p className="text-sm text-slate-400">{offer.property_name}</p>
-                    </div>
-                    <span className="text-orange-400">${((offer.amount || 0) / 1000000).toFixed(1)}M</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </>
           )}
         </div>
       )}
