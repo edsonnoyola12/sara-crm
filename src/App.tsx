@@ -9476,19 +9476,19 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">LEADS ACTIVOS</p>
-              <p className="text-3xl font-bold text-cyan-400">{pipelineData.total_active_leads || 0}</p>
+              <p className="text-3xl font-bold text-cyan-400">{pipelineData.total_leads || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">VALOR PIPELINE</p>
               <p className="text-3xl font-bold text-green-400">${((pipelineData.total_pipeline_value || 0) / 1000000).toFixed(1)}M</p>
             </div>
             <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">FORECAST 30D</p>
-              <p className="text-3xl font-bold text-purple-400">${((pipelineData.forecast_30d || 0) / 1000000).toFixed(1)}M</p>
+              <p className="text-xs text-slate-400 mb-1">INGRESO ESPERADO</p>
+              <p className="text-3xl font-bold text-purple-400">${((pipelineData.expected_revenue || 0) / 1000000).toFixed(1)}M</p>
             </div>
             <div className="bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
-              <p className="text-3xl font-bold text-amber-400">{pipelineData.conversion_rate || '0%'}</p>
+              <p className="text-3xl font-bold text-amber-400">{pipelineData.overall_conversion_rate || '0%'}</p>
             </div>
           </div>
 
@@ -9496,18 +9496,17 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
           <div className="bg-slate-800/50 rounded-xl p-6">
             <h3 className="text-xl font-bold mb-4">Funnel de Ventas</h3>
             <div className="space-y-3">
-              {pipelineData.by_stage?.map((stage: any, idx: number) => (
+              {pipelineData.by_stage && Object.entries(pipelineData.by_stage).map(([stageName, count]: [string, any], idx: number) => (
                 <div key={idx} className="flex items-center gap-4">
-                  <div className="w-32 text-sm text-slate-400">{stage.stage}</div>
+                  <div className="w-32 text-sm text-slate-400 capitalize">{stageName.replace('_', ' ')}</div>
                   <div className="flex-1 h-8 bg-slate-700 rounded-lg overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-end pr-2"
-                      style={{ width: `${Math.min((stage.count / (pipelineData.total_active_leads || 1)) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((count / (pipelineData.total_leads || 1)) * 100, 100)}%` }}
                     >
-                      <span className="text-xs font-bold">{stage.count}</span>
+                      <span className="text-xs font-bold">{count}</span>
                     </div>
                   </div>
-                  <div className="w-24 text-right text-sm text-green-400">${(stage.value / 1000000).toFixed(1)}M</div>
                 </div>
               ))}
             </div>
@@ -9524,7 +9523,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                   <div key={idx} className="bg-slate-800/50 rounded-lg p-3 flex justify-between items-center">
                     <div>
                       <p className="font-medium">{lead.name}</p>
-                      <p className="text-xs text-slate-400">{lead.days_inactive} días sin actividad</p>
+                      <p className="text-xs text-slate-400">{lead.days_in_stage} días en etapa • {lead.assigned_to_name}</p>
                     </div>
                     <span className="text-xs px-2 py-1 bg-red-500/30 text-red-300 rounded">{lead.risk_reason}</span>
                   </div>
