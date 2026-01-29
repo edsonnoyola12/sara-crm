@@ -9387,14 +9387,14 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
       try {
         switch (activeSection) {
           case 'pipeline':
-            const pRes = await fetch(`${API_BASE}/api/pipeline/summary?days=90`)
+            const pRes = await fetch(`${API_BASE}/api/pipeline?timeframe=90`)
             const pData = await pRes.json()
-            if (pData.success) setPipelineData(pData.summary)
+            if (pData.success) setPipelineData(pData)
             break
           case 'alerts':
             const aRes = await fetch(`${API_BASE}/api/alerts`)
             const aData = await aRes.json()
-            if (aData.success) setAlertsData(aData.summary)
+            if (aData.success) setAlertsData(aData)
             break
           case 'market':
             const mRes = await fetch(`${API_BASE}/api/market?days=30`)
@@ -9407,9 +9407,9 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
             if (cData.success) setClvData(cData.analysis)
             break
           case 'offers':
-            const oRes = await fetch(`${API_BASE}/api/offers/summary?days=30`)
+            const oRes = await fetch(`${API_BASE}/api/offers?days=30`)
             const oData = await oRes.json()
-            if (oData.success) setOffersData(oData.summary)
+            if (oData.success) setOffersData(oData)
             break
         }
       } catch (err) {
