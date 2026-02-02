@@ -46,6 +46,8 @@ interface Property {
   name: string
   category: string
   price: number
+  price_equipped: number
+  land_size: number
   bedrooms: number
   bathrooms: number
   area_m2: number
@@ -298,7 +300,7 @@ function App() {
     puedeEditarEquipo: () => currentUser?.role === 'admin',
 
     // PROPIEDADES
-    puedeEditarPropiedades: () => currentUser?.role === 'admin',
+    puedeEditarPropiedades: () => ['admin', 'coordinador'].includes(currentUser?.role || ''),
 
     // HIPOTECAS
     puedeVerTodasHipotecas: () => ['admin', 'coordinador', 'asesor'].includes(currentUser?.role || ''),
@@ -7868,6 +7870,18 @@ function PropertyModal({ property, onSave, onClose }: { property: Property | nul
           <div>
             <label className="block text-sm text-slate-400 mb-1">Precio Base</label>
             <input type="number" value={form.price || ''} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Precio Equipada</label>
+            <input type="number" value={form.price_equipped || ''} onChange={e => setForm({...form, price_equipped: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Terreno m²</label>
+            <input type="number" value={form.land_size || ''} onChange={e => setForm({...form, land_size: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Pisos</label>
+            <input type="number" value={form.floors || ''} onChange={e => setForm({...form, floors: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Recámaras</label>
