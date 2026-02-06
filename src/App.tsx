@@ -10838,12 +10838,16 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
   const [loadingSurveys, setLoadingSurveys] = useState(false)
   const [surveyFilter, setSurveyFilter] = useState<'all' | 'sent' | 'answered' | 'awaiting_feedback'>('all')
 
-  // Cargar resultados de encuestas
+  // Cargar resultados de encuestas al montar + al cambiar tab/filtro
+  useEffect(() => {
+    fetchSurveyResults()
+  }, [surveyFilter])
+
   useEffect(() => {
     if (activeTab === 'resultados') {
       fetchSurveyResults()
     }
-  }, [activeTab, surveyFilter])
+  }, [activeTab])
 
   const fetchSurveyResults = async () => {
     setLoadingSurveys(true)
@@ -10943,20 +10947,19 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
 
   const [customTemplates, setCustomTemplates] = useState<any[]>([])
 
-  // Calcular estadísticas de encuestas
-  const encuestasCompletadas = leads.filter(l => l.survey_completed)
-  const conRating = leads.filter(l => l.survey_rating)
-  const ratingPromedio = conRating.length > 0
-    ? (conRating.reduce((sum, l) => sum + (l.survey_rating || 0), 0) / conRating.length).toFixed(1)
-    : 0
-  const conFeedback = leads.filter(l => l.survey_feedback)
+  // Calcular estadísticas de encuestas desde la API de surveys
+  const totalEncuestas = surveyMetrics?.total || 0
+  const encuestasRespondidas = surveyMetrics?.answered || 0
+  const npsPromedio = surveyMetrics?.avg_nps || 0
+  const tasaRespuesta = totalEncuestas > 0 ? Math.round((encuestasRespondidas / totalEncuestas) * 100) : 0
+  const conFeedbackSurveys = surveyResults.filter((s: any) => s.feedback)
 
-  // Distribución de ratings
-  const ratingDistribution = [1, 2, 3, 4, 5].map(r => ({
-    rating: r,
-    count: conRating.filter(l => l.survey_rating === r).length,
-    emoji: r <= 2 ? '😞' : r === 3 ? '😐' : r === 4 ? '😊' : '🤩'
-  }))
+  // Distribución NPS (0-10) agrupada
+  const npsDistribution = [
+    { label: 'Detractores (0-6)', count: surveyMetrics?.detractors || 0, color: 'bg-red-500', emoji: '😞' },
+    { label: 'Pasivos (7-8)', count: surveyMetrics?.passives || 0, color: 'bg-yellow-500', emoji: '😐' },
+    { label: 'Promotores (9-10)', count: surveyMetrics?.promoters || 0, color: 'bg-green-500', emoji: '🤩' },
+  ]
 
   // Estadísticas de eventos
   const eventosActivos = crmEvents.filter(e => new Date(e.event_date) >= new Date())
@@ -11092,56 +11095,57 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
             </button>
           </div>
 
-          {/* KPIs de encuestas */}
+          {/* KPIs de encuestas (datos de API /api/surveys) */}
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-yellow-900/50 to-amber-900/50 border border-yellow-500/30 p-5 rounded-xl">
-              <div className="text-yellow-400 text-sm mb-1">Rating Promedio</div>
-              <div className="text-4xl font-bold text-yellow-300">{ratingPromedio} <span className="text-2xl">/ 5</span></div>
-              <div className="text-yellow-400/60 text-xs mt-1">{conRating.length} calificaciones</div>
+              <div className="text-yellow-400 text-sm mb-1">NPS Promedio</div>
+              <div className="text-4xl font-bold text-yellow-300">{npsPromedio} <span className="text-2xl">/ 10</span></div>
+              <div className="text-yellow-400/60 text-xs mt-1">{encuestasRespondidas} respuestas</div>
             </div>
             <div className="bg-gradient-to-br from-green-900/50 to-emerald-900/50 border border-green-500/30 p-5 rounded-xl">
-              <div className="text-green-400 text-sm mb-1">Encuestas Completadas</div>
-              <div className="text-4xl font-bold text-green-300">{encuestasCompletadas.length}</div>
-              <div className="text-green-400/60 text-xs mt-1">clientes satisfechos</div>
+              <div className="text-green-400 text-sm mb-1">Encuestas Enviadas</div>
+              <div className="text-4xl font-bold text-green-300">{totalEncuestas}</div>
+              <div className="text-green-400/60 text-xs mt-1">{encuestasRespondidas} respondidas</div>
             </div>
             <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-blue-500/30 p-5 rounded-xl">
               <div className="text-blue-400 text-sm mb-1">Con Feedback</div>
-              <div className="text-4xl font-bold text-blue-300">{conFeedback.length}</div>
+              <div className="text-4xl font-bold text-blue-300">{conFeedbackSurveys.length}</div>
               <div className="text-blue-400/60 text-xs mt-1">comentarios recibidos</div>
             </div>
             <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-500/30 p-5 rounded-xl">
               <div className="text-purple-400 text-sm mb-1">Tasa de Respuesta</div>
-              <div className="text-4xl font-bold text-purple-300">
-                {leads.filter(l => l.status === 'closed').length > 0
-                  ? Math.round((encuestasCompletadas.length / leads.filter(l => l.status === 'closed').length) * 100)
-                  : 0}%
-              </div>
-              <div className="text-purple-400/60 text-xs mt-1">de ventas cerradas</div>
+              <div className="text-4xl font-bold text-purple-300">{tasaRespuesta}%</div>
+              <div className="text-purple-400/60 text-xs mt-1">de encuestas enviadas</div>
             </div>
           </div>
 
-          {/* Distribución de ratings */}
+          {/* Distribución NPS */}
           <div className="bg-slate-800/50 rounded-2xl p-6">
-            <h3 className="text-xl font-bold mb-4">Distribucion de Calificaciones</h3>
+            <h3 className="text-xl font-bold mb-4">Distribucion NPS</h3>
             <div className="flex gap-4 items-end h-40">
-              {ratingDistribution.map(r => (
-                <div key={r.rating} className="flex-1 flex flex-col items-center">
+              {npsDistribution.map(r => (
+                <div key={r.label} className="flex-1 flex flex-col items-center">
                   <div className="text-2xl mb-2">{r.emoji}</div>
                   <div
-                    className={`w-full rounded-t-lg ${r.rating <= 2 ? 'bg-red-500' : r.rating === 3 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ height: `${Math.max((r.count / Math.max(...ratingDistribution.map(x => x.count), 1)) * 100, 10)}%` }}
+                    className={`w-full rounded-t-lg ${r.color}`}
+                    style={{ height: `${Math.max((r.count / Math.max(...npsDistribution.map(x => x.count), 1)) * 100, 10)}%` }}
                   />
                   <div className="text-lg font-bold mt-2">{r.count}</div>
-                  <div className="text-slate-400 text-sm">{r.rating} estrella{r.rating > 1 ? 's' : ''}</div>
+                  <div className="text-slate-400 text-sm text-center">{r.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Lista de feedback */}
+          {/* Lista de feedback desde API de surveys */}
           <div className="bg-slate-800/50 rounded-2xl p-6">
             <h3 className="text-xl font-bold mb-4">Comentarios Recientes</h3>
-            {conFeedback.length === 0 ? (
+            {loadingSurveys ? (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-slate-400">Cargando...</p>
+              </div>
+            ) : conFeedbackSurveys.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <MessageSquare size={48} className="mx-auto mb-3 opacity-50" />
                 <p>No hay comentarios todavia</p>
@@ -11149,19 +11153,33 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {conFeedback.slice(0, 20).map(lead => (
-                  <div key={lead.id} className="bg-slate-700/50 p-4 rounded-xl">
+                {conFeedbackSurveys.slice(0, 20).map((survey: any) => (
+                  <div key={survey.id} className="bg-slate-700/50 p-4 rounded-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium">{lead.name || 'Cliente'}</div>
-                      <div className="flex items-center gap-1">
-                        {[1,2,3,4,5].map(s => (
-                          <Star key={s} size={14} className={s <= (lead.survey_rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600'} />
-                        ))}
+                      <div className="font-medium">{survey.lead_name || survey.phone || 'Cliente'}</div>
+                      <div className="flex items-center gap-2">
+                        {survey.nps_score !== null && (
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            survey.nps_score >= 9 ? 'bg-green-500/20 text-green-400' :
+                            survey.nps_score >= 7 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            NPS: {survey.nps_score}
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          survey.nps_category === 'promotor' ? 'bg-green-500/20 text-green-400' :
+                          survey.nps_category === 'pasivo' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {survey.nps_category || survey.status}
+                        </span>
                       </div>
                     </div>
-                    <p className="text-slate-300 text-sm italic">"{lead.survey_feedback}"</p>
+                    <p className="text-slate-300 text-sm italic">"{survey.feedback}"</p>
                     <div className="text-slate-500 text-xs mt-2">
-                      {new Date(lead.updated_at || '').toLocaleDateString('es-MX')}
+                      {survey.template_type && <span className="mr-2">{survey.template_type}</span>}
+                      {new Date(survey.answered_at || survey.sent_at || '').toLocaleDateString('es-MX')}
                     </div>
                   </div>
                 ))}
