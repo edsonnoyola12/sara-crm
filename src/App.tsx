@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift } from 'lucide-react'
 
-type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi'
+type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes'
 
 interface Lead {
   id: string
@@ -341,6 +341,7 @@ function App() {
         referrals: ['admin', 'coordinador', 'vendedor'],
         config: ['admin'],
         bi: ['admin', 'coordinador'], // Business Intelligence
+        mensajes: ['admin', 'coordinador'], // Métricas de mensajes WhatsApp
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -1873,6 +1874,11 @@ function App() {
           {permisos.puedeVerSeccion('bi') && (
             <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'bi' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'hover:bg-slate-700'}`}>
               <Lightbulb size={20} /> Business Intelligence
+            </button>
+          )}
+          {permisos.puedeVerSeccion('mensajes') && (
+            <button onClick={() => { setView('mensajes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mensajes' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'hover:bg-slate-700'}`}>
+              <MessageSquare size={20} /> Mensajes
             </button>
           )}
           {permisos.puedeVerSeccion('encuestas') && (
@@ -6345,6 +6351,10 @@ function App() {
           />
         )}
 
+        {view === 'mensajes' && (
+          <MessageMetricsView />
+        )}
+
         {view === 'referrals' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-400 to-rose-500 bg-clip-text text-transparent">
@@ -9926,6 +9936,326 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
       {!loading && !pipelineData && !alertsData && !marketData && !clvData && !offersData && activeSection !== 'reports' && (
         <div className="text-center py-12 text-slate-400">
           <p>No se pudieron cargar los datos. Verifica la conexión con el backend.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// MESSAGE METRICS VIEW - Métricas de Mensajes WhatsApp
+// ═══════════════════════════════════════════════════════════
+function MessageMetricsView() {
+  const [loading, setLoading] = useState(true)
+  const [messageMetrics, setMessageMetrics] = useState<any>(null)
+  const [ttsMetrics, setTtsMetrics] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<'todos' | 'tts'>('todos')
+  const [diasFiltro, setDiasFiltro] = useState(7)
+
+  const API_BASE = 'https://sara-backend.edson-633.workers.dev'
+
+  useEffect(() => {
+    const loadMetrics = async () => {
+      setLoading(true)
+      try {
+        // Cargar métricas de mensajes
+        const msgRes = await fetch(`${API_BASE}/api/message-metrics?days=${diasFiltro}`)
+        const msgData = await msgRes.json()
+        setMessageMetrics(msgData)
+
+        // Cargar métricas de TTS
+        const ttsRes = await fetch(`${API_BASE}/api/tts-metrics?days=${diasFiltro}`)
+        const ttsData = await ttsRes.json()
+        setTtsMetrics(ttsData)
+      } catch (err) {
+        console.error('Error loading message metrics:', err)
+      }
+      setLoading(false)
+    }
+    loadMetrics()
+  }, [diasFiltro])
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+          📊 Métricas de Mensajes
+        </h2>
+        <div className="flex items-center gap-3">
+          <select
+            value={diasFiltro}
+            onChange={(e) => setDiasFiltro(Number(e.target.value))}
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value={1}>Últimas 24h</option>
+            <option value={7}>Últimos 7 días</option>
+            <option value={30}>Últimos 30 días</option>
+            <option value={90}>Últimos 90 días</option>
+          </select>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+          >
+            <RefreshCw size={16} /> Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('todos')}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            activeTab === 'todos' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'bg-slate-700 hover:bg-slate-600'
+          }`}
+        >
+          📱 Todos los Mensajes
+        </button>
+        <button
+          onClick={() => setActiveTab('tts')}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            activeTab === 'tts' ? 'bg-gradient-to-r from-purple-600 to-violet-600' : 'bg-slate-700 hover:bg-slate-600'
+          }`}
+        >
+          🎤 Audios TTS
+        </button>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-500 border-t-transparent"></div>
+        </div>
+      )}
+
+      {/* Tab: Todos los mensajes */}
+      {activeTab === 'todos' && !loading && messageMetrics && (
+        <div className="space-y-6">
+          {/* KPIs 24h */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">ENVIADOS (24h)</p>
+              <p className="text-3xl font-bold text-blue-400">{messageMetrics.resumen_24h?.enviados || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">ENTREGADOS</p>
+              <p className="text-3xl font-bold text-green-400">{messageMetrics.resumen_24h?.entregados || 0}</p>
+              <p className="text-xs text-slate-500">{messageMetrics.resumen_24h?.tasaEntrega || 0}% tasa</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">LEÍDOS</p>
+              <p className="text-3xl font-bold text-purple-400">{messageMetrics.resumen_24h?.leidos || 0}</p>
+              <p className="text-xs text-slate-500">{messageMetrics.resumen_24h?.tasaLectura || 0}% tasa</p>
+            </div>
+            <div className="bg-gradient-to-br from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">FALLIDOS</p>
+              <p className="text-3xl font-bold text-red-400">{messageMetrics.resumen_24h?.fallidos || 0}</p>
+            </div>
+          </div>
+
+          {/* Resumen del período */}
+          <div className="bg-slate-800/50 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4">📈 Resumen del Período</h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-white">{messageMetrics.resumen_periodo?.total_enviados || 0}</p>
+                <p className="text-xs text-slate-400">Total Enviados</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-400">{messageMetrics.resumen_periodo?.total_entregados || 0}</p>
+                <p className="text-xs text-slate-400">Entregados</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-purple-400">{messageMetrics.resumen_periodo?.total_leidos || 0}</p>
+                <p className="text-xs text-slate-400">Leídos</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-red-400">{messageMetrics.resumen_periodo?.total_fallidos || 0}</p>
+                <p className="text-xs text-slate-400">Fallidos</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-400">{messageMetrics.resumen_periodo?.tasa_lectura_global || '0%'}</p>
+                <p className="text-xs text-slate-400">Tasa Lectura</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Por tipo y categoría */}
+          {messageMetrics.por_tipo_y_categoria?.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4">📊 Por Tipo y Categoría</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-700">
+                      <th className="text-left py-2 px-3">Tipo</th>
+                      <th className="text-left py-2 px-3">Categoría</th>
+                      <th className="text-right py-2 px-3">Enviados</th>
+                      <th className="text-right py-2 px-3">Entregados</th>
+                      <th className="text-right py-2 px-3">Leídos</th>
+                      <th className="text-right py-2 px-3">Tasa Lectura</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {messageMetrics.por_tipo_y_categoria.map((row: any, idx: number) => (
+                      <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            row.tipo === 'text' ? 'bg-blue-500/30 text-blue-300' :
+                            row.tipo === 'audio' ? 'bg-purple-500/30 text-purple-300' :
+                            row.tipo === 'template' ? 'bg-amber-500/30 text-amber-300' :
+                            'bg-slate-500/30 text-slate-300'
+                          }`}>
+                            {row.tipo}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-300">{row.categoria}</td>
+                        <td className="py-2 px-3 text-right">{row.enviados}</td>
+                        <td className="py-2 px-3 text-right text-green-400">{row.entregados}</td>
+                        <td className="py-2 px-3 text-right text-purple-400">{row.leidos}</td>
+                        <td className="py-2 px-3 text-right text-amber-400">{row.tasa_lectura}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Últimos mensajes */}
+          {messageMetrics.ultimos_mensajes?.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4">📝 Últimos Mensajes</h3>
+              <div className="space-y-2">
+                {messageMetrics.ultimos_mensajes.map((msg: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-4 p-3 bg-slate-700/30 rounded-lg">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      msg.tipo === 'text' ? 'bg-blue-500/30 text-blue-300' :
+                      msg.tipo === 'audio' ? 'bg-purple-500/30 text-purple-300' :
+                      'bg-slate-500/30 text-slate-300'
+                    }`}>
+                      {msg.tipo}
+                    </span>
+                    <span className="text-xs text-slate-500 w-16">...{msg.destinatario}</span>
+                    <span className="flex-1 text-sm text-slate-300 truncate">{msg.contenido || '-'}</span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      msg.status === 'read' ? 'bg-purple-500/30 text-purple-300' :
+                      msg.status === 'delivered' ? 'bg-green-500/30 text-green-300' :
+                      msg.status === 'sent' ? 'bg-blue-500/30 text-blue-300' :
+                      'bg-red-500/30 text-red-300'
+                    }`}>
+                      {msg.status}
+                    </span>
+                    <span className="text-xs text-slate-500 w-32">{formatDate(msg.enviado)}</span>
+                    {msg.leido && <span className="text-xs text-purple-400">👁️ {formatDate(msg.leido)}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Audios TTS */}
+      {activeTab === 'tts' && !loading && ttsMetrics && (
+        <div className="space-y-6">
+          {/* KPIs TTS */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">AUDIOS ENVIADOS</p>
+              <p className="text-3xl font-bold text-purple-400">{ttsMetrics.resumen?.total_enviados || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">ENTREGADOS</p>
+              <p className="text-3xl font-bold text-green-400">{ttsMetrics.resumen?.total_entregados || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">ESCUCHADOS</p>
+              <p className="text-3xl font-bold text-amber-400">{ttsMetrics.resumen?.total_escuchados || 0}</p>
+            </div>
+            <div className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">TASA ESCUCHA</p>
+              <p className="text-3xl font-bold text-cyan-400">{ttsMetrics.resumen?.tasa_escucha_global || '0%'}</p>
+            </div>
+          </div>
+
+          {/* Por tipo de audio */}
+          {ttsMetrics.por_tipo?.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4">🎤 Por Tipo de Audio</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-slate-700">
+                      <th className="text-left py-2 px-3">Tipo</th>
+                      <th className="text-right py-2 px-3">Enviados</th>
+                      <th className="text-right py-2 px-3">Entregados</th>
+                      <th className="text-right py-2 px-3">Escuchados</th>
+                      <th className="text-right py-2 px-3">Tasa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ttsMetrics.por_tipo.map((row: any, idx: number) => (
+                      <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td className="py-2 px-3 text-slate-300">{row.tipo}</td>
+                        <td className="py-2 px-3 text-right">{row.enviados}</td>
+                        <td className="py-2 px-3 text-right text-green-400">{row.entregados}</td>
+                        <td className="py-2 px-3 text-right text-amber-400">{row.escuchados}</td>
+                        <td className="py-2 px-3 text-right text-cyan-400">{row.tasa_escucha}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Últimos audios */}
+          {ttsMetrics.ultimos_mensajes?.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl p-6">
+              <h3 className="text-xl font-bold mb-4">🎧 Últimos Audios</h3>
+              <div className="space-y-2">
+                {ttsMetrics.ultimos_mensajes.map((msg: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-4 p-3 bg-slate-700/30 rounded-lg">
+                    <span className="text-purple-400">🎤</span>
+                    <span className="text-xs text-slate-500 w-16">...{msg.destinatario}</span>
+                    <span className="flex-1 text-sm text-slate-300">{msg.tipo}</span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      msg.status === 'read' ? 'bg-amber-500/30 text-amber-300' :
+                      msg.status === 'delivered' ? 'bg-green-500/30 text-green-300' :
+                      'bg-blue-500/30 text-blue-300'
+                    }`}>
+                      {msg.status === 'read' ? '👂 escuchado' : msg.status}
+                    </span>
+                    <span className="text-xs text-slate-500">{formatDate(msg.enviado)}</span>
+                    {msg.escuchado && <span className="text-xs text-amber-400">👂 {formatDate(msg.escuchado)}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Info sobre confirmaciones de lectura */}
+          <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-4">
+            <p className="text-amber-300 text-sm">
+              ⚠️ <strong>Nota:</strong> Los "escuchados" solo se registran si el destinatario tiene las confirmaciones de lectura activadas en WhatsApp.
+              Si un usuario tiene esta opción desactivada, el audio aparecerá como "entregado" pero no como "escuchado".
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !messageMetrics && !ttsMetrics && (
+        <div className="text-center py-12 text-slate-400">
+          <p>No se pudieron cargar las métricas. Verifica la conexión con el backend.</p>
         </div>
       )}
     </div>
