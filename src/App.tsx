@@ -274,6 +274,20 @@ function App() {
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0])
 
+  // Helper: traducir source slugs a nombres legibles con icono
+  const sourceLabel = (src: string) => {
+    const map: Record<string, string> = {
+      'phone_inbound': '📞 Llamada',
+      'facebook_ads': '📘 Facebook',
+      'referral': '🤝 Referido',
+      'agency_import': '📥 Importado',
+      'whatsapp': '💬 WhatsApp',
+      'website': '🌐 Web',
+      'Directo': '➡️ Directo',
+    }
+    return map[src] || src
+  }
+
   // ═══════════════════════════════════════════════════════════
   // SISTEMA DE PERMISOS POR ROL
   // ═══════════════════════════════════════════════════════════
@@ -2011,7 +2025,7 @@ function App() {
                     + '</div></div>'
 
                     + '<div><h2>FUENTES DE LEADS</h2><table><tr><th>Fuente</th><th>Leads</th><th>Cerrados</th><th>Conv%</th></tr>'
-                    + fuentesArr.map(f => '<tr><td>' + f.name + '</td><td>' + f.total + '</td><td>' + f.cerrados + '</td><td>' + f.conversion + '%</td></tr>').join('')
+                    + fuentesArr.map(f => '<tr><td>' + sourceLabel(f.name) + '</td><td>' + f.total + '</td><td>' + f.cerrados + '</td><td>' + f.conversion + '%</td></tr>').join('')
                     + '</table></div></div>'
 
                     + '<h2>DESEMPENO POR VENDEDOR</h2><table><tr><th>Vendedor</th><th>Ventas</th><th>Meta</th><th>Cumpl.</th><th>Conv%</th></tr>'
@@ -2212,7 +2226,7 @@ function App() {
                   )}
 
                   {/* KPIs principales */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {/* Meta vs Real */}
                     <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
                       <p className="text-xs text-slate-400 mb-1">META VS REAL</p>
@@ -2256,6 +2270,13 @@ function App() {
                       <p className="text-xs text-slate-400 mb-1">HIPOTECAS</p>
                       <p className="text-3xl font-bold text-cyan-400">{hipotecasPendientes}</p>
                       <p className="text-xs text-slate-500 mt-2">{hipotecasAprobadas} aprobadas/mes</p>
+                    </div>
+
+                    {/* Llamadas Retell */}
+                    <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
+                      <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
+                      <p className="text-xs text-slate-500 mt-2">{leads.filter(l => l.source === 'phone_inbound').length} total</p>
                     </div>
                   </div>
 
@@ -2366,7 +2387,7 @@ function App() {
                                 style={{ width: `${Math.max(10, (f.leads / (fuentes[0]?.leads || 1)) * 100)}%` }}
                               />
                               <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
-                                <span>{f.name}</span>
+                                <span>{sourceLabel(f.name)}</span>
                                 <span>{f.leads} • {f.conv}%</span>
                               </span>
                             </div>
@@ -2994,7 +3015,7 @@ function App() {
                     <div className="space-y-2">
                       {fuentes.slice(0, 6).map((f, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <div className="w-28 text-sm truncate">{f.name}</div>
+                          <div className="w-28 text-sm truncate">{sourceLabel(f.name)}</div>
                           <div className="flex-1 h-7 bg-slate-700 rounded-full overflow-hidden relative">
                             <div
                               className="h-full bg-gradient-to-r from-pink-500 to-purple-500"
@@ -3118,7 +3139,7 @@ function App() {
                             <span className="text-slate-500">•</span>
                             <span className="text-slate-400">{l.phone}</span>
                             <span className="text-slate-500">•</span>
-                            <span className="text-yellow-400">{l.source || 'Directo'}</span>
+                            <span className="text-yellow-400">{sourceLabel(l.source || 'Directo')}</span>
                           </div>
                         ))}
                         {leadsUrgentes.length > 3 && <p className="text-xs text-slate-500">+{leadsUrgentes.length - 3} más</p>}
@@ -3142,7 +3163,7 @@ function App() {
                   )}
 
                   {/* KPIs principales */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {/* Leads hoy */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
@@ -3169,6 +3190,13 @@ function App() {
                       <p className="text-xs text-slate-400 mb-1">ESTE MES</p>
                       <p className="text-3xl font-bold text-purple-400">{leadsDelMes.length}</p>
                       <p className="text-xs text-slate-500">leads totales</p>
+                    </div>
+
+                    {/* Llamadas Retell */}
+                    <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound').length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
+                      <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
+                      <p className="text-xs text-slate-500">por teléfono</p>
                     </div>
                   </div>
 
@@ -3206,7 +3234,7 @@ function App() {
                                 style={{ width: `${Math.max(10, (f.count / (fuentes[0]?.count || 1)) * 100)}%` }}
                               />
                               <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
-                                <span>{f.name}</span>
+                                <span>{sourceLabel(f.name)}</span>
                                 <span className="font-bold">{f.count}</span>
                               </span>
                             </div>
@@ -3247,7 +3275,7 @@ function App() {
                             <div className={`w-2 h-2 rounded-full ${l.status === 'new' ? 'bg-green-500' : 'bg-slate-500'}`} />
                             <div>
                               <p className="font-medium text-sm">{l.name}</p>
-                              <p className="text-xs text-slate-400">{l.phone} • {l.source || 'Directo'}</p>
+                              <p className="text-xs text-slate-400">{l.phone} • {sourceLabel(l.source || 'Directo')}</p>
                             </div>
                           </div>
                           <div className="text-right">
@@ -4405,12 +4433,13 @@ function App() {
                     {leadsBySource.slice(0, 8).map((s, i) => (
                       <tr key={s.source} className={`border-b border-slate-700/50 ${i === 0 ? 'bg-green-900/20' : ''}`}>
                         <td className="py-2 px-3 font-medium flex items-center gap-2">
-                          {s.source === 'facebook' || s.source === 'Facebook' ? '📘' : 
+                          {s.source === 'facebook' || s.source === 'Facebook' || s.source === 'facebook_ads' ? '📘' :
                            s.source === 'google' || s.source === 'Google' ? '🔍' :
                            s.source === 'instagram' || s.source === 'Instagram' ? '📸' :
-                           s.source === 'referido' || s.source === 'Referido' ? '🤝' :
+                           s.source === 'referido' || s.source === 'Referido' || s.source === 'referral' ? '🤝' :
+                           s.source === 'phone_inbound' ? '📞' :
                            s.source === 'tiktok' || s.source === 'TikTok' ? '🎵' : '📣'}
-                          {s.source}
+                          {sourceLabel(s.source)}
                           {i === 0 && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">Top</span>}
                         </td>
                         <td className="text-center py-2 px-3 font-bold">{s.total}</td>
