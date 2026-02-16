@@ -998,17 +998,22 @@ function App() {
     }
   }
 
-  async function deleteCalendarEvent(eventId: string) {
-    if (confirm("¿Cancelar esta cita?")) {
-      try {
-        await safeFetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
-          method: "DELETE"
-        })
-        loadCalendarEvents()
-      } catch (error) {
-        console.error("Error deleting event:", error)
+  function deleteCalendarEvent(eventId: string) {
+    setConfirmModal({
+      title: 'Cancelar cita',
+      message: '¿Estás seguro de cancelar esta cita?',
+      onConfirm: async () => {
+        try {
+          await safeFetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
+            method: "DELETE"
+          })
+          loadCalendarEvents()
+        } catch (error) {
+          console.error("Error deleting event:", error)
+        }
+        setConfirmModal(null)
       }
-    }
+    })
   }
 
   async function saveProperty(prop: Partial<Property>) {
@@ -1022,11 +1027,16 @@ function App() {
     setShowNewProperty(false)
   }
 
-  async function deleteProperty(id: string) {
-    if (confirm('¿Eliminar esta propiedad?')) {
-      await supabase.from('properties').delete().eq('id', id)
-      loadData()
-    }
+  function deleteProperty(id: string) {
+    setConfirmModal({
+      title: 'Eliminar propiedad',
+      message: '¿Estás seguro de eliminar esta propiedad? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        await supabase.from('properties').delete().eq('id', id)
+        loadData()
+        setConfirmModal(null)
+      }
+    })
   }
 
   async function saveLead(lead: Partial<Lead>) {
@@ -1077,18 +1087,23 @@ function App() {
     }
   }
 
-  async function deleteMember(id: string) {
-    if (!confirm('¿Eliminar este miembro del equipo?')) return
-    
-    try {
-      await safeFetch(`https://sara-backend.edson-633.workers.dev/api/team-members/${id}`, {
-        method: 'DELETE'
-      })
-      loadData()
-    } catch (error) {
-      console.error('Error eliminando miembro:', error)
-      alert('Error al eliminar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
-    }
+  function deleteMember(id: string) {
+    setConfirmModal({
+      title: 'Eliminar miembro',
+      message: '¿Estás seguro de eliminar este miembro del equipo?',
+      onConfirm: async () => {
+        try {
+          await safeFetch(`https://sara-backend.edson-633.workers.dev/api/team-members/${id}`, {
+            method: 'DELETE'
+          })
+          loadData()
+        } catch (error) {
+          console.error('Error eliminando miembro:', error)
+          alert('Error al eliminar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
+        }
+        setConfirmModal(null)
+      }
+    })
   }
 
   async function saveMortgage(mortgage: Partial<MortgageApplication>) {
@@ -3018,7 +3033,7 @@ function App() {
                       <p className="text-xs text-slate-400 mb-1">COSTO POR LEAD</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
                       <p className="text-xs text-slate-500 mt-2">CPQL: ${cpql}</p>
-                      <p className="text-xs text-slate-500">CPA: ${cpa.toLocaleString()}</p>
+                      <p className="text-xs text-slate-500">CPA: ${cpa.toLocaleString('es-MX')}</p>
                     </div>
 
                     {/* Calidad */}
@@ -4844,7 +4859,7 @@ function App() {
                   <div className="p-4">
                     <h3 className="font-bold text-lg mb-1">{prop.name}</h3>
                     <p className="text-xs text-slate-400 mb-2">{prop.development || ''} - {prop.city || ''}</p>
-                    <p className="text-2xl font-bold text-green-400 bg-green-500/20 p-2 rounded-xl mb-2">${(prop.price || 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-green-400 bg-green-500/20 p-2 rounded-xl mb-2">${(prop.price || 0).toLocaleString('es-MX')}</p>
                     <p className="text-slate-400 text-sm mb-2">{prop.bedrooms || 0} rec | {prop.bathrooms || 0} baños | {prop.area_m2 || 0}m²</p>
                     <p className="text-cyan-400 text-xs mb-3 line-clamp-2">{prop.sales_phrase || prop.description || ''}</p>
                     <div className="flex flex-wrap gap-1 mb-3">
@@ -5771,29 +5786,32 @@ function App() {
                         >
                           ✏️ Editar
                         </button>
-                        <button 
-                          onClick={async () => {
+                        <button
+                          onClick={() => {
                             const tipoTexto = appt.appointment_type === 'llamada' ? 'llamada' : 'cita';
-                            if (confirm(`¿Cancelar ${tipoTexto} con ${appt.lead_name}?\n\nSe notificará al cliente y vendedor por WhatsApp.`)) {
-                              try {
-                                // Llamar al backend que envía WhatsApp y elimina de Google Calendar
-                                const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/appointments/${appt.id}/cancel`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ 
-                                    google_event_id: appt.google_event_vendedor_id,
-                                    cancelled_by: 'CRM',
-                                    notificar: true
+                            setConfirmModal({
+                              title: `Cancelar ${tipoTexto}`,
+                              message: `¿Cancelar ${tipoTexto} con ${appt.lead_name}? Se notificará al cliente y vendedor por WhatsApp.`,
+                              onConfirm: async () => {
+                                try {
+                                  const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/appointments/${appt.id}/cancel`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      google_event_id: appt.google_event_vendedor_id,
+                                      cancelled_by: 'CRM',
+                                      notificar: true
+                                    })
                                   })
-                                })
-                                if (!response.ok) throw new Error('Error al cancelar')
-                                loadData()
-                                alert(`✅ ${tipoTexto === 'llamada' ? 'Llamada' : 'Cita'} cancelada. Se notificó al cliente y vendedor por WhatsApp.`)
-                              } catch (err: any) {
-                                alert('Error: ' + err.message)
-                                loadData()
+                                  if (!response.ok) throw new Error('Error al cancelar')
+                                  loadData()
+                                } catch (err: any) {
+                                  alert('Error: ' + err.message)
+                                  loadData()
+                                }
+                                setConfirmModal(null)
                               }
-                            }
+                            })
                           }}
                           className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-semibold flex items-center gap-2"
                         >
@@ -6763,7 +6781,7 @@ function App() {
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-2xl font-bold text-green-400">${bonoReferido.toLocaleString()}</div>
+                                    <div className="text-2xl font-bold text-green-400">${bonoReferido.toLocaleString('es-MX')}</div>
                                     <button
                                       onClick={async () => {
                                         const newNotes = { ...(lead.notes || {}), reward_delivered: true, reward_delivered_at: new Date().toISOString() }
@@ -6796,7 +6814,7 @@ function App() {
                                 <span className="text-green-400">{lead.referred_by_name || 'Sin nombre'}</span>
                                 <span className="text-slate-500 text-sm ml-2">por referir a {lead.name}</span>
                               </div>
-                              <div className="text-green-400 font-bold">${bonoReferido.toLocaleString()}</div>
+                              <div className="text-green-400 font-bold">${bonoReferido.toLocaleString('es-MX')}</div>
                             </div>
                           ))}
                           {entregados.length > 5 && (
@@ -12301,6 +12319,7 @@ function FollowupsView({ supabase }: { supabase: any }) {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'rules' | 'scheduled' | 'history'>('rules')
   const [stats, setStats] = useState({ pendientes: 0, enviadosHoy: 0, canceladosHoy: 0 })
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
 
   useEffect(() => {
     loadData()
@@ -12368,13 +12387,19 @@ function FollowupsView({ supabase }: { supabase: any }) {
     setRules(rules.map(r => r.id === rule.id ? { ...r, delay_hours: newDelay } : r))
   }
 
-  async function cancelFollowup(followup: ScheduledFollowup) {
-    if (!confirm(`¿Cancelar follow-up para ${followup.lead_name}?`)) return
-    await supabase
-      .from('scheduled_followups')
-      .update({ cancelled: true, cancel_reason: 'manual_cancel' })
-      .eq('id', followup.id)
-    loadData()
+  function cancelFollowup(followup: ScheduledFollowup) {
+    setConfirmModal({
+      title: 'Cancelar follow-up',
+      message: `¿Cancelar follow-up para ${followup.lead_name}?`,
+      onConfirm: async () => {
+        await supabase
+          .from('scheduled_followups')
+          .update({ cancelled: true, cancel_reason: 'manual_cancel' })
+          .eq('id', followup.id)
+        loadData()
+        setConfirmModal(null)
+      }
+    })
   }
 
   function formatDelay(hours: number): string {
@@ -12592,6 +12617,19 @@ function FollowupsView({ supabase }: { supabase: any }) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setConfirmModal(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-2">{confirmModal.title}</h3>
+            <p className="text-sm text-slate-400 mb-5">{confirmModal.message}</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmModal(null)} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm">Cancelar</button>
+              <button onClick={confirmModal.onConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium">Confirmar</button>
+            </div>
           </div>
         </div>
       )}
