@@ -5023,7 +5023,7 @@ function App() {
                             )}
                             <p className="font-semibold text-sm">{mortgage.lead_name}</p>
                             <p className="text-xs text-slate-400">{mortgage.property_name}</p>
-                            <p className="text-xs text-slate-400 mt-1">${(mortgage.requested_amount || 0).toLocaleString()}</p>
+                            <p className="text-xs text-slate-400 mt-1">${(mortgage.requested_amount || 0).toLocaleString('es-MX')}</p>
                             <p className="text-xs text-slate-500 mt-1">{daysInStatus}d en {status.label.toLowerCase()}</p>
                           </div>
                         )
@@ -5052,11 +5052,11 @@ function App() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <p className="text-slate-400 text-xs md:text-sm mb-1">Presupuesto Total</p>
-                <p className="text-lg md:text-2xl font-bold">${totalBudget.toLocaleString()}</p>
+                <p className="text-lg md:text-2xl font-bold">${totalBudget.toLocaleString('es-MX')}</p>
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <p className="text-slate-400 text-xs md:text-sm mb-1">Gastado</p>
-                <p className="text-lg md:text-2xl font-bold text-orange-500">${totalSpent.toLocaleString()}</p>
+                <p className="text-lg md:text-2xl font-bold text-orange-500">${totalSpent.toLocaleString('es-MX')}</p>
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <p className="text-slate-400 text-xs md:text-sm mb-1">CPL Promedio</p>
@@ -5126,10 +5126,10 @@ function App() {
                             {campaign.channel}
                           </span>
                         </td>
-                        <td className="p-4">${campaign.spent.toLocaleString()}</td>
-                        <td className="p-4">{campaign.leads_generated}</td>
+                        <td className="p-4">${(campaign.spent || 0).toLocaleString('es-MX')}</td>
+                        <td className="p-4">{campaign.leads_generated || 0}</td>
                         <td className="p-4">${cpl.toFixed(0)}</td>
-                        <td className="p-4">{campaign.sales_closed}</td>
+                        <td className="p-4">{campaign.sales_closed || 0}</td>
                         <td className="p-4">
                           <span className={campaignROI >= 0 ? 'text-green-400 bg-green-500/20 p-2 rounded-xl' : 'text-red-400 bg-red-500/20 p-2 rounded-xl'}>
                             {campaignROI.toFixed(0)}%
@@ -5386,7 +5386,7 @@ function App() {
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Promociones ({promotions.length})</h2>
               <button onClick={() => setShowNewPromotion(true)} className="bg-purple-600 px-4 py-2 rounded-xl hover:bg-purple-700 flex items-center gap-2">
-                <Plus size={20} /> Nueva Promocion
+                <Plus size={20} /> Nueva Promoción
               </button>
             </div>
 
@@ -5440,7 +5440,7 @@ function App() {
                         <td className="p-4">
                           <p className="text-sm">{startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - {endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</p>
                           {promo.status === 'active' && daysRemaining > 0 && (
-                            <p className="text-xs text-yellow-400">{daysRemaining} dias restantes</p>
+                            <p className="text-xs text-yellow-400">{daysRemaining} días restantes</p>
                           )}
                         </td>
                         <td className="p-4">
@@ -5503,7 +5503,7 @@ function App() {
                   <div className="text-6xl mb-4">🎯</div>
                   <p className="text-slate-400 text-xl mb-4">No hay promociones</p>
                   <button onClick={() => setShowNewPromotion(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold">
-                    Crear Primera Promocion
+                    Crear Primera Promoción
                   </button>
                 </div>
               )}
@@ -5560,15 +5560,15 @@ function App() {
                           event.event_type === 'outlet' ? 'bg-orange-600' :
                           'bg-emerald-600'
                         }`}>
-                          {event.event_type === 'open_house' ? 'Open House' :
+                          {event.event_type === 'open_house' ? 'Casa Abierta' :
                            event.event_type === 'seminar' ? 'Seminario' :
-                           event.event_type === 'outlet' ? 'Outlet' : event.event_type}
+                           event.event_type === 'outlet' ? 'Venta Especial' : event.event_type}
                         </span>
                         <span className={`px-2 py-1 rounded text-xs ${
                           event.status === 'upcoming' || event.status === 'scheduled' ? 'bg-green-600' :
                           event.status === 'completed' ? 'bg-slate-600' : 'bg-red-600'
                         }`}>
-                          {event.status === 'upcoming' || event.status === 'scheduled' ? 'Proximo' :
+                          {event.status === 'upcoming' || event.status === 'scheduled' ? 'Próximo' :
                            event.status === 'completed' ? 'Completado' : event.status}
                         </span>
                       </div>
@@ -6368,7 +6368,7 @@ function App() {
                   <div className="mt-3 p-3 bg-green-500/20 border border-green-500/50 rounded-lg flex items-center gap-2">
                     <CheckCircle size={18} className="text-green-400" />
                     <p className="text-green-400 text-sm">
-                      Las metas est&aacute;n correctamente distribuidas
+                      Las metas están correctamente distribuidas
                     </p>
                   </div>
                 )}
@@ -6689,7 +6689,7 @@ function App() {
               )}
 
               <p className="text-slate-400 text-sm mb-4">
-                💰 Premio actual: <span className="text-green-400 font-bold">${bonoReferido.toLocaleString()} MXN</span> para quien refiera a alguien que compre
+                💰 Premio actual: <span className="text-green-400 font-bold">${bonoReferido.toLocaleString('es-MX')} MXN</span> para quien refiera a alguien que compre
               </p>
 
               {/* Premios Pendientes */}
