@@ -9436,6 +9436,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
 }) {
   const [activeSection, setActiveSection] = useState<'pipeline' | 'alerts' | 'market' | 'clv' | 'offers' | 'reports'>('pipeline')
   const [loading, setLoading] = useState(false)
+  const [sectionError, setSectionError] = useState<string | null>(null)
   const [pipelineData, setPipelineData] = useState<any>(null)
   const [alertsData, setAlertsData] = useState<any>(null)
   const [marketData, setMarketData] = useState<any>(null)
@@ -9444,50 +9445,78 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
 
   const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
+  const STAGE_LABELS: Record<string, string> = {
+    'new': 'Nuevos', 'contacted': 'Contactados', 'qualified': 'Calificados',
+    'visit_scheduled': 'Cita Agendada', 'scheduled': 'Cita Agendada',
+    'visited': 'Visitaron', 'negotiating': 'Negociación', 'negotiation': 'Negociación',
+    'reserved': 'Apartados', 'sold': 'Vendidos', 'closed': 'Cerrados',
+    'delivered': 'Entregados', 'lost': 'Perdidos', 'inactive': 'Inactivos',
+  }
+
+  const ALERT_TYPE_LABELS: Record<string, string> = {
+    'cold_lead': 'Lead Frío', 'vendor_inactive': 'Vendedor Inactivo',
+    'visit_upcoming': 'Visita Próxima', 'offer_expiring': 'Oferta por Vencer',
+    'stalled_deal': 'Negociación Estancada', 'hot_lead': 'Lead Caliente',
+    'no_follow_up': 'Sin Seguimiento', 'mortgage_stalled': 'Hipoteca Estancada',
+  }
+
+  const STAGE_COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#f59e0b', '#22c55e', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316']
+
   // Cargar datos según la sección activa
-  useEffect(() => {
-    const loadSectionData = async () => {
-      setLoading(true)
-      try {
-        switch (activeSection) {
-          case 'pipeline':
-            const pRes = await fetch(`${API_BASE}/api/pipeline?timeframe=90`)
-            const pData = await pRes.json()
-            if (pData.success) setPipelineData(pData)
-            break
-          case 'alerts':
-            const aRes = await fetch(`${API_BASE}/api/alerts`)
-            const aData = await aRes.json()
-            if (aData.success) setAlertsData(aData)
-            break
-          case 'market':
-            const mRes = await fetch(`${API_BASE}/api/market?days=30`)
-            const mData = await mRes.json()
-            if (mData.success) setMarketData(mData.analysis)
-            break
-          case 'clv':
-            const cRes = await fetch(`${API_BASE}/api/clv`)
-            const cData = await cRes.json()
-            if (cData.success) setClvData(cData.analysis)
-            break
-          case 'offers':
-            try {
-              const oRes = await fetch(`${API_BASE}/api/offers?days=30`)
-              const oData = await oRes.json()
-              console.log('Offers data:', oData)
-              if (oData.success) setOffersData(oData)
-              else setOffersData({ error: true, total_offers: 0, by_status: {} })
-            } catch (e) {
-              console.error('Offers fetch error:', e)
-              setOffersData({ error: true, total_offers: 0, by_status: {} })
-            }
-            break
+  const loadSectionData = async () => {
+    setLoading(true)
+    setSectionError(null)
+    try {
+      switch (activeSection) {
+        case 'pipeline': {
+          const res = await fetch(`${API_BASE}/api/pipeline?timeframe=90`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.success) setPipelineData(data)
+          else throw new Error('El servidor no retornó datos')
+          break
         }
-      } catch (err) {
-        console.error('Error loading BI data:', err)
+        case 'alerts': {
+          const res = await fetch(`${API_BASE}/api/alerts`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.success) setAlertsData(data)
+          else throw new Error('El servidor no retornó datos')
+          break
+        }
+        case 'market': {
+          const res = await fetch(`${API_BASE}/api/market?days=30`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.success) setMarketData(data.analysis)
+          else throw new Error('El servidor no retornó datos')
+          break
+        }
+        case 'clv': {
+          const res = await fetch(`${API_BASE}/api/clv`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.success) setClvData(data.analysis)
+          else throw new Error('El servidor no retornó datos')
+          break
+        }
+        case 'offers': {
+          const res = await fetch(`${API_BASE}/api/offers?days=30`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.success) setOffersData(data)
+          else setOffersData({ total_offers: 0, by_status: {} })
+          break
+        }
       }
-      setLoading(false)
+    } catch (err: any) {
+      console.error('Error loading BI data:', err)
+      setSectionError(`Error cargando datos: ${err.message || 'Conexión fallida'}`)
     }
+    setLoading(false)
+  }
+
+  useEffect(() => {
     loadSectionData()
   }, [activeSection])
 
@@ -9540,6 +9569,20 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
         </div>
       )}
 
+      {/* Error con retry */}
+      {sectionError && !loading && (
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center">
+          <AlertTriangle className="mx-auto mb-3 text-red-400" size={32} />
+          <p className="text-red-400 mb-4">{sectionError}</p>
+          <button
+            onClick={() => loadSectionData()}
+            className="flex items-center gap-2 mx-auto px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500"
+          >
+            <RefreshCw size={16} /> Reintentar
+          </button>
+        </div>
+      )}
+
       {/* Pipeline Section */}
       {activeSection === 'pipeline' && !loading && pipelineData && (
         <div className="space-y-6">
@@ -9569,11 +9612,11 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
             <div className="space-y-3">
               {pipelineData.by_stage && Object.entries(pipelineData.by_stage).map(([stageName, count]: [string, any], idx: number) => (
                 <div key={idx} className="flex items-center gap-4">
-                  <div className="w-32 text-sm text-slate-400 capitalize">{stageName.replace('_', ' ')}</div>
+                  <div className="w-32 text-sm text-slate-400">{STAGE_LABELS[stageName] || stageName.replace('_', ' ')}</div>
                   <div className="flex-1 h-8 bg-slate-700 rounded-lg overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-end pr-2"
-                      style={{ width: `${Math.min((count / (pipelineData.total_leads || 1)) * 100, 100)}%` }}
+                      style={{ width: `${Math.max(Math.min((count / (pipelineData.total_leads || 1)) * 100, 100), count > 0 ? 8 : 0)}%` }}
                     >
                       <span className="text-xs font-bold">{count}</span>
                     </div>
@@ -9582,6 +9625,29 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
               ))}
             </div>
           </div>
+
+          {/* Gráfica de distribución */}
+          {pipelineData.by_stage && (() => {
+            const chartData = Object.entries(pipelineData.by_stage)
+              .filter(([_, count]) => (count as number) > 0)
+              .map(([stage, count]) => ({ name: STAGE_LABELS[stage] || stage, value: count as number }))
+            return chartData.length > 0 ? (
+              <div className="bg-slate-800/50 rounded-xl p-6">
+                <h3 className="text-xl font-bold mb-4">Distribución por Etapa</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, value }) => `${name}: ${value}`}>
+                      {chartData.map((_, idx) => (
+                        <Cell key={idx} fill={STAGE_COLORS[idx % STAGE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : null
+          })()}
 
           {/* Leads en riesgo */}
           {pipelineData.at_risk_leads?.length > 0 && (
@@ -9651,7 +9717,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                       alert.priority === 'critical' ? 'bg-red-500/30 text-red-300' :
                       alert.priority === 'high' ? 'bg-orange-500/30 text-orange-300' :
                       'bg-yellow-500/30 text-yellow-300'
-                    }`}>{alert.type?.replace('_', ' ')}</span>
+                    }`}>{ALERT_TYPE_LABELS[alert.type] || alert.type?.replace('_', ' ')}</span>
                   </div>
                 </div>
               ))}
@@ -9972,10 +10038,16 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
         </div>
       )}
 
-      {/* Empty state */}
-      {!loading && !pipelineData && !alertsData && !marketData && !clvData && !offersData && activeSection !== 'reports' && (
+      {/* Empty state (only show if no error already shown) */}
+      {!loading && !sectionError && !pipelineData && !alertsData && !marketData && !clvData && !offersData && activeSection !== 'reports' && (
         <div className="text-center py-12 text-slate-400">
-          <p>No se pudieron cargar los datos. Verifica la conexión con el backend.</p>
+          <p>Cargando datos del backend...</p>
+          <button
+            onClick={() => loadSectionData()}
+            className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+          >
+            <RefreshCw size={16} /> Cargar datos
+          </button>
         </div>
       )}
     </div>
