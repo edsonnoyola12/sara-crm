@@ -9724,10 +9724,10 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-          Business Intelligence
+          Inteligencia Comercial
         </h2>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => loadSectionData()}
           className="flex items-center gap-2 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
         >
           <RefreshCw size={16} /> Actualizar
