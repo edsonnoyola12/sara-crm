@@ -447,14 +447,24 @@ function App() {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setInputModal(null)
+        setEditingLead(null)
+        setEditingProperty(null)
         setEditingMember(null)
         setEditingMortgage(null)
+        setEditingCampaign(null)
         setEditingPromotion(null)
         setEditingCrmEvent(null)
+        setEditingAppointment(null)
+        setSelectedLead(null)
+        setStatusChange(null)
+        setShowNewProperty(false)
         setShowNewMember(false)
         setShowNewMortgage(false)
+        setShowNewCampaign(false)
+        setShowNewAppointment(false)
         setShowNewPromotion(false)
         setShowNewCrmEvent(false)
+        setShowNewEvent(false)
         setShowInviteEventModal(false)
         setShowSendPromoModal(false)
       }
@@ -1943,7 +1953,7 @@ function App() {
           )}
           {permisos.puedeVerSeccion('followups') && (
             <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Clock size={20} /> Follow-ups
+              <Clock size={20} /> Seguimientos
             </button>
           )}
           {permisos.puedeVerSeccion('reportes') && (
@@ -1953,7 +1963,7 @@ function App() {
           )}
           {permisos.puedeVerSeccion('bi') && (
             <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'bi' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'hover:bg-slate-700'}`}>
-              <Lightbulb size={20} /> Business Intelligence
+              <Lightbulb size={20} /> Inteligencia Comercial
             </button>
           )}
           {permisos.puedeVerSeccion('mensajes') && (
@@ -3967,7 +3977,7 @@ function App() {
               {/* Pipeline Value */}
               <div className="bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 p-5 rounded-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 text-6xl opacity-10">💰</div>
-                <p className="text-cyan-400 text-sm font-medium">PIPELINE</p>
+                <p className="text-cyan-400 text-sm font-medium">PIPELINE ACTIVO</p>
                 <p className="text-3xl font-bold mt-1">${(pipelineValue / 1000000).toFixed(1)}M</p>
                 <p className="text-xs text-slate-400 mt-1">en negociación</p>
               </div>
@@ -4022,7 +4032,7 @@ function App() {
                 {/* Barras del funnel */}
                 <div className="space-y-2">
                   {[
-                    { key: 'new', label: 'Nuevos', color: 'from-slate-500 to-slate-600', emoji: '🏆•' },
+                    { key: 'new', label: 'Nuevos', color: 'from-slate-500 to-slate-600', emoji: '🆕' },
                     { key: 'contacted', label: 'Contactados', color: 'from-blue-500 to-blue-600', emoji: '📞' },
                     { key: 'scheduled', label: 'Cita Agendada', color: 'from-cyan-500 to-cyan-600', emoji: '📅' },
                     { key: 'visited', label: 'Visitaron', color: 'from-purple-500 to-purple-600', emoji: '🏠' },
@@ -4611,7 +4621,7 @@ function App() {
                         <p className="font-semibold text-xs">{stage.label}</p>
                         <p className="text-xl font-bold">{stageLeads.length}</p>
                       </div>
-                      <div className="space-y-1 space-y-1">
+                      <div className="space-y-1">
                         {stageLeads.map(lead => (
                           <div 
                             key={lead.id} 
@@ -4653,31 +4663,34 @@ function App() {
             ) : (
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
               <table className="w-full">
-                <thead className="bg-slate-700">
+                <thead className="bg-slate-700 sticky top-0 z-10">
                   <tr>
                     <th className="text-left p-4">Nombre</th>
-                    <th className="text-left p-4">Teléfono</th>
-                    <th className="text-left p-4">Interés</th>
+                    <th className="text-left p-4 hidden sm:table-cell">Teléfono</th>
+                    <th className="text-left p-4 hidden md:table-cell">Interés</th>
                     <th className="text-left p-4">Score</th>
                     <th className="text-left p-4">Estado</th>
-                    <th className="text-left p-4">Fecha</th>
+                    <th className="text-left p-4 hidden lg:table-cell">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLeads.map(lead => (
                     <tr key={lead.id} onClick={() => selectLead(lead)} className="border-t border-slate-700 hover:bg-slate-700 cursor-pointer">
                       <td className="p-4">{lead.name || 'Sin nombre'}</td>
-                      <td className="p-4 flex items-center gap-2"><Phone size={16} /> {lead.phone}</td>
-                      <td className="p-4">{lead.property_interest || '-'}</td>
+                      <td className="p-4 hidden sm:table-cell"><Phone size={16} className="inline mr-1" />{lead.phone}</td>
+                      <td className="p-4 hidden md:table-cell">{lead.property_interest || 'Sin definir'}</td>
                       <td className="p-4">
                         <span className={`${getScoreColor(lead.score)} px-2 py-1 rounded text-sm`}>
                           {getScoreLabel(lead.score)} ({lead.score})
                         </span>
                       </td>
                       <td className="p-4">{STATUS_LABELS[lead.status] || lead.status}</td>
-                      <td className="p-4">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX') : '-'}</td>
+                      <td className="p-4 hidden lg:table-cell">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '-'}</td>
                     </tr>
                   ))}
+                  {filteredLeads.length === 0 && (
+                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No se encontraron leads con los filtros actuales</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -5847,9 +5860,10 @@ function App() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Fecha</label>
-                    <input 
-                      type="date" 
-                      value={newAppointment.scheduled_date || ''} 
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={newAppointment.scheduled_date || ''}
                       onChange={(e) => setNewAppointment({...newAppointment, scheduled_date: e.target.value})}
                       className="w-full p-3 bg-slate-700 rounded-lg"
                     />
@@ -6903,7 +6917,7 @@ function App() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">Fecha de cita</label>
-                      <input name="coord_cita_fecha" type="date" className="w-full bg-slate-700 rounded-xl p-3" />
+                      <input name="coord_cita_fecha" type="date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3" />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">Hora de cita</label>
@@ -7757,7 +7771,7 @@ function App() {
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Fecha</label>
-                <input type="date" id="evt-date" className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="date" id="evt-date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3" />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Hora</label>
