@@ -617,6 +617,23 @@ function App() {
 
     setLoading(false)
     loadCalendarEvents()
+
+    // Restaurar sesión desde localStorage
+    if (!currentUser) {
+      const savedPhone = localStorage.getItem('sara_user_phone')
+      if (savedPhone) {
+        const restored = (teamRes.data || []).find((m: TeamMember) => {
+          const memberPhone = m.phone?.replace(/\D/g, '').slice(-10)
+          return memberPhone === savedPhone
+        })
+        if (restored) {
+          setCurrentUser(restored)
+          if (restored.role === 'agencia') setView('marketing')
+          else if (restored.role === 'asesor') setView('mortgage')
+          else setView('dashboard')
+        }
+      }
+    }
   }
 
   // Cargar actividades del lead seleccionado
@@ -1639,7 +1656,12 @@ function App() {
     'Referidos': 'bg-cyan-500'
   }
 
-  if (loading) return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">Cargando...</div>
+  if (loading) return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+      <p className="text-lg font-semibold text-slate-300">Cargando SARA CRM...</p>
+    </div>
+  )
 
   // Función de login
   const handleLogin = async () => {
@@ -5106,7 +5128,7 @@ function App() {
                             campaign.status === 'paused' ? 'bg-yellow-600' : 
                             'bg-gray-600'
                           }`}>
-                            {campaign.status}
+                            {{ active: 'Activa', paused: 'Pausada', completed: 'Completada', draft: 'Borrador' }[campaign.status] || campaign.status}
                           </span>
                         </td>
                         <td className="p-4 flex gap-2">
@@ -6280,13 +6302,15 @@ function App() {
                               type="number"
                               value={vg.goal}
                               onChange={(e) => {
+                                if (!permisos.puedeEditarMetas()) return
                                 const newGoals = vendorGoals.map(g =>
                                   g.vendor_id === vg.vendor_id ? {...g, goal: parseInt(e.target.value) || 0} : g
                                 )
                                 setVendorGoals(newGoals)
                               }}
-                              onBlur={() => saveVendorGoal(vg.vendor_id, vg.goal)}
-                              className="bg-slate-600 px-3 py-2 rounded-lg w-20 text-center font-bold"
+                              onBlur={() => permisos.puedeEditarMetas() && saveVendorGoal(vg.vendor_id, vg.goal)}
+                              readOnly={!permisos.puedeEditarMetas()}
+                              className={`bg-slate-600 px-3 py-2 rounded-lg w-20 text-center font-bold ${!permisos.puedeEditarMetas() ? 'opacity-70 cursor-not-allowed' : ''}`}
                             />
                             <span className="text-slate-400">meta</span>
                           </div>
@@ -7785,13 +7809,13 @@ function App() {
             </div>
             <div className="space-y-3">
               <p><span className="font-semibold">Teléfono:</span> {selectedLead.phone}</p>
-              <p><span className="font-semibold">Score:</span> <span className={`${getScoreColor(selectedLead.score)} px-2 py-1 rounded`}>{selectedLead.score}</span></p>
-              <p><span className="font-semibold">Estado:</span> {selectedLead.status}</p>
+              <p><span className="font-semibold">Score:</span> <span className={`${getScoreColor(selectedLead.score)} px-2 py-1 rounded`}>{selectedLead.score} {selectedLead.score >= 70 ? '🔥' : selectedLead.score >= 40 ? '⚡' : '❄️'}</span></p>
+              <p><span className="font-semibold">Estado:</span> {STATUS_LABELS[selectedLead.status] || selectedLead.status}</p>
               {selectedLead.status === 'fallen' && selectedLead.fallen_reason && (
                 <p><span className="font-semibold">Motivo:</span> <span className="text-red-400">{selectedLead.fallen_reason}</span></p>
               )}
               {selectedLead.credit_status && (
-                <p><span className="font-semibold">Crédito:</span> <span className={selectedLead.credit_status === 'approved' ? 'text-green-400' : selectedLead.credit_status === 'active' ? 'text-yellow-400' : 'text-red-400'}>{selectedLead.credit_status}</span></p>
+                <p><span className="font-semibold">Crédito:</span> <span className={selectedLead.credit_status === 'approved' ? 'text-green-400' : selectedLead.credit_status === 'active' ? 'text-yellow-400' : 'text-red-400'}>{{ approved: 'Aprobado', active: 'En proceso', rejected: 'Rechazado', pending: 'Pendiente' }[selectedLead.credit_status] || selectedLead.credit_status}</span></p>
               )}
               <p><span className="font-semibold">Interés:</span> {selectedLead.property_interest || 'No definido'}</p>
               {selectedLead.notes?.vendor_feedback?.rating && (() => {
