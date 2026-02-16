@@ -1751,11 +1751,15 @@ function App() {
     }
   })()
 
-  // Filtrar citas por vendedor (toggle)
+  // Filtrar citas por rol: admin/coordinador ven todas, vendedor/asesor solo las suyas
   const myLeadIds = currentUser?.role === 'vendedor' ? new Set(leads.filter(l => l.assigned_to === currentUser?.id).map(l => l.id)) : null
   const filteredAppointments = showAllAppointments || currentUser?.role === 'admin' || currentUser?.role === 'coordinador'
     ? appointments
-    : appointments.filter(a => a.vendedor_id === currentUser?.id || (myLeadIds && myLeadIds.has(a.lead_id)))
+    : appointments.filter(a =>
+        a.vendedor_id === currentUser?.id ||
+        a.asesor_id === currentUser?.id ||
+        (myLeadIds && myLeadIds.has(a.lead_id))
+      )
 
   // Pantalla de login
   if (!currentUser) {
