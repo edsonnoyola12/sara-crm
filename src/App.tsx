@@ -3,6 +3,12 @@ import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift } from 'lucide-react'
 
+async function safeFetch(url: string, options?: RequestInit) {
+  const res = await fetch(url, options)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes'
 
 interface Lead {
@@ -423,6 +429,34 @@ function App() {
   const [selectedEventForInvite, setSelectedEventForInvite] = useState<CRMEvent | null>(null)
   const [inviteSending, setInviteSending] = useState(false)
 
+  // InputModal para reemplazar prompt() nativos
+  const [inputModal, setInputModal] = useState<{
+    title: string
+    fields: { name: string; label: string; type?: string; defaultValue?: string }[]
+    onSubmit: (values: Record<string, string>) => void
+  } | null>(null)
+
+  // Esc cierra modales
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInputModal(null)
+        setEditingMember(null)
+        setEditingMortgage(null)
+        setEditingPromotion(null)
+        setEditingCrmEvent(null)
+        setShowNewMember(false)
+        setShowNewMortgage(false)
+        setShowNewPromotion(false)
+        setShowNewCrmEvent(false)
+        setShowInviteEventModal(false)
+        setShowSendPromoModal(false)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [])
+
   useEffect(() => {
     loadData()
     // Auto-refresh cada 30 segundos sin recargar página
@@ -436,7 +470,6 @@ function App() {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'appointments' },
         (payload) => {
-          console.log('📅 Realtime: Cambio en appointments', payload.eventType)
           // Recargar appointments silenciosamente
           supabase.from('appointments').select('*').order('scheduled_date', { ascending: true })
             .then(({ data }) => {
@@ -452,7 +485,6 @@ function App() {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'leads' },
         (payload) => {
-          console.log('👤 Realtime: Cambio en leads', payload.eventType)
           supabase.from('leads').select('*').order('created_at', { ascending: false })
             .then(({ data }) => {
               if (data) setLeads(data)
@@ -539,12 +571,11 @@ function App() {
         }))
       }
 
-      const res = await fetch('https://sara-backend.edson-633.workers.dev/api/dashboard/ask', {
+      const data = await safeFetch('https://sara-backend.edson-633.workers.dev/api/dashboard/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pregunta: dashboardPregunta, contexto })
       })
-      const data = await res.json()
       setDashboardRespuesta(data.respuesta || 'Sin respuesta')
     } catch (err) {
       setDashboardRespuesta('Error al procesar la pregunta. Intenta de nuevo.')
@@ -576,8 +607,6 @@ function App() {
     setAppointments(appointmentsRes.data || [])
     setPromotions(promosRes.data || [])
     setCrmEvents(eventsRes.data || [])
-    console.log('🔍 Reminders cargados:', remindersRes.data)
-
     generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
 
     setLoading(false)
@@ -907,8 +936,7 @@ function App() {
 
   async function loadCalendarEvents() {
     try {
-      const response = await fetch("https://sara-backend.edson-633.workers.dev/api/calendar/events")
-      const data = await response.json()
+      const data = await safeFetch("https://sara-backend.edson-633.workers.dev/api/calendar/events")
       setCalendarEvents(data.items || [])
     } catch (error) {
       console.error("Error loading calendar:", error)
@@ -917,7 +945,7 @@ function App() {
 
   async function createCalendarEvent(eventData: any) {
     try {
-      await fetch("https://sara-backend.edson-633.workers.dev/api/calendar/events", {
+      await safeFetch("https://sara-backend.edson-633.workers.dev/api/calendar/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(eventData)
@@ -932,7 +960,7 @@ function App() {
   async function deleteCalendarEvent(eventId: string) {
     if (confirm("¿Cancelar esta cita?")) {
       try {
-        await fetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
+        await safeFetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
           method: "DELETE"
         })
         loadCalendarEvents()
@@ -985,14 +1013,14 @@ function App() {
       
       if (member.id) {
         // Editar existente
-        await fetch(`${API_URL}/${member.id}`, {
+        await safeFetch(`${API_URL}/${member.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(member)
         })
       } else {
         // Crear nuevo
-        await fetch(API_URL, {
+        await safeFetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(member)
@@ -1012,7 +1040,7 @@ function App() {
     if (!confirm('¿Eliminar este miembro del equipo?')) return
     
     try {
-      await fetch(`https://sara-backend.edson-633.workers.dev/api/team-members/${id}`, {
+      await safeFetch(`https://sara-backend.edson-633.workers.dev/api/team-members/${id}`, {
         method: 'DELETE'
       })
       loadData()
@@ -1039,7 +1067,7 @@ function App() {
         payload.changed_by_name = currentUser.name
         payload.previous_status = current?.status
       }
-      await fetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      await safeFetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     } else {
       mortgage.pending_at = now
       if (currentUser?.role === 'asesor') {
@@ -1060,7 +1088,7 @@ function App() {
     if (newStatus === 'sent_to_bank') updates.sent_to_bank_at = now
     if (newStatus === 'approved' || newStatus === 'rejected') updates.decision_at = now
     
-    await fetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${id}`, {
+    await safeFetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -1134,7 +1162,7 @@ function App() {
   async function sendEventInvitations(event: CRMEvent, segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) {
     setInviteSending(true)
     try {
-      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/events/invite', {
+      const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/events/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1145,8 +1173,6 @@ function App() {
           send_pdf: options.sendPdf
         })
       })
-
-      const result = await response.json()
       if (result.success) {
         alert(`Invitaciones enviadas: ${result.sent} enviados, ${result.errors} errores`)
       } else {
@@ -1178,7 +1204,7 @@ function App() {
     setPromoSending(true)
 
     try {
-      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/promotions/send', {
+      const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/promotions/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1190,8 +1216,6 @@ function App() {
           send_pdf: options.sendPdf
         })
       })
-
-      const result = await response.json()
 
       if (result.success) {
         alert(`Promocion enviada!\n\nEnviados: ${result.sent}\nErrores: ${result.errors}\nTotal: ${result.total}`)
@@ -1410,13 +1434,23 @@ function App() {
     }
   })()
 
+  // Ticket promedio dinámico (de ventas reales o fallback $2M)
+  const avgTicket = (() => {
+    const closedLeads = leads.filter(l => ['closed', 'sold', 'delivered'].includes(l.status))
+    if (closedLeads.length === 0) return 2000000
+    const total = closedLeads.reduce((sum, l) => {
+      const prop = properties.find(p => p.name === l.property_interest)
+      return sum + (prop?.price_equipped || prop?.price || 2000000)
+    }, 0)
+    return Math.round(total / closedLeads.length)
+  })()
+
   // 7. Proyección de cierre (basado en pipeline actual)
   const closingProjection = (() => {
     const weights: Record<string, number> = {
       'new': 0.05, 'contacted': 0.10, 'scheduled': 0.20, 'visited': 0.40,
       'negotiation': 0.60, 'reserved': 0.85, 'closed': 1.0
     }
-    const avgTicket = 2000000 // Precio promedio propiedad
     const projectedDeals = leads.reduce((sum, l) => sum + (weights[l.status] || 0), 0)
     return {
       deals: Math.round(projectedDeals),
@@ -1426,7 +1460,6 @@ function App() {
 
   // 8. Valor del pipeline ($)
   const pipelineValue = (() => {
-    const avgTicket = 2000000
     const stageValues: Record<string, number> = {
       'negotiation': avgTicket * 0.6,
       'reserved': avgTicket * 0.85,
@@ -2051,7 +2084,7 @@ function App() {
                   <Download size={14} /> PDF
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => loadData()}
                   className="px-2 py-1 bg-slate-700 rounded-lg text-xs sm:text-sm hover:bg-slate-600 flex items-center gap-1"
                 >
                   🔄
@@ -4057,6 +4090,7 @@ function App() {
                       contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
                       labelStyle={{ color: '#94a3b8' }}
                     />
+                    <Legend />
                     <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={3} name="Leads" dot={{ fill: '#3b82f6', strokeWidth: 2 }} />
                     <Line type="monotone" dataKey="closed" stroke="#22c55e" strokeWidth={3} name="Cerrados" dot={{ fill: '#22c55e', strokeWidth: 2 }} />
                   </LineChart>
@@ -4175,6 +4209,7 @@ function App() {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -5011,14 +5046,15 @@ function App() {
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="spent" fill="#ef4444" name="Invertido" />
-                    <Bar dataKey="revenue" fill="#22c55e" name="Revenue" />
+                    <Bar dataKey="revenue" fill="#22c55e" name="Ingresos" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
                 <thead className="bg-slate-700">
                   <tr>
                     <th className="text-left p-4">Campaña</th>
@@ -5075,6 +5111,7 @@ function App() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Tarjetas de Integraciones */}
@@ -6343,10 +6380,9 @@ function App() {
             properties={properties}
             teamMembers={team}
             onSendSurvey={async (config) => {
-              console.log('Enviando encuestas:', config)
               try {
                 // Llamar al backend para enviar por WhatsApp
-                const response = await fetch('https://sara-backend.edson-633.workers.dev/api/send-surveys', {
+                const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/send-surveys', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -6356,7 +6392,6 @@ function App() {
                     targetType: config.targetType // Importante para diferenciar vendedores de leads
                   })
                 })
-                const result = await response.json()
                 if (result.ok) {
                   const destinatarioTipo = config.targetType === 'vendedores' ? 'vendedores' : 'leads'
                   alert(`Encuesta "${config.template.name}" enviada a ${result.enviados} ${destinatarioTipo} por WhatsApp.${result.errores > 0 ? `\n\n${result.errores} errores.` : ''}`)
@@ -7127,51 +7162,51 @@ function App() {
                           <div className="flex flex-col gap-2">
                             {/* Botón Cambiar Cita */}
                             <button
-                              onClick={async () => {
-                                const nuevaFecha = prompt('Nueva fecha (YYYY-MM-DD):', cita.scheduled_date)
-                                if (!nuevaFecha) return
-                                const nuevaHora = prompt('Nueva hora (HH:MM):', cita.scheduled_time?.slice(0, 5))
-                                if (!nuevaHora) return
-                                const nota = prompt('Motivo del cambio (se enviará al vendedor y cliente):')
-                                if (nota === null) return
+                              onClick={() => {
+                                setInputModal({
+                                  title: `Cambiar cita de ${cita.lead_name}`,
+                                  fields: [
+                                    { name: 'fecha', label: 'Nueva fecha', type: 'date', defaultValue: cita.scheduled_date },
+                                    { name: 'hora', label: 'Nueva hora', type: 'time', defaultValue: cita.scheduled_time?.slice(0, 5) },
+                                    { name: 'motivo', label: 'Motivo del cambio', type: 'textarea' }
+                                  ],
+                                  onSubmit: async (values) => {
+                                    try {
+                                      await supabase.from('appointments').update({
+                                        scheduled_date: values.fecha,
+                                        scheduled_time: values.hora
+                                      }).eq('id', cita.id)
 
-                                try {
-                                  // Actualizar en base de datos
-                                  await supabase.from('appointments').update({
-                                    scheduled_date: nuevaFecha,
-                                    scheduled_time: nuevaHora
-                                  }).eq('id', cita.id)
+                                      await safeFetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          appointment_id: cita.id,
+                                          lead_name: cita.lead_name,
+                                          lead_phone: cita.lead_phone,
+                                          vendedor_phone: vendedor?.phone,
+                                          vendedor_name: vendedor?.name,
+                                          old_date: cita.scheduled_date,
+                                          old_time: cita.scheduled_time,
+                                          new_date: values.fecha,
+                                          new_time: values.hora,
+                                          property: cita.property_name,
+                                          nota: values.motivo,
+                                          coordinador_name: currentUser?.name || 'Coordinador',
+                                          action: 'cambio'
+                                        })
+                                      })
 
-                                  // Notificar via backend
-                                  await fetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      appointment_id: cita.id,
-                                      lead_name: cita.lead_name,
-                                      lead_phone: cita.lead_phone,
-                                      vendedor_phone: vendedor?.phone,
-                                      vendedor_name: vendedor?.name,
-                                      old_date: cita.scheduled_date,
-                                      old_time: cita.scheduled_time,
-                                      new_date: nuevaFecha,
-                                      new_time: nuevaHora,
-                                      property: cita.property_name,
-                                      nota: nota,
-                                      coordinador_name: currentUser?.name || 'Coordinador',
-                                      action: 'cambio'
-                                    })
-                                  })
+                                      setAppointments(appointments.map(a =>
+                                        a.id === cita.id ? { ...a, scheduled_date: values.fecha, scheduled_time: values.hora } : a
+                                      ))
 
-                                  // Actualizar estado local
-                                  setAppointments(appointments.map(a =>
-                                    a.id === cita.id ? { ...a, scheduled_date: nuevaFecha, scheduled_time: nuevaHora } : a
-                                  ))
-
-                                  alert(`✅ Cita reprogramada\n📲 Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
-                                } catch (e) {
-                                  alert('Error al cambiar cita: ' + e)
-                                }
+                                      alert(`Cita reprogramada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
+                                    } catch (e) {
+                                      alert('Error al cambiar cita: ' + e)
+                                    }
+                                  }
+                                })
                               }}
                               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium flex items-center gap-1"
                             >
@@ -7179,47 +7214,48 @@ function App() {
                             </button>
                             {/* Botón Cancelar Cita */}
                             <button
-                              onClick={async () => {
-                                const motivo = prompt('Motivo de cancelación (se enviará al vendedor y cliente):')
-                                if (!motivo) return
-
+                              onClick={() => {
                                 const tipoTextoCita = (cita as any).appointment_type === 'llamada' ? 'llamada' : 'cita';
-                                if (!confirm(`¿Cancelar ${tipoTextoCita} de ${cita.lead_name}?\nMotivo: ${motivo}`)) return
+                                setInputModal({
+                                  title: `Cancelar ${tipoTextoCita} de ${cita.lead_name}`,
+                                  fields: [
+                                    { name: 'motivo', label: 'Motivo de cancelación', type: 'textarea' }
+                                  ],
+                                  onSubmit: async (values) => {
+                                    if (!values.motivo) return
+                                    try {
+                                      await supabase.from('appointments').update({
+                                        status: 'cancelled'
+                                      }).eq('id', cita.id)
 
-                                try {
-                                  // Actualizar en base de datos
-                                  await supabase.from('appointments').update({
-                                    status: 'cancelled'
-                                  }).eq('id', cita.id)
+                                      await safeFetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          appointment_id: cita.id,
+                                          lead_name: cita.lead_name,
+                                          lead_phone: cita.lead_phone,
+                                          vendedor_phone: vendedor?.phone,
+                                          vendedor_name: vendedor?.name,
+                                          old_date: cita.scheduled_date,
+                                          old_time: cita.scheduled_time,
+                                          property: cita.property_name,
+                                          nota: values.motivo,
+                                          coordinador_name: currentUser?.name || 'Coordinador',
+                                          action: 'cancelacion'
+                                        })
+                                      })
 
-                                  // Notificar via backend
-                                  await fetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      appointment_id: cita.id,
-                                      lead_name: cita.lead_name,
-                                      lead_phone: cita.lead_phone,
-                                      vendedor_phone: vendedor?.phone,
-                                      vendedor_name: vendedor?.name,
-                                      old_date: cita.scheduled_date,
-                                      old_time: cita.scheduled_time,
-                                      property: cita.property_name,
-                                      nota: motivo,
-                                      coordinador_name: currentUser?.name || 'Coordinador',
-                                      action: 'cancelacion'
-                                    })
-                                  })
+                                      setAppointments(appointments.map(a =>
+                                        a.id === cita.id ? { ...a, status: 'cancelled' } : a
+                                      ))
 
-                                  // Actualizar estado local
-                                  setAppointments(appointments.map(a =>
-                                    a.id === cita.id ? { ...a, status: 'cancelled' } : a
-                                  ))
-
-                                  alert(`✅ Cita cancelada\n📲 Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
-                                } catch (e) {
-                                  alert('Error al cancelar cita: ' + e)
-                                }
+                                      alert(`Cita cancelada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
+                                    } catch (e) {
+                                      alert('Error al cancelar cita: ' + e)
+                                    }
+                                  }
+                                })
                               }}
                               className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-medium flex items-center gap-1"
                             >
@@ -7300,49 +7336,51 @@ function App() {
                             {/* Botón Agregar Nota */}
                             <button
                               onClick={async () => {
-                                const nota = prompt(`Nota para ${lead.name}\n(Se enviará al vendedor ${vendedor?.name?.split(' ')[0] || 'asignado'} por WhatsApp):`)
-                                if (!nota) return
-
-                                try {
-                                  // Guardar nota en el lead
-                                  const notasActuales = lead.notes || {}
-                                  const nuevasNotas = {
-                                    ...notasActuales,
-                                    notas_coordinador: [
-                                      ...(notasActuales.notas_coordinador || []),
-                                      {
-                                        texto: nota,
-                                        fecha: new Date().toISOString(),
-                                        autor: currentUser?.name || 'Coordinador'
+                                setInputModal({
+                                  title: `Nota para ${lead.name}`,
+                                  fields: [
+                                    { name: 'nota', label: `Se enviará al vendedor ${vendedor?.name?.split(' ')[0] || 'asignado'} por WhatsApp`, type: 'textarea' }
+                                  ],
+                                  onSubmit: async (values) => {
+                                    if (!values.nota) return
+                                    try {
+                                      const notasActuales = lead.notes || {}
+                                      const nuevasNotas = {
+                                        ...notasActuales,
+                                        notas_coordinador: [
+                                          ...(notasActuales.notas_coordinador || []),
+                                          {
+                                            texto: values.nota,
+                                            fecha: new Date().toISOString(),
+                                            autor: currentUser?.name || 'Coordinador'
+                                          }
+                                        ]
                                       }
-                                    ]
+
+                                      await supabase.from('leads').update({ notes: nuevasNotas }).eq('id', lead.id)
+
+                                      if (vendedor?.phone) {
+                                        await safeFetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-note', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            lead_name: lead.name,
+                                            lead_phone: lead.phone,
+                                            vendedor_phone: vendedor.phone,
+                                            vendedor_name: vendedor.name,
+                                            nota: values.nota,
+                                            coordinador_name: currentUser?.name || 'Coordinador'
+                                          })
+                                        })
+                                      }
+
+                                      setLeads(leads.map(l => l.id === lead.id ? { ...l, notes: nuevasNotas } : l))
+                                      alert(`Nota agregada. Notificación enviada a ${vendedor?.name?.split(' ')[0] || 'vendedor'}`)
+                                    } catch (e) {
+                                      alert('Error: ' + e)
+                                    }
                                   }
-
-                                  await supabase.from('leads').update({ notes: nuevasNotas }).eq('id', lead.id)
-
-                                  // Notificar al vendedor
-                                  if (vendedor?.phone) {
-                                    await fetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-note', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        lead_name: lead.name,
-                                        lead_phone: lead.phone,
-                                        vendedor_phone: vendedor.phone,
-                                        vendedor_name: vendedor.name,
-                                        nota: nota,
-                                        coordinador_name: currentUser?.name || 'Coordinador'
-                                      })
-                                    })
-                                  }
-
-                                  // Actualizar estado local
-                                  setLeads(leads.map(l => l.id === lead.id ? { ...l, notes: nuevasNotas } : l))
-
-                                  alert(`✅ Nota agregada\n📲 Notificación enviada a ${vendedor?.name?.split(' ')[0] || 'vendedor'}`)
-                                } catch (e) {
-                                  alert('Error: ' + e)
-                                }
+                                })
                               }}
                               className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg text-xs font-medium flex items-center gap-1"
                             >
@@ -7352,38 +7390,43 @@ function App() {
                             <select
                               className="px-2 py-1.5 bg-slate-600 hover:bg-slate-500 rounded-lg text-xs"
                               value={lead.assigned_to || ''}
-                              onChange={async (e) => {
+                              onChange={(e) => {
                                 const nuevoVendedorId = e.target.value
                                 if (!nuevoVendedorId) return
 
                                 const nuevoVendedor = team.find(t => t.id === nuevoVendedorId)
-                                const nota = prompt(`Nota para ${nuevoVendedor?.name?.split(' ')[0]} sobre este lead:`)
+                                setInputModal({
+                                  title: `Reasignar ${lead.name} a ${nuevoVendedor?.name?.split(' ')[0]}`,
+                                  fields: [
+                                    { name: 'nota', label: 'Nota para el nuevo vendedor', type: 'textarea' }
+                                  ],
+                                  onSubmit: async (values) => {
+                                    try {
+                                      await supabase.from('leads').update({ assigned_to: nuevoVendedorId }).eq('id', lead.id)
 
-                                try {
-                                  await supabase.from('leads').update({ assigned_to: nuevoVendedorId }).eq('id', lead.id)
+                                      if (nuevoVendedor?.phone) {
+                                        await safeFetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-reassign', {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            lead_name: lead.name,
+                                            lead_phone: lead.phone,
+                                            property_interest: lead.property_interest,
+                                            vendedor_phone: nuevoVendedor.phone,
+                                            vendedor_name: nuevoVendedor.name,
+                                            nota: values.nota || 'Reasignado por coordinador',
+                                            coordinador_name: currentUser?.name || 'Coordinador'
+                                          })
+                                        })
+                                      }
 
-                                  // Notificar al nuevo vendedor
-                                  if (nuevoVendedor?.phone) {
-                                    await fetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-reassign', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        lead_name: lead.name,
-                                        lead_phone: lead.phone,
-                                        property_interest: lead.property_interest,
-                                        vendedor_phone: nuevoVendedor.phone,
-                                        vendedor_name: nuevoVendedor.name,
-                                        nota: nota || 'Reasignado por coordinador',
-                                        coordinador_name: currentUser?.name || 'Coordinador'
-                                      })
-                                    })
+                                      setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: nuevoVendedorId } : l))
+                                      alert(`Lead reasignado a ${nuevoVendedor?.name?.split(' ')[0]}. Notificación enviada`)
+                                    } catch (e) {
+                                      alert('Error: ' + e)
+                                    }
                                   }
-
-                                  setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: nuevoVendedorId } : l))
-                                  alert(`✅ Lead reasignado a ${nuevoVendedor?.name?.split(' ')[0]}\n📲 Notificación enviada`)
-                                } catch (e) {
-                                  alert('Error: ' + e)
-                                }
+                                })
                               }}
                             >
                               <option value="">Reasignar...</option>
@@ -7887,6 +7930,38 @@ function App() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* InputModal - reemplaza prompt() nativos */}
+      {inputModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setInputModal(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4">{inputModal.title}</h3>
+            <form onSubmit={e => {
+              e.preventDefault()
+              const formData = new FormData(e.currentTarget)
+              const values: Record<string, string> = {}
+              inputModal.fields.forEach(f => { values[f.name] = formData.get(f.name) as string || '' })
+              inputModal.onSubmit(values)
+              setInputModal(null)
+            }}>
+              {inputModal.fields.map(field => (
+                <div key={field.name} className="mb-3">
+                  <label className="block text-sm text-slate-400 mb-1">{field.label}</label>
+                  {field.type === 'textarea' ? (
+                    <textarea name={field.name} defaultValue={field.defaultValue} className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" rows={3} autoFocus={inputModal.fields[0].name === field.name} />
+                  ) : (
+                    <input name={field.name} type={field.type || 'text'} defaultValue={field.defaultValue} className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white" autoFocus={inputModal.fields[0].name === field.name} />
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-2 justify-end mt-4">
+                <button type="button" onClick={() => setInputModal(null)} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium">Confirmar</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -9960,8 +10035,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                 </a>
                 <button
                   onClick={async () => {
-                    const res = await fetch(`${API_BASE}/api/reports/weekly/whatsapp`)
-                    const data = await res.json()
+                    const data = await safeFetch(`${API_BASE}/api/reports/weekly/whatsapp`)
                     if (data.success) {
                       navigator.clipboard.writeText(data.message)
                       alert('Reporte copiado al portapapeles')
@@ -9990,8 +10064,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                 </a>
                 <button
                   onClick={async () => {
-                    const res = await fetch(`${API_BASE}/api/reports/monthly/whatsapp`)
-                    const data = await res.json()
+                    const data = await safeFetch(`${API_BASE}/api/reports/monthly/whatsapp`)
                     if (data.success) {
                       navigator.clipboard.writeText(data.message)
                       alert('Reporte copiado al portapapeles')
@@ -10564,12 +10637,11 @@ function ReportesCEOView() {
         semanal: reporteSemanal,
         diario: reporteDiario
       }
-      const res = await fetch('https://sara-backend.edson-633.workers.dev/api/reportes/ask', {
+      const data = await safeFetch('https://sara-backend.edson-633.workers.dev/api/reportes/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pregunta: preguntaIA, contexto })
       })
-      const data = await res.json()
       setRespuestaIA(data.respuesta || 'No pude procesar tu pregunta.')
     } catch (err) {
       setRespuestaIA('Error al consultar IA.')
@@ -10964,8 +11036,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
   const fetchSurveyResults = async () => {
     setLoadingSurveys(true)
     try {
-      const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/surveys?status=${surveyFilter}`)
-      const data = await response.json()
+      const data = await safeFetch(`https://sara-backend.edson-633.workers.dev/api/surveys?status=${surveyFilter}`)
       setSurveyResults(data.surveys || [])
       setSurveyMetrics(data.metrics || null)
     } catch (error) {
