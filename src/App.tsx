@@ -1752,9 +1752,10 @@ function App() {
   })()
 
   // Filtrar citas por vendedor (toggle)
-  const filteredAppointments = showAllAppointments || currentUser?.role === 'admin'
+  const myLeadIds = currentUser?.role === 'vendedor' ? new Set(leads.filter(l => l.assigned_to === currentUser?.id).map(l => l.id)) : null
+  const filteredAppointments = showAllAppointments || currentUser?.role === 'admin' || currentUser?.role === 'coordinador'
     ? appointments
-    : appointments.filter(a => a.vendedor_id === currentUser?.id)
+    : appointments.filter(a => a.vendedor_id === currentUser?.id || (myLeadIds && myLeadIds.has(a.lead_id)))
 
   // Pantalla de login
   if (!currentUser) {
