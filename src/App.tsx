@@ -5639,7 +5639,8 @@ function App() {
             {/* Lista de citas programadas */}
             <div className="grid grid-cols-1 gap-4">
               {filteredAppointments.filter(a => a.status === 'scheduled').map((appt) => {
-                const fecha = new Date(appt.scheduled_date + 'T' + appt.scheduled_time)
+                const fecha = (appt.scheduled_date && appt.scheduled_time) ? new Date(appt.scheduled_date + 'T' + appt.scheduled_time) : null
+                const vendedorNombre = appt.vendedor_name || team.find(t => t.id === appt.vendedor_id)?.name || 'Sin asignar'
                 return (
                   <div key={appt.id} className="bg-slate-800 border border-slate-700 p-5 rounded-2xl">
                     <div className="flex items-start justify-between gap-4">
@@ -5656,7 +5657,7 @@ function App() {
                               </span>
                             )}
                           </div>
-                          
+
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <p className="text-slate-400 text-xs">👤 Cliente</p>
@@ -5666,18 +5667,18 @@ function App() {
                             <div>
                               <p className="text-slate-400 text-xs">📅 Fecha</p>
                               <p className="font-semibold text-blue-400">
-                                {fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' })}
+                                {fecha ? fecha.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' }) : appt.scheduled_date || 'Sin fecha'}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-400 text-xs">🕐 Hora</p>
                               <p className="font-semibold text-green-400 text-lg">
-                                {fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                {fecha ? fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : appt.scheduled_time || 'Sin hora'}
                               </p>
                             </div>
                             <div>
                               <p className="text-slate-400 text-xs">🏢 Vendedor</p>
-                              <p className="font-semibold">{appt.vendedor_name || 'Sin asignar'}</p>
+                              <p className="font-semibold">{vendedorNombre}</p>
                             </div>
                           </div>
                         </div>
@@ -5745,7 +5746,7 @@ function App() {
                 <h3 className="text-lg font-bold mb-4 text-slate-400">❌ Citas Canceladas ({filteredAppointments.filter(a => a.status === 'cancelled').length})</h3>
                 <div className="space-y-2">
                   {filteredAppointments.filter(a => a.status === 'cancelled').slice(0, 5).map((appt) => {
-                    const fecha = new Date(appt.scheduled_date + 'T' + appt.scheduled_time)
+                    const fecha = (appt.scheduled_date && appt.scheduled_time) ? new Date(appt.scheduled_date + 'T' + appt.scheduled_time) : null
                     return (
                       <div key={appt.id} className="bg-slate-800/30 border border-slate-700/30 p-3 rounded-xl opacity-60">
                         <div className="flex items-center justify-between">
@@ -5754,7 +5755,7 @@ function App() {
                             <div>
                               <p className="font-semibold text-sm">{appt.property_name} - {appt.lead_name || appt.lead_phone}</p>
                               <p className="text-xs text-slate-500">
-                                {fecha.toLocaleDateString('es-MX')} {fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                {fecha ? `${fecha.toLocaleDateString('es-MX')} ${fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}` : (appt.scheduled_date || 'Sin fecha')}
                                 {appt.cancelled_by && ` • Cancelada por: ${appt.cancelled_by}`}
                               </p>
                             </div>
