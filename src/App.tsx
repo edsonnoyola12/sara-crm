@@ -7738,6 +7738,17 @@ function App() {
                 <p><span className="font-semibold">Crédito:</span> <span className={selectedLead.credit_status === 'approved' ? 'text-green-400' : selectedLead.credit_status === 'active' ? 'text-yellow-400' : 'text-red-400'}>{selectedLead.credit_status}</span></p>
               )}
               <p><span className="font-semibold">Interés:</span> {selectedLead.property_interest || 'No definido'}</p>
+              {selectedLead.notes?.vendor_feedback?.rating && (() => {
+                const vf = selectedLead.notes.vendor_feedback;
+                const emoji = vf.rating === 1 ? '🔥' : vf.rating === 2 ? '👍' : vf.rating === 3 ? '😐' : '❄️';
+                const colors = { 1: 'bg-red-500/20 text-red-300 border-red-500/30', 2: 'bg-green-500/20 text-green-300 border-green-500/30', 3: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30', 4: 'bg-blue-500/20 text-blue-300 border-blue-500/30' } as Record<number, string>;
+                return (
+                  <div className={`mt-2 px-3 py-2 rounded-lg border ${colors[vf.rating] || colors[3]}`}>
+                    <span className="font-semibold">{emoji} Post-visita:</span> {vf.rating_text}
+                    {vf.vendedor_name && <span className="text-xs ml-2 opacity-70">({vf.vendedor_name.split(' ')[0]})</span>}
+                  </div>
+                );
+              })()}
 
               {/* Sección de Apartado - Solo si tiene datos de apartado */}
               {selectedLead.status === 'reserved' && selectedLead.notes?.apartado && (
