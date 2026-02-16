@@ -9,6 +9,12 @@ async function safeFetch(url: string, options?: RequestInit) {
   return res.json()
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  new: 'Nuevo', contacted: 'Contactado', qualified: 'Calificado', scheduled: 'Cita',
+  visited: 'Visitó', negotiation: 'Negociación', reserved: 'Reservado', closed: 'Cerrado',
+  delivered: 'Entregado', sold: 'Vendido', lost: 'Perdido', fallen: 'Caído', inactive: 'Inactivo', paused: 'Pausado'
+}
+
 type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes'
 
 interface Lead {
@@ -1032,7 +1038,7 @@ function App() {
       setShowNewMember(false)
     } catch (error) {
       console.error('Error guardando miembro:', error)
-      alert('Error al guardar. Revisa la consola.')
+      alert('Error al guardar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
     }
   }
 
@@ -1046,7 +1052,7 @@ function App() {
       loadData()
     } catch (error) {
       console.error('Error eliminando miembro:', error)
-      alert('Error al eliminar. Revisa la consola.')
+      alert('Error al eliminar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
     }
   }
 
@@ -2004,7 +2010,7 @@ function App() {
                       const ventas = leads.filter(l => l.assigned_to === v.id && (l.status === 'closed' || l.status === 'delivered' || l.status === 'sold') && l.status_changed_at?.startsWith(currentMonth)).length
                       const leadsAsignados = leads.filter(l => l.assigned_to === v.id).length
                       const conversion = leadsAsignados > 0 ? Math.round((ventas / leadsAsignados) * 100) : 0
-                      const meta = vendorGoals.find(vg => vg.vendor_id === v.id)?.goal || 0
+                      const meta = vendorGoals.find(vg => vg.vendor_id === v.id)?.goal ?? 0
                       return { name: v.name, ventas, meta, conversion, cumplimiento: meta > 0 ? Math.round((ventas / meta) * 100) : 0 }
                     }).sort((a, b) => b.ventas - a.ventas)
 
@@ -4646,8 +4652,8 @@ function App() {
                           {getScoreLabel(lead.score)} ({lead.score})
                         </span>
                       </td>
-                      <td className="p-4">{lead.status}</td>
-                      <td className="p-4">{new Date(lead.created_at).toLocaleDateString()}</td>
+                      <td className="p-4">{STATUS_LABELS[lead.status] || lead.status}</td>
+                      <td className="p-4">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX') : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4694,7 +4700,7 @@ function App() {
 
             {showNewLead && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-slate-800 p-6 rounded-2xl w-[500px]">
+                <div className="bg-slate-800 p-6 rounded-2xl w-full max-w-lg mx-4">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">Nuevo Lead</h3>
                     <button onClick={() => setShowNewLead(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
@@ -5265,6 +5271,7 @@ function App() {
 
                           let phone = (row.telefono || row.phone || row.celular || '').replace(/\D/g, '')
                           if (phone.length === 10) phone = '521' + phone
+                          else if (phone.length === 12 && phone.startsWith('52')) phone = '521' + phone.slice(2)
 
                           if (row.nombre || row.name) {
                             leadsToImport.push({
@@ -6583,7 +6590,7 @@ function App() {
                               lead.status === 'contacted' ? 'bg-yellow-500/20 text-yellow-400' :
                               'bg-slate-500/20 text-slate-400'
                             }`}>
-                              {lead.status}
+                              {STATUS_LABELS[lead.status] || lead.status}
                             </span>
                           </td>
                           <td className="py-3 pr-4 text-sm text-slate-400">
@@ -6813,7 +6820,7 @@ function App() {
                 form.reset()
 
                 const citaMsg = tieneCita ? `\n📅 Cita: ${citaFecha} a las ${citaHora} en ${lugarCita}` : ''
-                alert(`✅ Lead creado${vendedorName ? ` y asignado a ${vendedorName.split(' ')[0]}` : ''}${citaMsg}\n📲 Notificación enviada por WhatsApp`)
+                alert(`✅ Lead creado${vendedorName ? ` y asignado a ${vendedorName?.split(' ')[0]}` : ''}${citaMsg}\n📲 Notificación enviada por WhatsApp`)
               }} className="space-y-4">
                 {/* Fila 1: Datos básicos */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
@@ -6979,7 +6986,7 @@ function App() {
                           <td className="p-2 sticky left-0 bg-slate-800 font-medium">
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${enVacaciones ? 'bg-red-500' : vendedor.is_on_duty ? 'bg-green-500' : 'bg-slate-500'}`} />
-                              {vendedor.name.split(' ')[0]}
+                              {vendedor.name?.split(' ')[0] || 'Sin nombre'}
                               {enVacaciones && <span className="text-xs text-red-400">🏖️</span>}
                             </div>
                           </td>
@@ -7113,7 +7120,7 @@ function App() {
                       >
                         <option value="">Asignar a...</option>
                         {team.filter(t => t.role === 'vendedor' && t.active).map(v => (
-                          <option key={v.id} value={v.id}>{v.name.split(' ')[0]}</option>
+                          <option key={v.id} value={v.id}>{v.name?.split(' ')[0] || 'Sin nombre'}</option>
                         ))}
                       </select>
                     </div>
@@ -7329,7 +7336,7 @@ function App() {
                             <div className="flex items-center gap-2">
                               <p className="font-semibold">{lead.name}</p>
                               <span className={`text-xs px-2 py-0.5 rounded ${lead.status === 'new' ? 'bg-blue-600' : lead.status === 'contacted' ? 'bg-yellow-600' : lead.status === 'qualified' ? 'bg-green-600' : 'bg-slate-600'}`}>
-                                {lead.status}
+                                {STATUS_LABELS[lead.status] || lead.status}
                               </span>
                             </div>
                             <p className="text-sm text-slate-400">{lead.phone} • {lead.property_interest || 'Sin desarrollo'}</p>
@@ -7437,7 +7444,7 @@ function App() {
                             >
                               <option value="">Reasignar...</option>
                               {team.filter(t => t.role === 'vendedor' && t.active && t.id !== lead.assigned_to).map(v => (
-                                <option key={v.id} value={v.id}>{v.name.split(' ')[0]}</option>
+                                <option key={v.id} value={v.id}>{v.name?.split(' ')[0] || 'Sin nombre'}</option>
                               ))}
                             </select>
                           </div>
