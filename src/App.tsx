@@ -442,11 +442,19 @@ function App() {
     onSubmit: (values: Record<string, string>) => void
   } | null>(null)
 
+  // ConfirmModal para reemplazar confirm() nativos
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string
+    message: string
+    onConfirm: () => void
+  } | null>(null)
+
   // Esc cierra modales
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setInputModal(null)
+        setConfirmModal(null)
         setEditingLead(null)
         setEditingProperty(null)
         setEditingMember(null)
@@ -1140,11 +1148,16 @@ function App() {
     setShowNewCampaign(false)
   }
 
-  async function deleteCampaign(id: string) {
-    if (confirm('¿Eliminar esta campaña?')) {
-      await supabase.from('marketing_campaigns').delete().eq('id', id)
-      loadData()
-    }
+  function deleteCampaign(id: string) {
+    setConfirmModal({
+      title: 'Eliminar campaña',
+      message: '¿Estás seguro de eliminar esta campaña? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        await supabase.from('marketing_campaigns').delete().eq('id', id)
+        loadData()
+        setConfirmModal(null)
+      }
+    })
   }
 
   // CRUD Promociones
@@ -1159,11 +1172,16 @@ function App() {
     setShowNewPromotion(false)
   }
 
-  async function deletePromotion(id: string) {
-    if (confirm('¿Eliminar esta promoción?')) {
-      await supabase.from('promotions').delete().eq('id', id)
-      loadData()
-    }
+  function deletePromotion(id: string) {
+    setConfirmModal({
+      title: 'Eliminar promoción',
+      message: '¿Estás seguro de eliminar esta promoción? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        await supabase.from('promotions').delete().eq('id', id)
+        loadData()
+        setConfirmModal(null)
+      }
+    })
   }
 
   async function togglePromoStatus(promo: Promotion) {
@@ -1184,11 +1202,16 @@ function App() {
     setShowNewCrmEvent(false)
   }
 
-  async function deleteCrmEvent(id: string) {
-    if (confirm('¿Eliminar este evento?')) {
-      await supabase.from('events').delete().eq('id', id)
-      loadData()
-    }
+  function deleteCrmEvent(id: string) {
+    setConfirmModal({
+      title: 'Eliminar evento',
+      message: '¿Estás seguro de eliminar este evento? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        await supabase.from('events').delete().eq('id', id)
+        loadData()
+        setConfirmModal(null)
+      }
+    })
   }
 
   // Enviar invitaciones de evento
@@ -5158,6 +5181,15 @@ function App() {
                 </tbody>
               </table>
               </div>
+              {campaigns.length === 0 && (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">📢</div>
+                  <p className="text-slate-400 text-xl mb-4">No hay campañas</p>
+                  <button onClick={() => setShowNewCampaign(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold">
+                    Crear Primera Campaña
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Tarjetas de Integraciones */}
@@ -5521,9 +5553,9 @@ function App() {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-emerald-500/50 transition-all">
-                <p className="text-slate-400 mb-1">Proximos</p>
+                <p className="text-slate-400 mb-1">Próximos</p>
                 <p className="text-2xl font-bold text-emerald-400">{crmEvents.filter(e => e.status === 'upcoming' || e.status === 'scheduled').length}</p>
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-blue-500/50 transition-all">
@@ -7986,6 +8018,19 @@ function App() {
       )}
 
       {/* InputModal - reemplaza prompt() nativos */}
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setConfirmModal(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-2">{confirmModal.title}</h3>
+            <p className="text-sm text-slate-400 mb-5">{confirmModal.message}</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmModal(null)} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm">Cancelar</button>
+              <button onClick={confirmModal.onConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {inputModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setInputModal(null)}>
           <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
