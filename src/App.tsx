@@ -452,6 +452,8 @@ function App() {
   } | null>(null)
 
   const [saving, setSaving] = useState(false)
+  const [leadSort, setLeadSort] = useState<{ col: string; asc: boolean }>({ col: 'created_at', asc: false })
+  const [campSort, setCampSort] = useState<{ col: string; asc: boolean }>({ col: 'name', asc: true })
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
@@ -4713,16 +4715,27 @@ function App() {
               <table className="w-full">
                 <thead className="bg-slate-700 sticky top-0 z-10">
                   <tr>
-                    <th className="text-left p-4">Nombre</th>
-                    <th className="text-left p-4 hidden sm:table-cell">Teléfono</th>
-                    <th className="text-left p-4 hidden md:table-cell">Interés</th>
-                    <th className="text-left p-4">Score</th>
-                    <th className="text-left p-4">Estado</th>
-                    <th className="text-left p-4 hidden lg:table-cell">Fecha</th>
+                    {[
+                      { col: 'name', label: 'Nombre', hide: '' },
+                      { col: 'phone', label: 'Teléfono', hide: 'hidden sm:table-cell' },
+                      { col: 'property_interest', label: 'Interés', hide: 'hidden md:table-cell' },
+                      { col: 'score', label: 'Score', hide: '' },
+                      { col: 'status', label: 'Estado', hide: '' },
+                      { col: 'created_at', label: 'Fecha', hide: 'hidden lg:table-cell' },
+                    ].map(h => (
+                      <th key={h.col} className={`text-left p-4 cursor-pointer select-none hover:text-blue-400 ${h.hide}`} onClick={() => setLeadSort(prev => ({ col: h.col, asc: prev.col === h.col ? !prev.asc : true }))}>
+                        {h.label} {leadSort.col === h.col ? (leadSort.asc ? '↑' : '↓') : ''}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLeads.map(lead => (
+                  {[...filteredLeads].sort((a: any, b: any) => {
+                    const va = a[leadSort.col] ?? ''
+                    const vb = b[leadSort.col] ?? ''
+                    const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+                    return leadSort.asc ? cmp : -cmp
+                  }).map(lead => (
                     <tr key={lead.id} onClick={() => selectLead(lead)} className="border-t border-slate-700 hover:bg-slate-700 cursor-pointer">
                       <td className="p-4">{lead.name || 'Sin nombre'}</td>
                       <td className="p-4 hidden sm:table-cell"><Phone size={16} className="inline mr-1" />{lead.phone}</td>
@@ -5166,19 +5179,32 @@ function App() {
               <table className="w-full min-w-[800px]">
                 <thead className="bg-slate-700">
                   <tr>
-                    <th className="text-left p-4">Campaña</th>
-                    <th className="text-left p-4">Canal</th>
-                    <th className="text-left p-4">Gastado</th>
-                    <th className="text-left p-4">Leads</th>
-                    <th className="text-left p-4">CPL</th>
-                    <th className="text-left p-4">Ventas</th>
-                    <th className="text-left p-4">ROI</th>
-                    <th className="text-left p-4">Estado</th>
+                    {[
+                      { col: 'name', label: 'Campaña' },
+                      { col: 'channel', label: 'Canal' },
+                      { col: 'spent', label: 'Gastado' },
+                      { col: 'leads_generated', label: 'Leads' },
+                      { col: 'cpl', label: 'CPL' },
+                      { col: 'sales', label: 'Ventas' },
+                      { col: 'roi', label: 'ROI' },
+                      { col: 'status', label: 'Estado' },
+                    ].map(h => (
+                      <th key={h.col} className="text-left p-4 cursor-pointer select-none hover:text-blue-400" onClick={() => setCampSort(prev => ({ col: h.col, asc: prev.col === h.col ? !prev.asc : true }))}>
+                        {h.label} {campSort.col === h.col ? (campSort.asc ? '↑' : '↓') : ''}
+                      </th>
+                    ))}
                     <th className="text-left p-4">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {campaigns.map(campaign => {
+                  {[...campaigns].sort((a: any, b: any) => {
+                    let va = a[campSort.col] ?? ''
+                    let vb = b[campSort.col] ?? ''
+                    if (campSort.col === 'cpl') { va = a.leads_generated > 0 ? a.spent / a.leads_generated : 0; vb = b.leads_generated > 0 ? b.spent / b.leads_generated : 0 }
+                    if (campSort.col === 'roi') { va = a.spent > 0 ? (a.revenue_generated - a.spent) / a.spent : 0; vb = b.spent > 0 ? (b.revenue_generated - b.spent) / b.spent : 0 }
+                    const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+                    return campSort.asc ? cmp : -cmp
+                  }).map(campaign => {
                     const cpl = campaign.leads_generated > 0 ? campaign.spent / campaign.leads_generated : 0
                     const campaignROI = campaign.spent > 0 ? ((campaign.revenue_generated - campaign.spent) / campaign.spent * 100) : 0
                     return (
@@ -8147,39 +8173,39 @@ function PropertyModal({ property, onSave, onClose }: { property: Property | nul
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Precio Base</label>
-            <input type="number" value={form.price || ''} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.price || ''} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Precio Equipada</label>
-            <input type="number" value={form.price_equipped || ''} onChange={e => setForm({...form, price_equipped: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.price_equipped || ''} onChange={e => setForm({...form, price_equipped: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Terreno m²</label>
-            <input type="number" value={form.land_size || ''} onChange={e => setForm({...form, land_size: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.land_size || ''} onChange={e => setForm({...form, land_size: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Pisos</label>
-            <input type="number" value={form.floors || ''} onChange={e => setForm({...form, floors: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.floors || ''} onChange={e => setForm({...form, floors: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Recámaras</label>
-            <input type="number" value={form.bedrooms || ''} onChange={e => setForm({...form, bedrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.bedrooms || ''} onChange={e => setForm({...form, bedrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Baños</label>
-            <input type="number" value={form.bathrooms || ''} onChange={e => setForm({...form, bathrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.bathrooms || ''} onChange={e => setForm({...form, bathrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">m²</label>
-            <input type="number" value={form.area_m2 || ''} onChange={e => setForm({...form, area_m2: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.area_m2 || ''} onChange={e => setForm({...form, area_m2: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Total Unidades</label>
-            <input type="number" value={form.total_units || ''} onChange={e => setForm({...form, total_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.total_units || ''} onChange={e => setForm({...form, total_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Vendidas</label>
-            <input type="number" value={form.sold_units || ''} onChange={e => setForm({...form, sold_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.sold_units || ''} onChange={e => setForm({...form, sold_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Descripción</label>
