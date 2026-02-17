@@ -493,6 +493,13 @@ function App() {
     return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
+  // Bloquear scroll del body cuando hay modal abierto
+  useEffect(() => {
+    const anyModalOpen = !!(inputModal || confirmModal || editingLead || editingProperty || editingMember || editingMortgage || editingCampaign || editingPromotion || editingCrmEvent || editingAppointment || selectedLead || statusChange || showNewProperty || showNewMember || showNewMortgage || showNewCampaign || showNewLead || showNewAppointment || showNewPromotion || showNewCrmEvent || showNewEvent || showInviteEventModal)
+    document.body.style.overflow = anyModalOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [inputModal, confirmModal, editingLead, editingProperty, editingMember, editingMortgage, editingCampaign, editingPromotion, editingCrmEvent, editingAppointment, selectedLead, statusChange, showNewProperty, showNewMember, showNewMortgage, showNewCampaign, showNewLead, showNewAppointment, showNewPromotion, showNewCrmEvent, showNewEvent, showInviteEventModal])
+
   useEffect(() => {
     loadData()
     // Auto-refresh cada 30 segundos sin recargar página
@@ -2374,35 +2381,35 @@ function App() {
                     <div className={`rounded-xl p-4 border ${leadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
                       <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
                       <p className="text-3xl font-bold text-orange-400">{leadsHot.length}</p>
-                      <p className="text-xs text-slate-500 mt-2">${(valorLeadsHot / 1000000).toFixed(1)}M valor</p>
+                      <p className="text-xs text-slate-400 mt-2">${(valorLeadsHot / 1000000).toFixed(1)}M valor</p>
                     </div>
 
                     {/* Conversión */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
                       <p className={`text-3xl font-bold ${Number(tasaConversion) >= 10 ? 'text-green-400' : Number(tasaConversion) >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{tasaConversion}%</p>
-                      <p className="text-xs text-slate-500 mt-2">{totalVentas} de {totalLeads}</p>
+                      <p className="text-xs text-slate-400 mt-2">{totalVentas} de {totalLeads}</p>
                     </div>
 
                     {/* CPL */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">CPL</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
-                      <p className="text-xs text-slate-500 mt-2">{leadsDelMes} leads/mes</p>
+                      <p className="text-xs text-slate-400 mt-2">{leadsDelMes} leads/mes</p>
                     </div>
 
                     {/* Hipotecas */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">HIPOTECAS</p>
                       <p className="text-3xl font-bold text-cyan-400">{hipotecasPendientes}</p>
-                      <p className="text-xs text-slate-500 mt-2">{hipotecasAprobadas} aprobadas/mes</p>
+                      <p className="text-xs text-slate-400 mt-2">{hipotecasAprobadas} aprobadas/mes</p>
                     </div>
 
                     {/* Llamadas Retell */}
                     <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
                       <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
                       <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
-                      <p className="text-xs text-slate-500 mt-2">{leads.filter(l => l.source === 'phone_inbound').length} total</p>
+                      <p className="text-xs text-slate-400 mt-2">{leads.filter(l => l.source === 'phone_inbound').length} total</p>
                     </div>
                   </div>
 
@@ -2466,7 +2473,7 @@ function App() {
                         ].map((s, i) => (
                           <div key={i} className="flex-1 text-center">
                             <div className={`${s.color} rounded py-1 text-sm font-bold`}>{s.count}</div>
-                            <p className="text-[10px] mt-0.5 text-slate-500">{s.label}</p>
+                            <p className="text-[10px] mt-0.5 text-slate-400">{s.label}</p>
                           </div>
                         ))}
                       </div>
@@ -2488,7 +2495,7 @@ function App() {
                               <span className={`text-sm font-bold ${v.pct >= 100 ? 'text-green-400' : v.pct >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>
                                 {v.ventas}/{v.meta || '?'}
                               </span>
-                              <span className="text-xs text-slate-500">({v.pct}%)</span>
+                              <span className="text-xs text-slate-400">({v.pct}%)</span>
                             </div>
                           </div>
                           <div className="text-right">
@@ -2727,21 +2734,21 @@ function App() {
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">MI PIPELINE</p>
                       <p className="text-3xl font-bold text-emerald-400">${(miPipeline / 1000000).toFixed(1)}M</p>
-                      <p className="text-xs text-slate-500">{misLeadsActivos.length} leads activos</p>
+                      <p className="text-xs text-slate-400">{misLeadsActivos.length} leads activos</p>
                     </div>
 
                     {/* Conversión */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">MI CONVERSIÓN</p>
                       <p className={`text-3xl font-bold ${miConversion >= 10 ? 'text-green-400' : miConversion >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{miConversion}%</p>
-                      <p className="text-xs text-slate-500">lead → venta</p>
+                      <p className="text-xs text-slate-400">lead → venta</p>
                     </div>
 
                     {/* Leads HOT */}
                     <div className={`rounded-xl p-4 border ${misLeadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
                       <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
                       <p className={`text-3xl font-bold ${misLeadsHot.length > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{misLeadsHot.length}</p>
-                      <p className="text-xs text-slate-500">negociación + reservado</p>
+                      <p className="text-xs text-slate-400">negociación + reservado</p>
                     </div>
                   </div>
 
@@ -2849,13 +2856,13 @@ function App() {
                                 <span className={`text-xs px-2 py-1 rounded-full ${l.status === 'reserved' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'}`}>
                                   {l.status === 'reserved' ? 'Reservado' : 'Negociación'}
                                 </span>
-                                {l.budget && <p className="text-xs text-slate-500 mt-1">${(Number(l.budget) / 1000000).toFixed(1)}M</p>}
+                                {l.budget && <p className="text-xs text-slate-400 mt-1">${(Number(l.budget) / 1000000).toFixed(1)}M</p>}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-slate-500 text-center py-4">Sin leads en cierre</p>
+                        <p className="text-slate-400 text-center py-4">Sin leads en cierre</p>
                       )}
                     </div>
 
@@ -2880,7 +2887,7 @@ function App() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-slate-500 text-center py-4">Sin leads activos</p>
+                        <p className="text-slate-400 text-center py-4">Sin leads activos</p>
                       )}
                     </div>
                   </div>
@@ -3036,24 +3043,24 @@ function App() {
                       <p className={`text-3xl font-bold ${estadoROI === 'good' ? 'text-green-400' : estadoROI === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {roi}%
                       </p>
-                      <p className="text-xs text-slate-500 mt-2">Ingresos: ${(revenueGenerado / 1000000).toFixed(1)}M</p>
-                      <p className="text-xs text-slate-500">{ventasCerradas.length} ventas cerradas</p>
+                      <p className="text-xs text-slate-400 mt-2">Ingresos: ${(revenueGenerado / 1000000).toFixed(1)}M</p>
+                      <p className="text-xs text-slate-400">{ventasCerradas.length} ventas cerradas</p>
                     </div>
 
                     {/* CPL y CPQL */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">COSTO POR LEAD</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
-                      <p className="text-xs text-slate-500 mt-2">CPQL: ${cpql}</p>
-                      <p className="text-xs text-slate-500">CPA: ${cpa.toLocaleString('es-MX')}</p>
+                      <p className="text-xs text-slate-400 mt-2">CPQL: ${cpql}</p>
+                      <p className="text-xs text-slate-400">CPA: ${cpa.toLocaleString('es-MX')}</p>
                     </div>
 
                     {/* Calidad */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">CALIDAD LEADS</p>
                       <p className={`text-3xl font-bold ${calidadLeads >= 40 ? 'text-green-400' : calidadLeads >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>{calidadLeads}%</p>
-                      <p className="text-xs text-slate-500 mt-2">{leadsCalificados} calificados</p>
-                      <p className="text-xs text-slate-500">de {leadsDelMes.length} totales</p>
+                      <p className="text-xs text-slate-400 mt-2">{leadsCalificados} calificados</p>
+                      <p className="text-xs text-slate-400">de {leadsDelMes.length} totales</p>
                     </div>
                   </div>
 
@@ -3072,7 +3079,7 @@ function App() {
                               className={`w-full rounded-t ${i === 6 ? 'bg-pink-500' : 'bg-slate-600'}`}
                               style={{ height: `${(d.count / maxLeadsDia) * 100}%`, minHeight: '4px' }}
                             />
-                            <span className="text-xs text-slate-500 mt-1">{d.dia}</span>
+                            <span className="text-xs text-slate-400 mt-1">{d.dia}</span>
                           </div>
                         ))}
                       </div>
@@ -3125,7 +3132,7 @@ function App() {
                           <div className={`${stage.color} rounded-lg py-2 text-lg font-bold`}>{stage.value}</div>
                           <p className="text-xs mt-1 text-slate-400">{stage.label}</p>
                           {i < arr.length - 1 && funnelMkt.total > 0 && (
-                            <p className="text-xs text-slate-500">{Math.round((stage.value / funnelMkt.total) * 100)}%</p>
+                            <p className="text-xs text-slate-400">{Math.round((stage.value / funnelMkt.total) * 100)}%</p>
                           )}
                         </div>
                       ))}
@@ -3262,13 +3269,13 @@ function App() {
                         {leadsUrgentes.slice(0, 3).map(l => (
                           <div key={l.id} className="text-sm flex items-center gap-2">
                             <span className="text-slate-300">{l.name}</span>
-                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400">•</span>
                             <span className="text-slate-400">{l.phone}</span>
-                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400">•</span>
                             <span className="text-yellow-400">{sourceLabel(l.source || 'Directo')}</span>
                           </div>
                         ))}
-                        {leadsUrgentes.length > 3 && <p className="text-xs text-slate-500">+{leadsUrgentes.length - 3} más</p>}
+                        {leadsUrgentes.length > 3 && <p className="text-xs text-slate-400">+{leadsUrgentes.length - 3} más</p>}
                       </div>
                     </div>
                   )}
@@ -3294,35 +3301,35 @@ function App() {
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
                       <p className="text-3xl font-bold text-blue-400">{leadsHoy.length}</p>
-                      <p className="text-xs text-slate-500">capturados</p>
+                      <p className="text-xs text-slate-400">capturados</p>
                     </div>
 
                     {/* Leads semana */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">ESTA SEMANA</p>
                       <p className="text-3xl font-bold text-cyan-400">{leadsSemana.length}</p>
-                      <p className="text-xs text-slate-500">últimos 7 días</p>
+                      <p className="text-xs text-slate-400">últimos 7 días</p>
                     </div>
 
                     {/* Leads nuevos (sin contactar) */}
                     <div className={`rounded-xl p-4 border ${leadsNuevos.length > 10 ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
                       <p className="text-xs text-slate-400 mb-1">NUEVOS</p>
                       <p className={`text-3xl font-bold ${leadsNuevos.length > 10 ? 'text-yellow-400' : 'text-green-400'}`}>{leadsNuevos.length}</p>
-                      <p className="text-xs text-slate-500">pendientes contactar</p>
+                      <p className="text-xs text-slate-400">pendientes contactar</p>
                     </div>
 
                     {/* Total del mes */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">ESTE MES</p>
                       <p className="text-3xl font-bold text-purple-400">{leadsDelMes.length}</p>
-                      <p className="text-xs text-slate-500">leads totales</p>
+                      <p className="text-xs text-slate-400">leads totales</p>
                     </div>
 
                     {/* Llamadas Retell */}
                     <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound').length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
                       <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
                       <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
-                      <p className="text-xs text-slate-500">por teléfono</p>
+                      <p className="text-xs text-slate-400">por teléfono</p>
                     </div>
                   </div>
 
@@ -3408,7 +3415,7 @@ function App() {
                             <p className="text-xs text-slate-400">
                               {l.created_at ? new Date(l.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }) : '-'}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-slate-400">
                               {l.assigned_to ? team.find(t => t.id === l.assigned_to)?.name || 'Asignado' : 'Sin asignar'}
                             </p>
                           </div>
@@ -3523,11 +3530,11 @@ function App() {
                         {estancadas.slice(0, 3).map(m => (
                           <div key={m.id} className="text-sm flex items-center gap-2">
                             <span className="text-slate-300">{m.lead_name}</span>
-                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400">•</span>
                             <span className="text-yellow-400">{getDaysInStatus(m)} días en {m.status}</span>
                           </div>
                         ))}
-                        {estancadas.length > 3 && <p className="text-xs text-slate-500">+{estancadas.length - 3} más</p>}
+                        {estancadas.length > 3 && <p className="text-xs text-slate-400">+{estancadas.length - 3} más</p>}
                       </div>
                     </div>
                   )}
@@ -3538,7 +3545,7 @@ function App() {
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">ACTIVAS</p>
                       <p className="text-3xl font-bold text-blue-400">{pendientes + enRevision + enviadasBanco}</p>
-                      <p className="text-xs text-slate-500">{pendientes} pend. • {enRevision} rev. • {enviadasBanco} banco</p>
+                      <p className="text-xs text-slate-400">{pendientes} pend. • {enRevision} rev. • {enviadasBanco} banco</p>
                     </div>
 
                     {/* Tasa de aprobación */}
@@ -3547,14 +3554,14 @@ function App() {
                       <p className={`text-3xl font-bold ${estadoAprobacion === 'good' ? 'text-green-400' : estadoAprobacion === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {tasaAprobacion}%
                       </p>
-                      <p className="text-xs text-slate-500">{aprobadasMes} de {totalDecisionMes} este mes</p>
+                      <p className="text-xs text-slate-400">{aprobadasMes} de {totalDecisionMes} este mes</p>
                     </div>
 
                     {/* Monto aprobado */}
                     <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
                       <p className="text-xs text-slate-400 mb-1">MONTO APROBADO</p>
                       <p className="text-3xl font-bold text-emerald-400">${(montoAprobadoMes / 1000000).toFixed(1)}M</p>
-                      <p className="text-xs text-slate-500">este mes</p>
+                      <p className="text-xs text-slate-400">este mes</p>
                     </div>
 
                     {/* Tiempo promedio */}
@@ -3563,7 +3570,7 @@ function App() {
                       <p className={`text-3xl font-bold ${tiempoPromedio <= 7 ? 'text-green-400' : tiempoPromedio <= 14 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {tiempoPromedio}d
                       </p>
-                      <p className="text-xs text-slate-500">solicitud a decisión</p>
+                      <p className="text-xs text-slate-400">solicitud a decisión</p>
                     </div>
                   </div>
 
@@ -3834,14 +3841,14 @@ function App() {
                   <div className="bg-slate-800/50 p-3 rounded-lg text-center">
                     <p className="text-xs text-slate-400">Faltan vender</p>
                     <p className="text-2xl font-bold text-orange-400">{metaAnalysis.ventasFaltantes}</p>
-                    <p className="text-xs text-slate-500">casas</p>
+                    <p className="text-xs text-slate-400">casas</p>
                   </div>
 
                   {/* Leads necesarios */}
                   <div className="bg-slate-800/50 p-3 rounded-lg text-center">
                     <p className="text-xs text-slate-400">Leads necesarios</p>
                     <p className="text-2xl font-bold text-cyan-400">{metaAnalysis.leadsNecesarios}</p>
-                    <p className="text-xs text-slate-500">al {metaAnalysis.conversionRate.toFixed(1)}% conv</p>
+                    <p className="text-xs text-slate-400">al {metaAnalysis.conversionRate.toFixed(1)}% conv</p>
                   </div>
 
                   {/* Leads en funnel */}
@@ -3850,7 +3857,7 @@ function App() {
                     <p className={`text-2xl font-bold ${metaAnalysis.leadsActivosEnFunnel >= metaAnalysis.leadsNecesarios ? 'text-green-400' : 'text-red-400'}`}>
                       {metaAnalysis.leadsActivosEnFunnel}
                     </p>
-                    <p className="text-xs text-slate-500">activos</p>
+                    <p className="text-xs text-slate-400">activos</p>
                   </div>
 
                   {/* Déficit */}
@@ -3859,7 +3866,7 @@ function App() {
                     <p className={`text-2xl font-bold ${metaAnalysis.deficitLeads === 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {metaAnalysis.deficitLeads === 0 ? '✓' : `-${metaAnalysis.deficitLeads}`}
                     </p>
-                    <p className="text-xs text-slate-500">{metaAnalysis.diasRestantes} días restantes</p>
+                    <p className="text-xs text-slate-400">{metaAnalysis.diasRestantes} días restantes</p>
                   </div>
                 </div>
 
@@ -3902,7 +3909,7 @@ function App() {
                   <span className="text-3xl">🎯</span>
                   <div>
                     <p className="font-bold text-slate-300">Sin meta de ventas configurada</p>
-                    <p className="text-sm text-slate-500">Ve a <button onClick={() => setView('goals')} className="text-blue-400 hover:underline">Metas</button> para configurar tu objetivo mensual y ver este análisis.</p>
+                    <p className="text-sm text-slate-400">Ve a <button onClick={() => setView('goals')} className="text-blue-400 hover:underline">Metas</button> para configurar tu objetivo mensual y ver este análisis.</p>
                   </div>
                 </div>
               </div>
@@ -3991,7 +3998,7 @@ function App() {
                         <span className="text-[10px] lg:text-xs text-slate-400">{item.label}</span>
                       </div>
                       <p className="text-lg lg:text-2xl font-bold">{item.emoji} {item.count}</p>
-                      <p className="text-[10px] lg:text-xs text-slate-500">{item.desc}</p>
+                      <p className="text-[10px] lg:text-xs text-slate-400">{item.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -4041,7 +4048,7 @@ function App() {
                   <span className={`text-xs font-bold ${monthComparison.closedChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {monthComparison.closedChange >= 0 ? '↑' : '↓'} {Math.abs(monthComparison.closedChange)}%
                   </span>
-                  <span className="text-xs text-slate-500">vs mes anterior</span>
+                  <span className="text-xs text-slate-400">vs mes anterior</span>
                 </div>
               </div>
               
@@ -4113,7 +4120,7 @@ function App() {
                           <span className="text-sm font-semibold">{percent}%</span>
                         </div>
                         {i < 6 && (
-                          <div className="w-16 text-right text-xs text-slate-500">
+                          <div className="w-16 text-right text-xs text-slate-400">
                             {i === 0 ? '' : (() => {
                               const prevCount = filteredLeads.filter(l => l.status === ['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved'][i-1]).length
                               if (prevCount === 0) return '-'
@@ -4166,7 +4173,7 @@ function App() {
                       </div>
                     )
                   })}
-                  {vendedoresRanking.length === 0 && <p className="text-slate-500 text-sm text-center py-4">Sin vendedores</p>}
+                  {vendedoresRanking.length === 0 && <p className="text-slate-400 text-sm text-center py-4">Sin vendedores</p>}
                 </div>
               </div>
 
@@ -4210,7 +4217,7 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  {cplBySource.length === 0 && <p className="text-slate-500 text-sm text-center py-4">Sin campañas</p>}
+                  {cplBySource.length === 0 && <p className="text-slate-400 text-sm text-center py-4">Sin campañas</p>}
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-700">
                   <div className="flex justify-between text-sm">
@@ -4262,7 +4269,7 @@ function App() {
                         </div>
                       </div>
                       <p className="text-xs text-slate-400 mt-2">{conv.from} ↑ {conv.to}</p>
-                      <p className="text-xs text-slate-500">Meta: {conv.target}%</p>
+                      <p className="text-xs text-slate-400">Meta: {conv.target}%</p>
                     </div>
                   ))}
                 </div>
@@ -4322,7 +4329,7 @@ function App() {
                   <p className={`text-2xl font-bold ${parseFloat(conversionLeadToSale) >= 1 ? 'text-green-400' : parseFloat(conversionLeadToSale) >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionLeadToSale}%
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">Meta: 1-3%</p>
+                  <p className="text-xs text-slate-400 mt-1">Meta: 1-3%</p>
                   <div className="w-full bg-slate-700 h-1 rounded mt-2">
                     <div className={`h-1 rounded ${parseFloat(conversionLeadToSale) >= 1 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{width: `${Math.min(parseFloat(conversionLeadToSale) * 33, 100)}%`}}></div>
                   </div>
@@ -4334,7 +4341,7 @@ function App() {
                   <p className={`text-2xl font-bold ${parseFloat(conversionLeadToCita) >= 15 ? 'text-green-400' : parseFloat(conversionLeadToCita) >= 10 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionLeadToCita}%
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">Meta: 15-25%</p>
+                  <p className="text-xs text-slate-400 mt-1">Meta: 15-25%</p>
                   <div className="w-full bg-slate-700 h-1 rounded mt-2">
                     <div className={`h-1 rounded ${parseFloat(conversionLeadToCita) >= 15 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{width: `${Math.min(parseFloat(conversionLeadToCita) * 4, 100)}%`}}></div>
                   </div>
@@ -4346,7 +4353,7 @@ function App() {
                   <p className={`text-2xl font-bold ${parseFloat(conversionCitaToClose) >= 10 ? 'text-green-400' : parseFloat(conversionCitaToClose) >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionCitaToClose}%
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">Meta: 10-20%</p>
+                  <p className="text-xs text-slate-400 mt-1">Meta: 10-20%</p>
                   <div className="w-full bg-slate-700 h-1 rounded mt-2">
                     <div className={`h-1 rounded ${parseFloat(conversionCitaToClose) >= 10 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{width: `${Math.min(parseFloat(conversionCitaToClose) * 5, 100)}%`}}></div>
                   </div>
@@ -4358,7 +4365,7 @@ function App() {
                   <p className={`text-2xl font-bold ${ratioLeadsPorVenta <= 50 ? 'text-green-400' : ratioLeadsPorVenta <= 100 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {ratioLeadsPorVenta}:1
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">Meta: 50:1</p>
+                  <p className="text-xs text-slate-400 mt-1">Meta: 50:1</p>
                   <div className="w-full bg-slate-700 h-1 rounded mt-2">
                     <div className={`h-1 rounded ${ratioLeadsPorVenta <= 50 ? 'bg-green-500' : 'bg-yellow-500'}`} style={{width: `${Math.max(100 - ratioLeadsPorVenta, 10)}%`}}></div>
                   </div>
@@ -4370,7 +4377,7 @@ function App() {
                   <p className={`text-2xl font-bold ${avgResponseTime <= 5 ? 'text-green-400' : avgResponseTime <= 30 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {avgResponseTime < 60 ? `${avgResponseTime}m` : `${Math.round(avgResponseTime/60)}h`}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">Meta: &lt;5 min</p>
+                  <p className="text-xs text-slate-400 mt-1">Meta: &lt;5 min</p>
                   <div className="w-full bg-slate-700 h-1 rounded mt-2">
                     <div className={`h-1 rounded ${avgResponseTime <= 5 ? 'bg-green-500' : avgResponseTime <= 30 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${Math.max(100 - avgResponseTime * 2, 10)}%`}}></div>
                   </div>
@@ -4533,7 +4540,7 @@ function App() {
                   </tbody>
                 </table>
                 {developmentPerformance.length === 0 && (
-                  <p className="text-slate-500 text-center py-4">Sin datos de desarrollos. Agrega propiedades con el campo "development".</p>
+                  <p className="text-slate-400 text-center py-4">Sin datos de desarrollos. Agrega propiedades con el campo "development".</p>
                 )}
               </div>
             </div>
@@ -4592,7 +4599,7 @@ function App() {
                   </tbody>
                 </table>
                 {leadsBySource.length === 0 && (
-                  <p className="text-slate-500 text-center py-4">Sin datos de fuentes. Asigna el campo "source" a tus leads.</p>
+                  <p className="text-slate-400 text-center py-4">Sin datos de fuentes. Asigna el campo "source" a tus leads.</p>
                 )}
               </div>
             </div>
@@ -4605,7 +4612,7 @@ function App() {
                   <span className="text-slate-400">Este mes: <span className="text-blue-400 font-bold">{monthComparison.thisMonthLeads}</span></span>
                   <span className="text-slate-400">Vendedores activos: <span className="text-green-400 font-bold">{team.filter(t => t.role === 'vendedor' && t.active).length}</span></span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-500 text-xs">
+                <div className="flex items-center gap-3 text-slate-400 text-xs">
                   <span>🔄 Auto-refresh: {lastRefresh.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit', second: '2-digit'})}</span>
                   <button onClick={() => loadDataSilent()} className="px-2 py-1 bg-slate-700 rounded hover:bg-slate-600">Actualizar</button>
                 </div>
@@ -4750,7 +4757,7 @@ function App() {
                     </tr>
                   ))}
                   {filteredLeads.length === 0 && (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-500">No se encontraron leads con los filtros actuales</td></tr>
+                    <tr><td colSpan={6} className="p-8 text-center text-slate-400">No se encontraron leads con los filtros actuales</td></tr>
                   )}
                 </tbody>
               </table>
@@ -4890,7 +4897,7 @@ function App() {
                     ) : prop.youtube_link ? (
                       <img src={getYoutubeThumbnail(prop.youtube_link) || ''} alt={prop.name} className="w-full h-full object-cover" />
                     ) : (
-                      <Building size={48} className="text-slate-500" />
+                      <Building size={48} className="text-slate-400" />
                     )}
                   </div>
                   <div className="p-4">
@@ -4977,7 +4984,7 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'vendedor').length === 0 && <p className="text-slate-500 text-center py-4">Sin vendedores</p>}
+                  {team.filter(t => t.role === 'vendedor').length === 0 && <p className="text-slate-400 text-center py-4">Sin vendedores</p>}
                 </div>
               </div>
 
@@ -5002,7 +5009,7 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'asesor').length === 0 && <p className="text-slate-500 text-center py-4">Sin asesores</p>}
+                  {team.filter(t => t.role === 'asesor').length === 0 && <p className="text-slate-400 text-center py-4">Sin asesores</p>}
                 </div>
               </div>
 
@@ -5028,7 +5035,7 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === "coordinador").length === 0 && <p className="text-slate-500 text-center py-4">Sin coordinadoras</p>}
+                  {team.filter(t => t.role === "coordinador").length === 0 && <p className="text-slate-400 text-center py-4">Sin coordinadoras</p>}
                 </div>
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
@@ -5052,7 +5059,7 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'agencia').length === 0 && <p className="text-slate-500 text-center py-4">Sin personal de marketing</p>}
+                  {team.filter(t => t.role === 'agencia').length === 0 && <p className="text-slate-400 text-center py-4">Sin personal de marketing</p>}
                 </div>
               </div>
             </div>
@@ -5100,7 +5107,7 @@ function App() {
                             <p className="font-semibold text-sm">{mortgage.lead_name}</p>
                             <p className="text-xs text-slate-400">{mortgage.property_name}</p>
                             <p className="text-xs text-slate-400 mt-1">${(mortgage.requested_amount || 0).toLocaleString('es-MX')}</p>
-                            <p className="text-xs text-slate-500 mt-1">{daysInStatus}d en {status.label.toLowerCase()}</p>
+                            <p className="text-xs text-slate-400 mt-1">{daysInStatus}d en {status.label.toLowerCase()}</p>
                           </div>
                         )
                       })}
@@ -5548,7 +5555,7 @@ function App() {
                           {promo.reminder_enabled ? (
                             <span className="text-green-400 text-sm">{promo.reminder_frequency} ({promo.reminders_sent_count || 0} enviados)</span>
                           ) : (
-                            <span className="text-slate-500 text-sm">Desactivados</span>
+                            <span className="text-slate-400 text-sm">Desactivados</span>
                           )}
                         </td>
                         <td className="p-4">
@@ -5902,7 +5909,7 @@ function App() {
                             <span className="text-red-400">❌</span>
                             <div>
                               <p className="font-semibold text-sm">{appt.property_name} - {appt.lead_name || appt.lead_phone}</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-slate-400">
                                 {fecha ? `${fecha.toLocaleDateString('es-MX')} ${fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}` : (appt.scheduled_date || 'Sin fecha')}
                                 {appt.cancelled_by && ` • Cancelada por: ${appt.cancelled_by}`}
                               </p>
@@ -6638,7 +6645,7 @@ function App() {
                   />
                 </div>
               </div>
-              <p className="text-sm text-slate-500 mt-4">
+              <p className="text-sm text-slate-400 mt-4">
                 Los leads referidos tienen mayor probabilidad de conversión porque vienen con confianza previa del referidor.
               </p>
             </div>
@@ -6661,7 +6668,7 @@ function App() {
                   })
                   const sorted = Object.entries(referidorCounts).sort((a, b) => b[1].count - a[1].count).slice(0, 5)
                   if (sorted.length === 0) {
-                    return <p className="text-slate-500">Aún no hay clientes que hayan referido leads</p>
+                    return <p className="text-slate-400">Aún no hay clientes que hayan referido leads</p>
                   }
                   return sorted.map(([id, data], idx) => (
                     <div key={id} className="flex items-center gap-4 bg-slate-700/50 rounded-xl p-4">
@@ -6708,7 +6715,7 @@ function App() {
                   <tbody className="divide-y divide-slate-700">
                     {leads.filter(l => l.source === 'referral').length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-500">
+                        <td colSpan={5} className="py-8 text-center text-slate-400">
                           No hay leads referidos aún. Los clientes que ya compraron pueden enviar contactos por WhatsApp.
                         </td>
                       </tr>
@@ -6817,7 +6824,7 @@ function App() {
                         ⏳ Premios Pendientes de Entregar ({pendientes.length})
                       </h4>
                       {pendientes.length === 0 ? (
-                        <p className="text-slate-500 text-sm">No hay premios pendientes</p>
+                        <p className="text-slate-400 text-sm">No hay premios pendientes</p>
                       ) : (
                         <div className="space-y-3">
                           {pendientes.map(lead => {
@@ -6833,7 +6840,7 @@ function App() {
                                     <div className="text-sm text-slate-400 mt-1">
                                       Por referir a <span className="text-pink-400">{lead.name}</span> quien compró
                                     </div>
-                                    <div className="text-sm text-slate-500">
+                                    <div className="text-sm text-slate-400">
                                       Vendedor responsable: <span className="text-blue-400">{vendedor?.name || 'Sin asignar'}</span>
                                     </div>
                                   </div>
@@ -6869,13 +6876,13 @@ function App() {
                             <div key={lead.id} className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center justify-between">
                               <div>
                                 <span className="text-green-400">{lead.referred_by_name || 'Sin nombre'}</span>
-                                <span className="text-slate-500 text-sm ml-2">por referir a {lead.name}</span>
+                                <span className="text-slate-400 text-sm ml-2">por referir a {lead.name}</span>
                               </div>
                               <div className="text-green-400 font-bold">${bonoReferido.toLocaleString('es-MX')}</div>
                             </div>
                           ))}
                           {entregados.length > 5 && (
-                            <p className="text-slate-500 text-sm text-center">... y {entregados.length - 5} más</p>
+                            <p className="text-slate-400 text-sm text-center">... y {entregados.length - 5} más</p>
                           )}
                         </div>
                       </div>
@@ -7192,7 +7199,7 @@ function App() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-slate-500 mt-3">💡 Haz clic en un horario verde para agendar una cita</p>
+              <p className="text-xs text-slate-400 mt-3">💡 Haz clic en un horario verde para agendar una cita</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -7229,7 +7236,7 @@ function App() {
                     )
                   })}
                   {team.filter(t => t.role === 'vendedor' && t.active).length === 0 && (
-                    <p className="text-slate-500 text-center py-4">No hay vendedores activos</p>
+                    <p className="text-slate-400 text-center py-4">No hay vendedores activos</p>
                   )}
                 </div>
               </div>
@@ -7250,7 +7257,7 @@ function App() {
                       <div>
                         <p className="font-semibold">{lead.name}</p>
                         <p className="text-xs text-slate-400">{lead.phone} • {lead.property_interest || 'Sin desarrollo'}</p>
-                        <p className="text-xs text-slate-500">{new Date(lead.created_at).toLocaleDateString('es-MX')}</p>
+                        <p className="text-xs text-slate-400">{new Date(lead.created_at).toLocaleDateString('es-MX')}</p>
                       </div>
                       <select
                         className="bg-slate-600 rounded-lg px-3 py-2 text-sm"
@@ -7315,7 +7322,7 @@ function App() {
                             </div>
                             <p className="font-semibold">{cita.lead_name || 'Lead'}</p>
                             <p className="text-sm text-slate-400">{cita.property_name} • 👤 {vendedor?.name?.split(' ')[0] || 'Sin asignar'}</p>
-                            <p className="text-xs text-slate-500">📱 {cita.lead_phone}</p>
+                            <p className="text-xs text-slate-400">📱 {cita.lead_phone}</p>
                           </div>
                           <div className="flex flex-col gap-2">
                             {/* Botón Cambiar Cita */}
@@ -7431,7 +7438,7 @@ function App() {
                   in7Days.setDate(in7Days.getDate() + 7)
                   return citaDate >= today && citaDate <= in7Days && a.status === 'scheduled'
                 }).length === 0 && (
-                  <p className="text-slate-500 text-center py-8">No hay citas programadas en los próximos 7 días</p>
+                  <p className="text-slate-400 text-center py-8">No hay citas programadas en los próximos 7 días</p>
                 )}
               </div>
             </div>
@@ -7485,7 +7492,7 @@ function App() {
                               </span>
                             </div>
                             <p className="text-sm text-slate-400">{lead.phone} • {lead.property_interest || 'Sin desarrollo'}</p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-slate-400">
                               👤 {vendedor?.name?.split(' ')[0] || 'Sin asignar'} •
                               📅 {new Date(lead.created_at).toLocaleDateString('es-MX')}
                             </p>
@@ -7624,7 +7631,7 @@ function App() {
                       className="w-full p-2 bg-slate-600 rounded-lg text-center text-xl font-bold text-white"
                       min="1"
                     />
-                    <p className="text-xs text-slate-500 mt-1 text-center">días</p>
+                    <p className="text-xs text-slate-400 mt-1 text-center">días</p>
                   </div>
                 ))}
               </div>
@@ -7650,11 +7657,11 @@ function App() {
                       className="w-full p-2 bg-slate-600 rounded-lg text-center text-xl font-bold text-white"
                       min="1"
                     />
-                    <p className="text-xs text-slate-500 mt-1 text-center">días sin actualizar</p>
+                    <p className="text-xs text-slate-400 mt-1 text-center">días sin actualizar</p>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-4">El asesor puede responder: "Aprobado Juan", "Rechazado Juan", "Documentos Juan"</p>
+              <p className="text-xs text-slate-400 mt-4">El asesor puede responder: "Aprobado Juan", "Rechazado Juan", "Documentos Juan"</p>
             </div>
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
               <h3 className="text-xl font-semibold mb-4">Notificaciones por WhatsApp</h3>
@@ -8035,12 +8042,12 @@ function App() {
                       return (
                         <div key={i} className={`mb-3 ${colorClass} break-words`}>
                           <span className="font-semibold">{label}:</span> {msg.content}
-                          {msg.via_bridge && <span className="text-xs text-slate-500 ml-2">(chat directo)</span>}
+                          {msg.via_bridge && <span className="text-xs text-slate-400 ml-2">(chat directo)</span>}
                         </div>
                       );
                     })
                   ) : (
-                    <p className="text-slate-500">Sin historial de conversación</p>
+                    <p className="text-slate-400">Sin historial de conversación</p>
                   )}
                 </div>
               </div>
@@ -8052,7 +8059,7 @@ function App() {
                 </h4>
                 <div className="bg-slate-700 p-4 rounded-xl max-h-48 overflow-y-auto">
                   {loadingActivities ? (
-                    <p className="text-slate-500">Cargando actividades...</p>
+                    <p className="text-slate-400">Cargando actividades...</p>
                   ) : leadActivities.length > 0 ? (
                     leadActivities.map((activity: LeadActivity) => (
                       <div key={activity.id} className="mb-3 pb-2 border-b border-slate-600 last:border-0">
@@ -8083,7 +8090,7 @@ function App() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-slate-500">Sin actividades registradas</p>
+                    <p className="text-slate-400">Sin actividades registradas</p>
                   )}
                 </div>
               </div>
@@ -9453,7 +9460,7 @@ function SendPromoModal({
                 disabled={!promo.image_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!promo.image_url ? 'text-slate-500' : ''}>
+              <span className={!promo.image_url ? 'text-slate-400' : ''}>
                 Imagen {!promo.image_url && '(no configurada)'}
               </span>
             </label>
@@ -9465,7 +9472,7 @@ function SendPromoModal({
                 disabled={!promo.video_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!promo.video_url ? 'text-slate-500' : ''}>
+              <span className={!promo.video_url ? 'text-slate-400' : ''}>
                 Video {!promo.video_url && '(no configurado)'}
               </span>
             </label>
@@ -9477,7 +9484,7 @@ function SendPromoModal({
                 disabled={!promo.pdf_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!promo.pdf_url ? 'text-slate-500' : ''}>
+              <span className={!promo.pdf_url ? 'text-slate-400' : ''}>
                 PDF/Brochure {!promo.pdf_url && '(no configurado)'}
               </span>
             </label>
@@ -9577,7 +9584,7 @@ function InviteEventModal({
                 disabled={!event.image_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!event.image_url ? 'text-slate-500' : ''}>
+              <span className={!event.image_url ? 'text-slate-400' : ''}>
                 Imagen {!event.image_url && '(no configurada)'}
               </span>
             </label>
@@ -9589,7 +9596,7 @@ function InviteEventModal({
                 disabled={!event.video_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!event.video_url ? 'text-slate-500' : ''}>
+              <span className={!event.video_url ? 'text-slate-400' : ''}>
                 Video {!event.video_url && '(no configurado)'}
               </span>
             </label>
@@ -9601,7 +9608,7 @@ function InviteEventModal({
                 disabled={!event.pdf_url}
                 className="w-5 h-5 rounded"
               />
-              <span className={!event.pdf_url ? 'text-slate-500' : ''}>
+              <span className={!event.pdf_url ? 'text-slate-400' : ''}>
                 PDF/Flyer {!event.pdf_url && '(no configurado)'}
               </span>
             </label>
@@ -10162,7 +10169,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
                     </div>
                   ))}
                   {(!offersData.by_status || Object.values(offersData.by_status).every((v: any) => v === 0)) && (
-                    <div className="col-span-4 text-center text-slate-500 py-8">
+                    <div className="col-span-4 text-center text-slate-400 py-8">
                       No hay ofertas registradas en este período
                     </div>
                   )}
@@ -10262,27 +10269,27 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-mono">
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/pipeline/summary</p>
-                <p className="text-slate-500">Pipeline de ventas y forecast</p>
+                <p className="text-slate-400">Pipeline de ventas y forecast</p>
               </div>
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/alerts</p>
-                <p className="text-slate-500">Alertas inteligentes</p>
+                <p className="text-slate-400">Alertas inteligentes</p>
               </div>
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/market</p>
-                <p className="text-slate-500">Inteligencia de mercado</p>
+                <p className="text-slate-400">Inteligencia de mercado</p>
               </div>
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/clv</p>
-                <p className="text-slate-500">Valor del cliente (CLV)</p>
+                <p className="text-slate-400">Valor del cliente (CLV)</p>
               </div>
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/offers/summary</p>
-                <p className="text-slate-500">Tracking de ofertas</p>
+                <p className="text-slate-400">Tracking de ofertas</p>
               </div>
               <div className="bg-slate-900 rounded-lg p-3">
                 <p className="text-cyan-400">GET /api/reports/*</p>
-                <p className="text-slate-500">Reportes PDF/HTML</p>
+                <p className="text-slate-400">Reportes PDF/HTML</p>
               </div>
             </div>
           </div>
@@ -10462,12 +10469,12 @@ function MessageMetricsView() {
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">ENTREGADOS</p>
               <p className="text-3xl font-bold text-green-400">{messageMetrics.resumen_24h?.entregados || 0}</p>
-              <p className="text-xs text-slate-500">{messageMetrics.resumen_24h?.tasaEntrega || 0}% tasa</p>
+              <p className="text-xs text-slate-400">{messageMetrics.resumen_24h?.tasaEntrega || 0}% tasa</p>
             </div>
             <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">LEIDOS</p>
               <p className="text-3xl font-bold text-purple-400">{messageMetrics.resumen_24h?.leidos || 0}</p>
-              <p className="text-xs text-slate-500">{messageMetrics.resumen_24h?.tasaLectura || 0}% tasa</p>
+              <p className="text-xs text-slate-400">{messageMetrics.resumen_24h?.tasaLectura || 0}% tasa</p>
             </div>
             <div className="bg-gradient-to-br from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">FALLIDOS</p>
@@ -10607,13 +10614,13 @@ function MessageMetricsView() {
                     }`}>
                       {statusLabel(msg.status)}
                     </span>
-                    <span className="text-xs text-slate-500 shrink-0">{formatDate(msg.enviado)}</span>
+                    <span className="text-xs text-slate-400 shrink-0">{formatDate(msg.enviado)}</span>
                     {msg.leido && <span className="text-xs text-purple-400 shrink-0">{formatDate(msg.leido)}</span>}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-500 text-sm text-center py-4">
+              <p className="text-slate-400 text-sm text-center py-4">
                 {busqueda ? 'Sin resultados para esa busqueda' : 'No hay mensajes en este periodo'}
               </p>
             )}
@@ -10728,13 +10735,13 @@ function MessageMetricsView() {
                     }`}>
                       {msg.status === 'read' ? 'Escuchado' : statusLabel(msg.status)}
                     </span>
-                    <span className="text-xs text-slate-500 shrink-0">{formatDate(msg.enviado)}</span>
+                    <span className="text-xs text-slate-400 shrink-0">{formatDate(msg.enviado)}</span>
                     {msg.escuchado && <span className="text-xs text-amber-400 shrink-0">{formatDate(msg.escuchado)}</span>}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-slate-500 text-sm text-center py-4">
+              <p className="text-slate-400 text-sm text-center py-4">
                 {busqueda ? 'Sin resultados para esa busqueda' : 'No hay audios en este periodo'}
               </p>
             )}
@@ -11076,12 +11083,12 @@ function ReportesCEOView() {
                   <p className="text-2xl font-bold text-blue-400">{reporteMensual.resumen?.leads_nuevos || 0}</p>
                   <p className="text-xs text-slate-400">Leads</p>
                 </div>
-                <span className="text-slate-500">→ {reporteMensual.conversion?.lead_a_cita || 0}%</span>
+                <span className="text-slate-400">→ {reporteMensual.conversion?.lead_a_cita || 0}%</span>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-purple-400">{reporteMensual.resumen?.citas_totales || 0}</p>
                   <p className="text-xs text-slate-400">Citas</p>
                 </div>
-                <span className="text-slate-500">→ {reporteMensual.conversion?.cita_a_cierre || 0}%</span>
+                <span className="text-slate-400">→ {reporteMensual.conversion?.cita_a_cierre || 0}%</span>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-400">{reporteMensual.resumen?.cierres || 0}</p>
                   <p className="text-xs text-slate-400">Cierres</p>
@@ -11537,7 +11544,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                       </div>
                     </div>
                     <p className="text-slate-300 text-sm italic">"{survey.feedback}"</p>
-                    <div className="text-slate-500 text-xs mt-2">
+                    <div className="text-slate-400 text-xs mt-2">
                       {survey.template_type && <span className="mr-2">{survey.template_type}</span>}
                       {new Date(survey.answered_at || survey.sent_at || '').toLocaleDateString('es-MX')}
                     </div>
@@ -11570,9 +11577,9 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="text-green-400">{surveyMetrics.promoters}</span>
-                  <span className="text-slate-500">/</span>
+                  <span className="text-slate-400">/</span>
                   <span className="text-yellow-400">{surveyMetrics.passives}</span>
-                  <span className="text-slate-500">/</span>
+                  <span className="text-slate-400">/</span>
                   <span className="text-red-400">{surveyMetrics.detractors}</span>
                 </div>
                 <div className="text-slate-400 text-sm">Promotores / Pasivos / Detractores</div>
@@ -11614,7 +11621,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               <p className="text-slate-400">Cargando encuestas...</p>
             </div>
           ) : surveyResults.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-slate-400">
               <Star size={48} className="mx-auto mb-4 opacity-50" />
               <p>No hay encuestas registradas</p>
               <p className="text-sm mt-1">Envía una encuesta desde la pestaña "Enviar"</p>
@@ -11636,7 +11643,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                            survey.status === 'awaiting_feedback' ? 'Esperando comentario' :
                            'Enviada'}
                         </span>
-                        <span className="text-slate-500 text-xs">
+                        <span className="text-slate-400 text-xs">
                           {survey.survey_type?.toUpperCase()}
                         </span>
                       </div>
@@ -11671,7 +11678,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                         </div>
                       )}
                     </div>
-                    <div className="text-right text-xs text-slate-500">
+                    <div className="text-right text-xs text-slate-400">
                       <div>Enviada: {new Date(survey.sent_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                       {survey.answered_at && (
                         <div>Respondida: {new Date(survey.answered_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
@@ -11722,7 +11729,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                   </div>
                   <h4 className="font-bold text-lg mb-2">{template.name}</h4>
                   <p className="text-slate-400 text-sm mb-3 line-clamp-2">{template.greeting}</p>
-                  <div className="text-xs text-slate-500 mb-3">
+                  <div className="text-xs text-slate-400 mb-3">
                     {template.questions.length} pregunta{template.questions.length > 1 ? 's' : ''}
                   </div>
                   <div className="flex gap-2">
@@ -11777,7 +11784,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                     </div>
                     <h4 className="font-bold text-lg mb-2">{template.name}</h4>
                     <p className="text-slate-400 text-sm mb-3 line-clamp-2">{template.greeting}</p>
-                    <div className="text-xs text-slate-500 mb-3">
+                    <div className="text-xs text-slate-400 mb-3">
                       {template.questions.length} pregunta{template.questions.length > 1 ? 's' : ''}
                     </div>
                     <button
@@ -11866,7 +11873,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                             {new Date(evento.event_date).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
                             {evento.event_time && ` - ${evento.event_time}`}
                           </div>
-                          {evento.location && <div className="text-slate-500 text-sm flex items-center gap-1"><MapPin size={12} /> {evento.location}</div>}
+                          {evento.location && <div className="text-slate-400 text-sm flex items-center gap-1"><MapPin size={12} /> {evento.location}</div>}
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-bold text-emerald-400">{registrados.length}</div>
@@ -11874,7 +11881,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                             {evento.max_capacity ? `/ ${evento.max_capacity}` : ''} registrados
                           </div>
                           {isPast && (
-                            <div className="text-xs text-slate-500 mt-1">
+                            <div className="text-xs text-slate-400 mt-1">
                               {asistieron} asistieron ({registrados.length > 0 ? Math.round((asistieron / registrados.length) * 100) : 0}%)
                             </div>
                           )}
@@ -12255,7 +12262,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                   placeholder="Hola {nombre}, ..."
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 h-20 resize-none"
                 />
-                <p className="text-xs text-slate-500 mt-1">Usa {'{nombre}'} para personalizar con el nombre del lead</p>
+                <p className="text-xs text-slate-400 mt-1">Usa {'{nombre}'} para personalizar con el nombre del lead</p>
               </div>
 
               {/* Preguntas */}
@@ -12551,7 +12558,7 @@ function FollowupsView({ supabase }: { supabase: any }) {
                       <span className="text-slate-400 text-sm">Delay:</span>
                       <input type="number" value={rule.delay_hours} onChange={(e) => updateRuleDelay(rule, parseInt(e.target.value) || 1)} className="w-20 bg-slate-600 rounded-lg p-2 text-center font-bold" min="1" />
                       <span className="text-slate-400 text-sm">hrs</span>
-                      <span className="text-slate-500 text-xs">({formatDelay(rule.delay_hours)})</span>
+                      <span className="text-slate-400 text-xs">({formatDelay(rule.delay_hours)})</span>
                     </div>
                     <button onClick={() => toggleRuleActive(rule)} className={`px-3 py-2 rounded-lg ${rule.is_active ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-500'}`}>
                       {rule.is_active ? '✓ Activa' : 'Inactiva'}
@@ -12585,7 +12592,7 @@ function FollowupsView({ supabase }: { supabase: any }) {
                       <span className="text-slate-400 text-sm">Delay:</span>
                       <input type="number" value={rule.delay_hours} onChange={(e) => updateRuleDelay(rule, parseInt(e.target.value) || 1)} className="w-20 bg-slate-600 rounded-lg p-2 text-center font-bold" min="1" />
                       <span className="text-slate-400 text-sm">hrs</span>
-                      <span className="text-slate-500 text-xs">({formatDelay(rule.delay_hours)})</span>
+                      <span className="text-slate-400 text-xs">({formatDelay(rule.delay_hours)})</span>
                     </div>
                     <button onClick={() => toggleRuleActive(rule)} className={`px-3 py-2 rounded-lg ${rule.is_active ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-500'}`}>
                       {rule.is_active ? '✓ Activa' : 'Inactiva'}
@@ -12624,12 +12631,12 @@ function FollowupsView({ supabase }: { supabase: any }) {
                       <span className="text-xs bg-blue-600/30 text-blue-400 px-2 py-1 rounded">{followup.desarrollo}</span>
                     </div>
                     <p className="text-sm text-slate-400 mt-1 truncate max-w-md" title={followup.message}>{followup.message}</p>
-                    <p className="text-xs text-slate-500 mt-1">📱 {followup.lead_phone}</p>
+                    <p className="text-xs text-slate-400 mt-1">📱 {followup.lead_phone}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="text-sm font-semibold text-yellow-400">⏰ {formatDate(followup.scheduled_at)}</p>
-                      <p className="text-xs text-slate-500">Programado</p>
+                      <p className="text-xs text-slate-400">Programado</p>
                     </div>
                     <button onClick={() => cancelFollowup(followup)} className="px-3 py-2 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/40">
                       Cancelar
