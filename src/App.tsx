@@ -2316,7 +2316,7 @@ function App() {
                           <p className="text-lg font-bold text-emerald-400">${(pipelineValue / 1000000).toFixed(1)}M</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400">Revenue mes</p>
+                          <p className="text-xs text-slate-400">Ingresos mes</p>
                           <p className="text-lg font-bold text-green-400">${(revenueDelMes / 1000000).toFixed(1)}M</p>
                         </div>
                       </div>
@@ -2453,7 +2453,7 @@ function App() {
                       <div className="flex items-center gap-1">
                         {[
                           { label: 'Nuevos', count: funnel.new, color: 'bg-blue-500' },
-                          { label: 'Contact', count: funnel.contacted, color: 'bg-cyan-500' },
+                          { label: 'Contactado', count: funnel.contacted, color: 'bg-cyan-500' },
                           { label: 'Cita', count: funnel.scheduled, color: 'bg-purple-500' },
                           { label: 'Visita', count: funnel.visited, color: 'bg-pink-500' },
                           { label: 'Negoc', count: funnel.negotiation, color: 'bg-orange-500' },
@@ -3032,7 +3032,7 @@ function App() {
                       <p className={`text-3xl font-bold ${estadoROI === 'good' ? 'text-green-400' : estadoROI === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {roi}%
                       </p>
-                      <p className="text-xs text-slate-500 mt-2">Revenue: ${(revenueGenerado / 1000000).toFixed(1)}M</p>
+                      <p className="text-xs text-slate-500 mt-2">Ingresos: ${(revenueGenerado / 1000000).toFixed(1)}M</p>
                       <p className="text-xs text-slate-500">{ventasCerradas.length} ventas cerradas</p>
                     </div>
 
@@ -4419,18 +4419,18 @@ function App() {
                 </div>
               </div>
 
-              {/* Card: Más Revenue */}
+              {/* Card: Más Ingresos */}
               <div className="bg-gradient-to-br from-green-900/50 to-emerald-900/50 border border-green-500/30 p-5 rounded-xl">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-3xl">💰</span>
                   <div>
-                    <p className="text-xs text-green-400">MÁS REVENUE GENERADO</p>
+                    <p className="text-xs text-green-400">MÁS INGRESOS GENERADOS</p>
                     <p className="text-xl font-bold">{topDevByRevenue?.name || 'N/A'}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-slate-800/50 p-2 rounded">
-                    <p className="text-slate-400 text-xs">Revenue</p>
+                    <p className="text-slate-400 text-xs">Ingresos</p>
                     <p className="font-bold text-lg text-green-400">${((topDevByRevenue?.revenue || 0) / 1000000).toFixed(1)}M</p>
                   </div>
                   <div className="bg-slate-800/50 p-2 rounded">
@@ -4453,7 +4453,7 @@ function App() {
                       <strong>{topDevByUnits?.name}</strong> vende más unidades pero <strong>{topDevByRevenue?.name}</strong> genera más dinero.
                     </p>
                     <p className="text-slate-400 text-xs mt-2">
-                      Considera enfocar marketing en {topDevByRevenue?.name} para maximizar revenue.
+                      Considera enfocar marketing en {topDevByRevenue?.name} para maximizar ingresos.
                     </p>
                   </div>
                 ) : (
@@ -4485,7 +4485,7 @@ function App() {
                       <th className="text-center py-2 px-3">Ventas</th>
                       <th className="text-center py-2 px-3">Conv %</th>
                       <th className="text-center py-2 px-3">Precio Prom</th>
-                      <th className="text-center py-2 px-3">Revenue</th>
+                      <th className="text-center py-2 px-3">Ingresos</th>
                       <th className="text-center py-2 px-3">Disponibles</th>
                       <th className="text-center py-2 px-3">Score</th>
                     </tr>
@@ -4784,7 +4784,7 @@ function App() {
                 <div className="bg-slate-800 p-6 rounded-2xl w-full max-w-lg mx-4">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">Nuevo Lead</h3>
-                    <button onClick={() => setShowNewLead(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
+                    <button onClick={() => setShowNewLead(false)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X size={24} /></button>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -5142,7 +5142,7 @@ function App() {
               </div>
 
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 md:p-6 rounded-2xl hover:border-slate-600/50 transition-all">
-                <h3 className="text-lg md:text-xl font-semibold mb-4">Revenue vs Inversión</h3>
+                <h3 className="text-lg md:text-xl font-semibold mb-4">Ingresos vs Inversión</h3>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={roiByChannel}>
                     <XAxis dataKey="channel" stroke="#9ca3af" />
@@ -5893,7 +5893,7 @@ function App() {
             <div className="bg-slate-800 border border-slate-700 p-6 rounded-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold">➕ Nueva Cita</h3>
-                <button onClick={() => setShowNewAppointment(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
+                <button onClick={() => setShowNewAppointment(false)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X size={24} /></button>
               </div>
               
               <div className="space-y-4">
@@ -6006,7 +6006,7 @@ function App() {
                 <h3 className="text-xl font-bold">
                   ✏️ Editar Cita
                 </h3>
-                <button onClick={() => setEditingAppointment(null)} className="text-slate-400 hover:text-white"><X size={24} /></button>
+                <button onClick={() => setEditingAppointment(null)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X size={24} /></button>
               </div>
               
               <div className="bg-slate-700/50 p-4 rounded-xl mb-4">
@@ -7824,7 +7824,7 @@ function App() {
           <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Agendar Cita</h3>
-              <button onClick={() => setShowNewEvent(false)} className="text-slate-400 hover:text-white"><X /></button>
+              <button onClick={() => setShowNewEvent(false)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -7890,7 +7890,7 @@ function App() {
               <h3 className="text-xl font-bold">Conversación con {selectedLead.name || 'Lead'}</h3>
               <div className="flex items-center gap-2">
                 <button onClick={() => { setEditingLead(selectedLead); setSelectedLead(null); }} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Edit size={18} /> Editar</button>
-                <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-white"><X /></button>
+                <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
               </div>
             </div>
             <div className="space-y-3">
@@ -8125,7 +8125,7 @@ function PropertyModal({ property, onSave, onClose }: { property: Property | nul
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{property ? 'Editar Propiedad' : 'Nueva Propiedad'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -8274,7 +8274,7 @@ function LeadModal({ lead, properties, team, onSave, onClose }: {
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">Editar Lead</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -8365,7 +8365,7 @@ function MemberModal({ member, onSave, onClose }: { member: TeamMember | null, o
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{member ? 'Editar Miembro' : 'Nuevo Miembro'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="space-y-4">
           {/* Datos básicos */}
@@ -8485,7 +8485,7 @@ function MortgageModal({ mortgage, leads, properties, asesores, onSave, onClose 
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{mortgage ? 'Editar Solicitud' : 'Nueva Solicitud'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -8572,7 +8572,7 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{campaign ? 'Editar Campaña' : 'Nueva Campaña'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2">
@@ -8625,7 +8625,7 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
             <input type="number" value={form.sales_closed || ''} onChange={e => setForm({...form, sales_closed: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">Revenue Generado</label>
+            <label className="block text-sm text-slate-400 mb-1">Ingresos Generados</label>
             <input type="number" value={form.revenue_generated || ''} onChange={e => setForm({...form, revenue_generated: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div>
@@ -8964,7 +8964,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{promotion ? 'Editar Promoción' : 'Nueva Promoción'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -9031,7 +9031,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL de Imagen (opcional)</label>
             <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/imagen.jpg" />
-            {form.image_url && <img src={form.image_url} alt="Preview" className="mt-2 h-20 rounded-lg object-cover" />}
+            {form.image_url && <img src={form.image_url} alt="Vista previa" className="mt-2 h-20 rounded-lg object-cover" />}
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL de Video (opcional)</label>
@@ -9125,7 +9125,7 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">{event ? 'Editar Evento' : 'Nuevo Evento'}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -9296,7 +9296,7 @@ function SendPromoModal({
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2"><Megaphone size={24} /> Enviar Promoción</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
 
         {/* Preview de la promocion */}
@@ -9502,7 +9502,7 @@ function InviteEventModal({
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">Enviar Invitaciones</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
 
         {/* Preview del evento */}
@@ -10949,7 +10949,7 @@ function ReportesCEOView() {
               </div>
               <div className="bg-slate-800/50 p-4 rounded-xl text-center">
                 <p className="text-3xl font-bold text-amber-400">{reporteSemanal.resumen?.revenue_formatted || '$0'}</p>
-                <p className="text-sm text-slate-400">Revenue</p>
+                <p className="text-sm text-slate-400">Ingresos</p>
               </div>
               <div className="bg-slate-800/50 p-4 rounded-xl text-center">
                 <p className="text-3xl font-bold text-cyan-400">{reporteSemanal.conversion?.lead_a_cierre || 0}%</p>
@@ -11025,7 +11025,7 @@ function ReportesCEOView() {
               </div>
               <div className="bg-slate-800/50 p-4 rounded-xl text-center">
                 <p className="text-3xl font-bold text-amber-400">{reporteMensual.resumen?.revenue_formatted || '$0'}</p>
-                <p className="text-sm text-slate-400">Revenue</p>
+                <p className="text-sm text-slate-400">Ingresos</p>
               </div>
               <div className="bg-slate-800/50 p-4 rounded-xl text-center">
                 <p className="text-3xl font-bold text-cyan-400">{reporteMensual.conversion?.lead_a_cierre || 0}%</p>
@@ -11066,7 +11066,7 @@ function ReportesCEOView() {
                         <th className="pb-2">Vendedor</th>
                         <th className="pb-2 text-right">Ventas</th>
                         <th className="pb-2 text-right">Citas</th>
-                        <th className="pb-2 text-right">Revenue</th>
+                        <th className="pb-2 text-right">Ingresos</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -11879,7 +11879,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               <h3 className="text-2xl font-bold text-yellow-400">
                 {selectedTemplate ? `Enviar: ${selectedTemplate.name}` : 'Enviar Encuesta'}
               </h3>
-              <button onClick={() => { setShowNewSurvey(false); setSelectedTemplate(null) }} className="text-slate-400 hover:text-white">
+              <button onClick={() => { setShowNewSurvey(false); setSelectedTemplate(null) }} className="text-slate-400 hover:text-white" aria-label="Cerrar">
                 <X size={24} />
               </button>
             </div>
@@ -12193,7 +12193,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
           <div className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
               <h3 className="text-2xl font-bold text-purple-400">Crear Nueva Plantilla</h3>
-              <button onClick={() => setShowCreateTemplate(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowCreateTemplate(false)} className="text-slate-400 hover:text-white" aria-label="Cerrar">
                 <X size={24} />
               </button>
             </div>
