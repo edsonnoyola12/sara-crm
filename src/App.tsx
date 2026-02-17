@@ -6971,15 +6971,15 @@ function App() {
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Nombre *</label>
-                    <input name="coord_nombre" placeholder="Juan Pérez" className="w-full bg-slate-700 rounded-xl p-3" required />
+                    <input name="coord_nombre" placeholder="Juan Pérez" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" required />
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Teléfono *</label>
-                    <input name="coord_telefono" placeholder="5512345678" className="w-full bg-slate-700 rounded-xl p-3" required />
+                    <input name="coord_telefono" placeholder="5512345678" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" required />
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">¿Cómo se enteró? *</label>
-                    <select name="coord_medio" className="w-full bg-slate-700 rounded-xl p-3" required>
+                    <select name="coord_medio" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
                       <option value="">Seleccionar...</option>
                       <option value="Facebook">Facebook</option>
                       <option value="Instagram">Instagram</option>
@@ -6996,7 +6996,7 @@ function App() {
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Desarrollo de interés</label>
-                    <select name="coord_desarrollo" className="w-full bg-slate-700 rounded-xl p-3">
+                    <select name="coord_desarrollo" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                       <option value="">Sin especificar</option>
                       {[...new Set(properties.map(p => p.development))].filter(Boolean).map(dev => (
                         <option key={dev} value={dev}>{dev}</option>
@@ -7005,7 +7005,7 @@ function App() {
                   </div>
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Asignar a vendedor</label>
-                    <select name="coord_vendedor" className="w-full bg-slate-700 rounded-xl p-3">
+                    <select name="coord_vendedor" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                       <option value="">Sin asignar</option>
                       {team.filter(t => t.role === 'vendedor' && t.active).map(v => (
                         <option key={v.id} value={v.id}>{v.name}</option>
@@ -7024,15 +7024,15 @@ function App() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">Fecha de cita</label>
-                      <input name="coord_cita_fecha" type="date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3" />
+                      <input name="coord_cita_fecha" type="date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">Hora de cita</label>
-                      <input name="coord_cita_hora" type="time" className="w-full bg-slate-700 rounded-xl p-3" />
+                      <input name="coord_cita_hora" type="time" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                     </div>
                     <div>
                       <label className="block text-sm text-slate-400 mb-1">Lugar de cita</label>
-                      <select name="coord_cita_lugar" className="w-full bg-slate-700 rounded-xl p-3">
+                      <select name="coord_cita_lugar" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         <option value="">Seleccionar lugar...</option>
                         <option value="Oficinas Centrales">Oficinas Centrales</option>
                         {[...new Set(properties.map(p => p.development))].filter(Boolean).map(dev => (
@@ -7864,25 +7864,25 @@ function App() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Cliente</label>
-                <select id="evt-cliente" className="w-full bg-slate-700 rounded-xl p-3">
+                <select id="evt-cliente" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                   <option value="">Seleccionar</option>
                   {leads.map(l => <option key={l.id} value={(l.name||"")+ "|" + (l.phone||"")}>{l.name || l.phone}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Propiedad</label>
-                <select id="evt-prop" className="w-full bg-slate-700 rounded-xl p-3">
+                <select id="evt-prop" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                   <option value="">Seleccionar</option>
                   {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Fecha</label>
-                <input type="date" id="evt-date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="date" id="evt-date" min={new Date().toISOString().split('T')[0]} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Hora</label>
-                <select id="evt-time" className="w-full bg-slate-700 rounded-xl p-3">
+                <select id="evt-time" className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                   <option value="09:00">9:00 AM</option>
                   <option value="10:00">10:00 AM</option>
                   <option value="11:00">11:00 AM</option>
@@ -8165,91 +8165,91 @@ function PropertyModal({ property, onSave, onClose }: { property: Property | nul
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-slate-400 mb-1">Nombre</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Categoría</label>
-            <input value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Precio Base</label>
-            <input type="number" min="0" value={form.price || ''} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.price || ''} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Precio Equipada</label>
-            <input type="number" min="0" value={form.price_equipped || ''} onChange={e => setForm({...form, price_equipped: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.price_equipped || ''} onChange={e => setForm({...form, price_equipped: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Terreno m²</label>
-            <input type="number" min="0" value={form.land_size || ''} onChange={e => setForm({...form, land_size: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.land_size || ''} onChange={e => setForm({...form, land_size: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Pisos</label>
-            <input type="number" min="0" value={form.floors || ''} onChange={e => setForm({...form, floors: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.floors || ''} onChange={e => setForm({...form, floors: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Recámaras</label>
-            <input type="number" min="0" value={form.bedrooms || ''} onChange={e => setForm({...form, bedrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.bedrooms || ''} onChange={e => setForm({...form, bedrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Baños</label>
-            <input type="number" min="0" value={form.bathrooms || ''} onChange={e => setForm({...form, bathrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.bathrooms || ''} onChange={e => setForm({...form, bathrooms: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">m²</label>
-            <input type="number" min="0" value={form.area_m2 || ''} onChange={e => setForm({...form, area_m2: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.area_m2 || ''} onChange={e => setForm({...form, area_m2: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Total Unidades</label>
-            <input type="number" min="0" value={form.total_units || ''} onChange={e => setForm({...form, total_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.total_units || ''} onChange={e => setForm({...form, total_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Vendidas</label>
-            <input type="number" min="0" value={form.sold_units || ''} onChange={e => setForm({...form, sold_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="0" value={form.sold_units || ''} onChange={e => setForm({...form, sold_units: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Descripción</label>
-            <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={3} />
+            <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" rows={3} />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL Imagen</label>
-            <input value={form.photo_url || ''} onChange={e => setForm({...form, photo_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.photo_url || ''} onChange={e => setForm({...form, photo_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">YouTube Link</label>
-            <input value={form.youtube_link || ''} onChange={e => setForm({...form, youtube_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://youtu.be/..." />
+            <input value={form.youtube_link || ''} onChange={e => setForm({...form, youtube_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://youtu.be/..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Matterport 3D</label>
-            <input value={form.matterport_link || ''} onChange={e => setForm({...form, matterport_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://my.matterport.com/..." />
+            <input value={form.matterport_link || ''} onChange={e => setForm({...form, matterport_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://my.matterport.com/..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">GPS / Ubicación</label>
-            <input value={form.gps_link || ''} onChange={e => setForm({...form, gps_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://maps.google.com/..." />
+            <input value={form.gps_link || ''} onChange={e => setForm({...form, gps_link: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://maps.google.com/..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Brochure PDF</label>
-            <input value={form.brochure_urls || ''} onChange={e => setForm({...form, brochure_urls: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="URL del PDF..." />
+            <input value={form.brochure_urls || ''} onChange={e => setForm({...form, brochure_urls: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="URL del PDF..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Galería (URLs separadas por coma)</label>
-            <input value={form.gallery_urls || ''} onChange={e => setForm({...form, gallery_urls: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="url1, url2, url3..." />
+            <input value={form.gallery_urls || ''} onChange={e => setForm({...form, gallery_urls: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="url1, url2, url3..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Frase de Venta</label>
-            <input value={form.sales_phrase || ''} onChange={e => setForm({...form, sales_phrase: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="El pitch de venta..." />
+            <input value={form.sales_phrase || ''} onChange={e => setForm({...form, sales_phrase: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="El pitch de venta..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Cliente Ideal</label>
-            <input value={form.ideal_client || ''} onChange={e => setForm({...form, ideal_client: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Para quién es esta propiedad..." />
+            <input value={form.ideal_client || ''} onChange={e => setForm({...form, ideal_client: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Para quién es esta propiedad..." />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Desarrollo</label>
-            <input value={form.development || ''} onChange={e => setForm({...form, development: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.development || ''} onChange={e => setForm({...form, development: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Ciudad</label>
-            <input value={form.city || ''} onChange={e => setForm({...form, city: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.city || ''} onChange={e => setForm({...form, city: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
@@ -8314,47 +8314,47 @@ function LeadModal({ lead, properties, team, onSave, onClose }: {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-slate-400 mb-1">Nombre</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Teléfono</label>
-            <input value={form.phone || ''} onChange={e => setForm({...form, phone: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.phone || ''} onChange={e => setForm({...form, phone: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Interés en propiedad</label>
-            <select value={form.property_interest || ''} onChange={e => setForm({...form, property_interest: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.property_interest || ''} onChange={e => setForm({...form, property_interest: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">Seleccionar...</option>
               {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Presupuesto</label>
-            <input value={form.budget || ''} onChange={e => setForm({...form, budget: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="ej: 500,000 - 800,000" />
+            <input value={form.budget || ''} onChange={e => setForm({...form, budget: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="ej: 500,000 - 800,000" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Score (1-10)</label>
-            <input type="number" min="1" max="10" value={form.score || ''} onChange={e => setForm({...form, score: parseInt(e.target.value) || 0})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" min="1" max="10" value={form.score || ''} onChange={e => setForm({...form, score: parseInt(e.target.value) || 0})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
-            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fuente</label>
-            <input value={form.source || ''} onChange={e => setForm({...form, source: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="ej: Facebook, Referido" />
+            <input value={form.source || ''} onChange={e => setForm({...form, source: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="ej: Facebook, Referido" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Asignado a</label>
-            <select value={form.assigned_to || ''} onChange={e => setForm({...form, assigned_to: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.assigned_to || ''} onChange={e => setForm({...form, assigned_to: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">Sin asignar</option>
               {team.filter(t => t.active).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Estado de crédito</label>
-            <select value={form.credit_status || ''} onChange={e => setForm({...form, credit_status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.credit_status || ''} onChange={e => setForm({...form, credit_status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               {creditOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
@@ -8406,19 +8406,19 @@ function MemberModal({ member, onSave, onClose }: { member: TeamMember | null, o
           {/* Datos básicos */}
           <div>
             <label className="block text-sm text-slate-400 mb-1">Nombre</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Email</label>
-            <input type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="nombre@gruposantarita.com" />
+            <input type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="nombre@gruposantarita.com" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">WhatsApp</label>
-            <input value={form.phone || ''} onChange={e => setForm({...form, phone: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="5215512345678" />
+            <input value={form.phone || ''} onChange={e => setForm({...form, phone: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="5215512345678" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Rol</label>
-            <select value={form.role || ''} onChange={e => setForm({...form, role: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.role || ''} onChange={e => setForm({...form, role: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="vendedor">Vendedor</option>
               <option value="asesor">Asesor Hipotecario</option>
               <option value="coordinador">Coordinador</option>
@@ -8435,11 +8435,11 @@ function MemberModal({ member, onSave, onClose }: { member: TeamMember | null, o
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Hora entrada</label>
-                <input type="time" value={form.work_start || '09:00'} onChange={e => setForm({...form, work_start: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="time" value={form.work_start || '09:00'} onChange={e => setForm({...form, work_start: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Hora salida</label>
-                <input type="time" value={form.work_end || '18:00'} onChange={e => setForm({...form, work_end: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="time" value={form.work_end || '18:00'} onChange={e => setForm({...form, work_end: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
             </div>
 
@@ -8468,11 +8468,11 @@ function MemberModal({ member, onSave, onClose }: { member: TeamMember | null, o
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Vacaciones desde</label>
-                <input type="date" value={form.vacation_start || ''} onChange={e => setForm({...form, vacation_start: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="date" value={form.vacation_start || ''} onChange={e => setForm({...form, vacation_start: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Vacaciones hasta</label>
-                <input type="date" value={form.vacation_end || ''} onChange={e => setForm({...form, vacation_end: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+                <input type="date" value={form.vacation_end || ''} onChange={e => setForm({...form, vacation_end: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
             </div>
 
@@ -8528,7 +8528,7 @@ function MortgageModal({ mortgage, leads, properties, asesores, onSave, onClose 
             <select value={form.lead_id || ''} onChange={e => {
               const lead = leads.find(l => l.id === e.target.value)
               setForm({...form, lead_id: e.target.value, lead_name: lead?.name || '', lead_phone: lead?.phone || ''})
-            }} className="w-full bg-slate-700 rounded-xl p-3">
+            }} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">Seleccionar lead</option>
               {leads.map(l => <option key={l.id} value={l.id}>{l.name || l.phone}</option>)}
             </select>
@@ -8538,36 +8538,36 @@ function MortgageModal({ mortgage, leads, properties, asesores, onSave, onClose 
             <select value={form.property_id || ''} onChange={e => {
               const prop = properties.find(p => p.id === e.target.value)
               setForm({...form, property_id: e.target.value, property_name: prop?.name || '', requested_amount: prop?.price || 0})
-            }} className="w-full bg-slate-700 rounded-xl p-3">
+            }} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">Seleccionar propiedad</option>
               {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Ingreso Mensual</label>
-            <input type="number" value={form.monthly_income || ''} onChange={e => setForm({...form, monthly_income: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.monthly_income || ''} onChange={e => setForm({...form, monthly_income: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Deuda Actual</label>
-            <input type="number" value={form.current_debt || ''} onChange={e => setForm({...form, current_debt: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.current_debt || ''} onChange={e => setForm({...form, current_debt: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Enganche</label>
-            <input type="number" value={form.down_payment || ''} onChange={e => setForm({...form, down_payment: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.down_payment || ''} onChange={e => setForm({...form, down_payment: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Asesor</label>
             <select value={form.assigned_advisor_id || ''} onChange={e => {
               const asesor = asesores.find(a => a.id === e.target.value)
               setForm({...form, assigned_advisor_id: e.target.value, assigned_advisor_name: asesor?.name || ''})
-            }} className="w-full bg-slate-700 rounded-xl p-3">
+            }} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">Seleccionar asesor</option>
               {asesores.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
-            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="pending">Pendiente</option>
               <option value="in_review">En Revisión</option>
               <option value="sent_to_bank">Enviado a Banco</option>
@@ -8577,7 +8577,7 @@ function MortgageModal({ mortgage, leads, properties, asesores, onSave, onClose 
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Banco</label>
-            <input value={form.bank || ''} onChange={e => setForm({...form, bank: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.bank || ''} onChange={e => setForm({...form, bank: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
@@ -8612,11 +8612,11 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Nombre de Campaña</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
-            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.status || ''} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="active">Activa</option>
               <option value="paused">Pausada</option>
               <option value="completed">Completada</option>
@@ -8624,7 +8624,7 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Canal</label>
-            <select value={form.channel || ''} onChange={e => setForm({...form, channel: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.channel || ''} onChange={e => setForm({...form, channel: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="Facebook">Facebook</option>
               <option value="Google Ads">Google Ads</option>
               <option value="Instagram">Instagram</option>
@@ -8637,47 +8637,47 @@ function CampaignModal({ campaign, onSave, onClose }: { campaign: Campaign | nul
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Presupuesto</label>
-            <input type="number" value={form.budget || ''} onChange={e => setForm({...form, budget: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.budget || ''} onChange={e => setForm({...form, budget: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Gastado</label>
-            <input type="number" value={form.spent || ''} onChange={e => setForm({...form, spent: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.spent || ''} onChange={e => setForm({...form, spent: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Impresiones</label>
-            <input type="number" value={form.impressions || ''} onChange={e => setForm({...form, impressions: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.impressions || ''} onChange={e => setForm({...form, impressions: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Clicks</label>
-            <input type="number" value={form.clicks || ''} onChange={e => setForm({...form, clicks: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.clicks || ''} onChange={e => setForm({...form, clicks: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Leads Generados</label>
-            <input type="number" value={form.leads_generated || ''} onChange={e => setForm({...form, leads_generated: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.leads_generated || ''} onChange={e => setForm({...form, leads_generated: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Ventas Cerradas</label>
-            <input type="number" value={form.sales_closed || ''} onChange={e => setForm({...form, sales_closed: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.sales_closed || ''} onChange={e => setForm({...form, sales_closed: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Ingresos Generados</label>
-            <input type="number" value={form.revenue_generated || ''} onChange={e => setForm({...form, revenue_generated: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.revenue_generated || ''} onChange={e => setForm({...form, revenue_generated: parseFloat(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fecha Inicio</label>
-            <input type="date" value={form.start_date || ''} onChange={e => setForm({...form, start_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="date" value={form.start_date || ''} onChange={e => setForm({...form, start_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fecha Fin</label>
-            <input type="date" value={form.end_date || ''} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="date" value={form.end_date || ''} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-3">
             <label className="block text-sm text-slate-400 mb-1">Audiencia Target</label>
-            <input value={form.target_audience || ''} onChange={e => setForm({...form, target_audience: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input value={form.target_audience || ''} onChange={e => setForm({...form, target_audience: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-3">
             <label className="block text-sm text-slate-400 mb-1">Notas</label>
-            <textarea value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={2} />
+            <textarea value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" rows={2} />
           </div>
         </div>
 
@@ -9004,15 +9004,15 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Nombre de la Promoción</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Ej: Outlet Santa Rita Enero 2026" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej: Outlet Santa Rita Enero 2026" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fecha Inicio</label>
-            <input type="date" value={form.start_date || ''} onChange={e => setForm({...form, start_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="date" value={form.start_date || ''} onChange={e => setForm({...form, start_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fecha Fin</label>
-            <input type="date" value={form.end_date || ''} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="date" value={form.end_date || ''} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
           {/* Toggle para segmentación avanzada */}
@@ -9028,7 +9028,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
             </div>
 
             {!showAdvancedSegment ? (
-              <select value={form.target_segment || 'todos'} onChange={e => setForm({...form, target_segment: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+              <select value={form.target_segment || 'todos'} onChange={e => setForm({...form, target_segment: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <option value="todos">Todos los leads</option>
                 <option value="hot">Solo HOT</option>
                 <option value="warm">Solo WARM</option>
@@ -9049,7 +9049,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
 
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
-            <select value={form.status || 'scheduled'} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.status || 'scheduled'} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="scheduled">Programada</option>
               <option value="active">Activa</option>
               <option value="paused">Pausada</option>
@@ -9057,24 +9057,24 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Mensaje de la Promoción</label>
-            <textarea value={form.message || ''} onChange={e => setForm({...form, message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={4} placeholder="Escribe el mensaje que se enviara a los leads..." />
+            <textarea value={form.message || ''} onChange={e => setForm({...form, message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" rows={4} placeholder="Escribe el mensaje que se enviara a los leads..." />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Descripción (opcional)</label>
-            <input value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Descripción interna de la promocion" />
+            <input value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Descripción interna de la promocion" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL de Imagen (opcional)</label>
-            <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/imagen.jpg" />
+            <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://ejemplo.com/imagen.jpg" />
             {form.image_url && <img src={form.image_url} alt="Vista previa" className="mt-2 h-20 rounded-lg object-cover" />}
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL de Video (opcional)</label>
-            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://youtube.com/watch?v=..." />
+            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://youtube.com/watch?v=..." />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL de PDF/Brochure (opcional)</label>
-            <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/brochure.pdf" />
+            <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://ejemplo.com/brochure.pdf" />
           </div>
           <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
             <div className="flex items-center gap-3 mb-3">
@@ -9084,7 +9084,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
             {form.reminder_enabled && (
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Frecuencia de recordatorios</label>
-                <select value={form.reminder_frequency || 'weekly'} onChange={e => setForm({...form, reminder_frequency: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+                <select value={form.reminder_frequency || 'weekly'} onChange={e => setForm({...form, reminder_frequency: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                   <option value="daily">Diario</option>
                   <option value="weekly">Semanal</option>
                   <option value="at_start">Solo al inicio</option>
@@ -9165,11 +9165,11 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Nombre del Evento</label>
-            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Ej: Open House Santa Rita" />
+            <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej: Open House Santa Rita" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Tipo de Evento</label>
-            <select value={form.event_type || 'open_house'} onChange={e => setForm({...form, event_type: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.event_type || 'open_house'} onChange={e => setForm({...form, event_type: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="open_house">Open House</option>
               <option value="seminar">Seminario</option>
               <option value="outlet">Outlet/Venta</option>
@@ -9180,7 +9180,7 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Estado</label>
-            <select value={form.status || 'scheduled'} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3">
+            <select value={form.status || 'scheduled'} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="scheduled">Programado</option>
               <option value="upcoming">Proximo</option>
               <option value="completed">Completado</option>
@@ -9189,46 +9189,46 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Fecha</label>
-            <input type="date" value={form.event_date || ''} onChange={e => setForm({...form, event_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="date" value={form.event_date || ''} onChange={e => setForm({...form, event_date: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Hora</label>
-            <input type="time" value={form.event_time || '10:00'} onChange={e => setForm({...form, event_time: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="time" value={form.event_time || '10:00'} onChange={e => setForm({...form, event_time: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Ubicacion</label>
-            <input value={form.location || ''} onChange={e => setForm({...form, location: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Ej: Sala de Ventas Santa Rita, Av. Principal #123" />
+            <input value={form.location || ''} onChange={e => setForm({...form, location: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej: Sala de Ventas Santa Rita, Av. Principal #123" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL Mapa (opcional)</label>
-            <input value={form.location_url || ''} onChange={e => setForm({...form, location_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://maps.google.com/..." />
+            <input value={form.location_url || ''} onChange={e => setForm({...form, location_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://maps.google.com/..." />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Capacidad Maxima</label>
-            <input type="number" value={form.max_capacity || ''} onChange={e => setForm({...form, max_capacity: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
+            <input type="number" value={form.max_capacity || ''} onChange={e => setForm({...form, max_capacity: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Descripción</label>
-            <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={3} placeholder="Describe el evento..." />
+            <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" rows={3} placeholder="Describe el evento..." />
           </div>
           <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
             <p className="text-sm text-emerald-400 font-semibold mb-3">Contenido para Invitaciones</p>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL Imagen</label>
-            <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/imagen.jpg" />
+            <input value={form.image_url || ''} onChange={e => setForm({...form, image_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://ejemplo.com/imagen.jpg" />
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">URL Video</label>
-            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/video.mp4" />
+            <input value={form.video_url || ''} onChange={e => setForm({...form, video_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://ejemplo.com/video.mp4" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL PDF/Flyer</label>
-            <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="https://ejemplo.com/flyer.pdf" />
+            <input value={form.pdf_url || ''} onChange={e => setForm({...form, pdf_url: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="https://ejemplo.com/flyer.pdf" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">Mensaje de Invitacion (opcional - se genera automaticamente si esta vacio)</label>
-            <textarea value={form.invitation_message || ''} onChange={e => setForm({...form, invitation_message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={4} placeholder="Hola! Te invitamos a nuestro evento..." />
+            <textarea value={form.invitation_message || ''} onChange={e => setForm({...form, invitation_message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" rows={4} placeholder="Hola! Te invitamos a nuestro evento..." />
           </div>
 
           {/* Segmentación para invitaciones */}
@@ -9376,7 +9376,7 @@ function SendPromoModal({
           <select
             value={segment}
             onChange={e => setSegment(e.target.value)}
-            className="w-full bg-slate-700 rounded-xl p-3"
+            className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="todos">Todos los leads activos</option>
 
@@ -9555,7 +9555,7 @@ function InviteEventModal({
           <select
             value={segment}
             onChange={e => setSegment(e.target.value)}
-            className="w-full bg-slate-700 rounded-xl p-3"
+            className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="todos">Todos los leads</option>
             <option value="hot">Leads HOT (score 70+)</option>
