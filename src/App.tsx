@@ -1016,7 +1016,7 @@ function App() {
       message: '¿Estás seguro de cancelar esta cita?',
       onConfirm: async () => {
         try {
-          await safeFetch(`https://sara-backend.edson-633.workers.dev/api/calendar/events/${eventId}`, {
+          await safeFetch(`${API_BASE}/api/calendar/events/${eventId}`, {
             method: "DELETE"
           })
           loadCalendarEvents()
@@ -1105,7 +1105,7 @@ function App() {
       message: '¿Estás seguro de eliminar este miembro del equipo?',
       onConfirm: async () => {
         try {
-          await safeFetch(`https://sara-backend.edson-633.workers.dev/api/team-members/${id}`, {
+          await safeFetch(`${API_BASE}/api/team-members/${id}`, {
             method: 'DELETE'
           })
           loadData()
@@ -1135,7 +1135,7 @@ function App() {
         payload.changed_by_name = currentUser.name
         payload.previous_status = current?.status
       }
-      await safeFetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      await safeFetch(`${API_BASE}/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     } else {
       mortgage.pending_at = now
       if (currentUser?.role === 'asesor') {
@@ -1156,7 +1156,7 @@ function App() {
     if (newStatus === 'sent_to_bank') updates.sent_to_bank_at = now
     if (newStatus === 'approved' || newStatus === 'rejected') updates.decision_at = now
     
-    await safeFetch(`https://sara-backend.edson-633.workers.dev/api/mortgage_applications/${id}`, {
+    await safeFetch(`${API_BASE}/api/mortgage_applications/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -5845,7 +5845,7 @@ function App() {
                               message: `¿Cancelar ${tipoTexto} con ${appt.lead_name}? Se notificará al cliente y vendedor por WhatsApp.`,
                               onConfirm: async () => {
                                 try {
-                                  const response = await fetch(`https://sara-backend.edson-633.workers.dev/api/appointments/${appt.id}/cancel`, {
+                                  const response = await fetch(`${API_BASE}/api/appointments/${appt.id}/cancel`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -10792,7 +10792,7 @@ function ReportesCEOView() {
       const [diario, semanal, mensual] = await Promise.all([
         fetch(`${API_BASE}/api/reportes/diario`).then(r => r.json()),
         fetch(`${API_BASE}/api/reportes/semanal`).then(r => r.json()),
-        fetch(`https://sara-backend.edson-633.workers.dev/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.json())
+        fetch(`${API_BASE}/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.json())
       ])
       setReporteDiario(diario)
       setReporteSemanal(semanal)
@@ -11213,7 +11213,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
   const fetchSurveyResults = async () => {
     setLoadingSurveys(true)
     try {
-      const data = await safeFetch(`https://sara-backend.edson-633.workers.dev/api/surveys?status=${surveyFilter}`)
+      const data = await safeFetch(`${API_BASE}/api/surveys?status=${surveyFilter}`)
       setSurveyResults(data.surveys || [])
       setSurveyMetrics(data.metrics || null)
     } catch (error) {
