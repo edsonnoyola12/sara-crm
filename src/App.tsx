@@ -478,6 +478,7 @@ function App() {
         setShowNewMember(false)
         setShowNewMortgage(false)
         setShowNewCampaign(false)
+        setShowNewLead(false)
         setShowNewAppointment(false)
         setShowNewPromotion(false)
         setShowNewCrmEvent(false)
@@ -2113,16 +2114,16 @@ function App() {
                       const days = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
                       return !['closed', 'delivered', 'sold', 'lost'].includes(l.status) && days > 7
                     }).length
-                    if (leadsEstancados > 5) alertas.push(leadsEstancados + ' leads llevan mas de 7 dias sin avance')
+                    if (leadsEstancados > 5) alertas.push(leadsEstancados + ' leads llevan más de 7 días sin avance')
                     const vendedorBajo = vendedoresData.find(v => v.meta > 0 && v.cumplimiento < 30)
                     if (vendedorBajo) alertas.push(vendedorBajo.name + ' solo ha cumplido ' + vendedorBajo.cumplimiento + '% de su meta')
 
                     // Recomendaciones
                     const recomendaciones: string[] = []
                     if (funnel.visited > 0 && funnel.negotiation < funnel.visited * 0.5) recomendaciones.push('Mejorar cierre post-visita: Solo ' + Math.round((funnel.negotiation / funnel.visited) * 100) + '% de visitas pasan a negociacion')
-                    if (leadsNuevosMes < metaMes * 10) recomendaciones.push('Aumentar generacion de leads: Necesitas ~' + (metaMes * 10) + ' leads/mes para meta de ' + metaMes + ' ventas')
+                    if (leadsNuevosMes < metaMes * 10) recomendaciones.push('Aumentar generación de leads: Necesitas ~' + (metaMes * 10) + ' leads/mes para meta de ' + metaMes + ' ventas')
                     const mejorFuente = fuentesArr.find(f => f.conversion > 10)
-                    if (mejorFuente) recomendaciones.push('Invertir mas en ' + mejorFuente.name + ' (conversion ' + mejorFuente.conversion + '%)')
+                    if (mejorFuente) recomendaciones.push('Invertir más en ' + mejorFuente.name + ' (conversión ' + mejorFuente.conversion + '%)')
                     const mejorVendedor = vendedoresData[0]
                     if (mejorVendedor && mejorVendedor.conversion > 15) recomendaciones.push('Replicar estrategia de ' + mejorVendedor.name + ' (' + mejorVendedor.conversion + '% conversion)')
 
@@ -4674,7 +4675,7 @@ function App() {
                             key={lead.id} 
                             className="bg-slate-700 p-2 rounded hover:bg-slate-600"
                           >
-                            <p onClick={() => selectLead(lead)} className="font-semibold text-xs truncate cursor-pointer">{lead.name || 'Sin nombre'}</p>
+                            <p onClick={() => selectLead(lead)} className="font-semibold text-xs truncate cursor-pointer" title={lead.name || 'Sin nombre'}>{lead.name || 'Sin nombre'}</p>
                             <p className="text-xs text-slate-400">...{lead.phone?.slice(-4)}</p>
                             <select
                               value={lead.status}
@@ -4745,7 +4746,7 @@ function App() {
 
             {statusChange && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-slate-800 p-6 rounded-2xl w-[400px]">
+                <div className="bg-slate-800 p-6 rounded-2xl w-full max-w-[400px]">
                   <h3 className="text-xl font-bold mb-4">Cambiar a: {statusChange.newStatus}</h3>
                   <p className="text-sm text-slate-400 mb-2">Lead: {statusChange.lead.name}</p>
                   <textarea 
@@ -5506,7 +5507,7 @@ function App() {
                       <tr key={promo.id} className="border-t border-slate-700 hover:bg-slate-700/50">
                         <td className="p-4">
                           <p className="font-semibold">{promo.name}</p>
-                          <p className="text-sm text-slate-400 truncate max-w-xs">{promo.description || promo.message.substring(0, 50)}...</p>
+                          <p className="text-sm text-slate-400 truncate max-w-xs" title={promo.description || promo.message}>{promo.description || promo.message}</p>
                         </td>
                         <td className="p-4">
                           <p className="text-sm">{startDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - {endDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</p>
@@ -7880,7 +7881,7 @@ function App() {
                 if(cn && dt){
                   createCalendarEvent({
                     summary: "Cita: " + cn + " - " + pr,
-                    description: "Cliente: " + cn + "\nTelefono: " + cp + "\nPropiedad: " + pr,
+                    description: "Cliente: " + cn + "\nTeléfono: " + cp + "\nPropiedad: " + pr,
                     startTime: dt + "T" + tm + ":00-06:00",
                     endTime: dt + "T" + String(parseInt(tm.split(":")[0])+1).padStart(2,"0") + ":00:00-06:00"
                   });
@@ -10381,7 +10382,7 @@ function MessageMetricsView() {
             onChange={(e) => setDiasFiltro(Number(e.target.value))}
             className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
           >
-            <option value={1}>Ultimas 24h</option>
+            <option value={1}>Últimas 24h</option>
             <option value={7}>Ultimos 7 dias</option>
             <option value={30}>Ultimos 30 dias</option>
             <option value={90}>Ultimos 90 dias</option>
@@ -10571,7 +10572,7 @@ function MessageMetricsView() {
                       {msg.tipo}
                     </span>
                     <span className="text-xs text-slate-400 shrink-0 w-20 font-mono">{msg.destinatario || '?'}</span>
-                    <span className="flex-1 text-sm text-slate-300 truncate min-w-0">{msg.contenido || '-'}</span>
+                    <span className="flex-1 text-sm text-slate-300 truncate min-w-0" title={msg.contenido || '-'}>{msg.contenido || '-'}</span>
                     <span className={`px-2 py-1 rounded text-xs shrink-0 ${
                       msg.status === 'read' ? 'bg-purple-500/30 text-purple-300' :
                       msg.status === 'delivered' ? 'bg-green-500/30 text-green-300' :
@@ -11481,8 +11482,8 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
             ) : conFeedbackSurveys.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <MessageSquare size={48} className="mx-auto mb-3 opacity-50" />
-                <p>No hay comentarios todavia</p>
-                <p className="text-sm">Los comentarios apareceran cuando los clientes completen encuestas</p>
+                <p>No hay comentarios todavía</p>
+                <p className="text-sm">Los comentarios aparecerán cuando los clientes completen encuestas</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -11865,7 +11866,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                               </span>
                             ))}
                             {registrados.length > 10 && (
-                              <span className="px-2 py-1 bg-slate-600 rounded text-xs">+{registrados.length - 10} mas</span>
+                              <span className="px-2 py-1 bg-slate-600 rounded text-xs">+{registrados.length - 10} más</span>
                             )}
                           </div>
                         </div>
@@ -12596,7 +12597,7 @@ function FollowupsView({ supabase }: { supabase: any }) {
                       <span className="font-semibold">{followup.lead_name || 'Sin nombre'}</span>
                       <span className="text-xs bg-blue-600/30 text-blue-400 px-2 py-1 rounded">{followup.desarrollo}</span>
                     </div>
-                    <p className="text-sm text-slate-400 mt-1 truncate max-w-md">{followup.message}</p>
+                    <p className="text-sm text-slate-400 mt-1 truncate max-w-md" title={followup.message}>{followup.message}</p>
                     <p className="text-xs text-slate-500 mt-1">📱 {followup.lead_phone}</p>
                   </div>
                   <div className="flex items-center gap-4">
