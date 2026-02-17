@@ -838,7 +838,7 @@ function App() {
   const getNegotiationByVendor = (vendorId: string) => {
     return leads.filter(l => 
       l.assigned_to === vendorId && 
-      (l.status === 'negotiation' || l.status === 'Negociacion')
+      (l.status === 'negotiation' || l.status === 'Negociación')
     ).length
   }
 
@@ -2145,7 +2145,7 @@ function App() {
                     + '<h2>INDICADORES CLAVE</h2><div class="kpi-grid">'
                     + '<div class="kpi-box ' + (metaMes === 0 ? 'yellow' : porcentajeMeta >= 80 ? 'green' : porcentajeMeta >= 50 ? 'yellow' : 'red') + '"><div class="kpi-label">Meta del Mes</div><div class="kpi-number">' + ventasDelMes + '/' + (metaMes || '?') + '</div><div>' + porcentajeMeta + '% completado</div><div class="kpi-change ' + (cambioVentas >= 0 ? 'up' : 'down') + '">' + (cambioVentas >= 0 ? '+' : '') + cambioVentas + '% vs mes anterior</div></div>'
                     + '<div class="kpi-box ' + (totalFunnel >= 30 ? 'green' : totalFunnel >= 15 ? 'yellow' : 'red') + '"><div class="kpi-label">Pipeline Activo</div><div class="kpi-number">' + totalFunnel + '</div><div>leads en proceso</div><div class="kpi-change ' + (cambioLeads >= 0 ? 'up' : 'down') + '">' + (cambioLeads >= 0 ? '+' : '') + cambioLeads + '% leads nuevos</div></div>'
-                    + '<div class="kpi-box green"><div class="kpi-label">Dias Restantes</div><div class="kpi-number">' + diasRestantes + '</div><div>para cerrar el mes</div><div class="kpi-change">Ritmo necesario: ' + (metaMes > 0 ? Math.ceil((metaMes - ventasDelMes) / diasRestantes * 10) / 10 : 0) + ' ventas/dia</div></div>'
+                    + '<div class="kpi-box green"><div class="kpi-label">Días Restantes</div><div class="kpi-number">' + diasRestantes + '</div><div>para cerrar el mes</div><div class="kpi-change">Ritmo necesario: ' + (metaMes > 0 ? Math.ceil((metaMes - ventasDelMes) / diasRestantes * 10) / 10 : 0) + ' ventas/día</div></div>'
                     + '</div>'
 
                     + '<div class="two-col"><div><h2>FUNNEL DE VENTAS</h2><div class="funnel">'
@@ -2153,7 +2153,7 @@ function App() {
                     + '<div class="funnel-row"><div class="funnel-label">Contactados</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.contacted / totalFunnel) * 100) : 0) + '%;background:#60a5fa">' + funnel.contacted + '</div></div></div>'
                     + '<div class="funnel-row"><div class="funnel-label">Cita Agendada</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.scheduled / totalFunnel) * 100) : 0) + '%;background:#a78bfa">' + funnel.scheduled + '</div></div></div>'
                     + '<div class="funnel-row"><div class="funnel-label">Visitaron</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.visited / totalFunnel) * 100) : 0) + '%;background:#f472b6">' + funnel.visited + '</div></div></div>'
-                    + '<div class="funnel-row"><div class="funnel-label">Negociacion</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.negotiation / totalFunnel) * 100) : 0) + '%;background:#fb923c">' + funnel.negotiation + '</div></div></div>'
+                    + '<div class="funnel-row"><div class="funnel-label">Negociación</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.negotiation / totalFunnel) * 100) : 0) + '%;background:#fb923c">' + funnel.negotiation + '</div></div></div>'
                     + '<div class="funnel-row"><div class="funnel-label">Reservado</div><div class="funnel-bar"><div class="funnel-fill" style="width:' + (totalFunnel > 0 ? Math.max(10, (funnel.reserved / totalFunnel) * 100) : 0) + '%;background:#22c55e">' + funnel.reserved + '</div></div></div>'
                     + '</div></div>'
 
@@ -5325,7 +5325,7 @@ function App() {
                   <div className="bg-slate-700/50 p-4 rounded-xl text-sm">
                     <p className="font-semibold mb-2">📋 Instrucciones:</p>
                     <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                      <li>Ve a <a href="https://business.facebook.com/settings" target="_blank" rel="noopener" className="text-blue-400 hover:underline">Meta Business Suite</a> → Integraciones</li>
+                      <li>Ve a <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Meta Business Suite</a> → Integraciones</li>
                       <li>Busca "Webhooks" o ve a tu App en developers.facebook.com</li>
                       <li>Suscribe al objeto <strong>Page</strong> → campo <strong>leadgen</strong></li>
                       <li>Pega la URL y el token de arriba</li>
@@ -10416,9 +10416,9 @@ function MessageMetricsView() {
             className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
           >
             <option value={1}>Últimas 24h</option>
-            <option value={7}>Ultimos 7 dias</option>
-            <option value={30}>Ultimos 30 dias</option>
-            <option value={90}>Ultimos 90 dias</option>
+            <option value={7}>Últimos 7 días</option>
+            <option value={30}>Últimos 30 días</option>
+            <option value={90}>Últimos 90 días</option>
           </select>
           <button
             onClick={handleRefresh}
@@ -10580,10 +10580,10 @@ function MessageMetricsView() {
             </div>
           )}
 
-          {/* Busqueda + Ultimos mensajes */}
+          {/* Búsqueda + Últimos mensajes */}
           <div className="bg-slate-800/50 rounded-xl p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-              <h3 className="text-lg font-bold">Ultimos Mensajes</h3>
+              <h3 className="text-lg font-bold">Últimos Mensajes</h3>
               <input
                 type="text"
                 placeholder="Buscar por destinatario o contenido..."
@@ -10709,10 +10709,10 @@ function MessageMetricsView() {
             </div>
           )}
 
-          {/* Ultimos audios con busqueda */}
+          {/* Últimos audios con búsqueda */}
           <div className="bg-slate-800/50 rounded-xl p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-              <h3 className="text-lg font-bold">Ultimos Audios</h3>
+              <h3 className="text-lg font-bold">Últimos Audios</h3>
               <input
                 type="text"
                 placeholder="Buscar por destinatario..."
