@@ -451,6 +451,7 @@ function App() {
     onConfirm: () => void
   } | null>(null)
 
+  const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
@@ -4813,25 +4814,28 @@ function App() {
                         <option value="negotiation">Negociación</option>
                       </select>
                     </div>
-                    <button onClick={async () => {
+                    <button disabled={saving} onClick={async () => {
                       if (!newLead.name || !newLead.phone) { showToast('Nombre y teléfono requeridos', 'error'); return }
-                      const { error } = await supabase.from('leads').insert({
-                        name: newLead.name,
-                        phone: newLead.phone,
-                        property_interest: newLead.property_interest,
-                        budget: newLead.budget,
-                        status: newLead.status,
-                        score: 0,
-                        assigned_to: currentUser?.id,
-                        created_at: new Date().toISOString()
-                      })
-                      if (error) { showToast('Error: ' + error.message, 'error'); return }
-                      setShowNewLead(false)
-                      setNewLead({ name: '', phone: '', property_interest: '', budget: '', status: 'new' })
-                      const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false })
-                      if (data) setLeads(data)
-                    }} className="w-full py-3 bg-green-600 rounded-xl font-semibold hover:bg-green-700">
-                      Guardar Lead
+                      setSaving(true)
+                      try {
+                        const { error } = await supabase.from('leads').insert({
+                          name: newLead.name,
+                          phone: newLead.phone,
+                          property_interest: newLead.property_interest,
+                          budget: newLead.budget,
+                          status: newLead.status,
+                          score: 0,
+                          assigned_to: currentUser?.id,
+                          created_at: new Date().toISOString()
+                        })
+                        if (error) { showToast('Error: ' + error.message, 'error'); return }
+                        setShowNewLead(false)
+                        setNewLead({ name: '', phone: '', property_interest: '', budget: '', status: 'new' })
+                        const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false })
+                        if (data) setLeads(data)
+                      } finally { setSaving(false) }
+                    }} className="w-full py-3 bg-green-600 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {saving ? 'Guardando...' : 'Guardar Lead'}
                     </button>
                   </div>
                 </div>
@@ -5964,12 +5968,14 @@ function App() {
                   </select>
                 </div>
                 
-                <button 
+                <button
+                  disabled={saving}
                   onClick={async () => {
                     if (!newAppointment.lead_id || !newAppointment.scheduled_date || !newAppointment.scheduled_time) {
                       showToast('Completa todos los campos', 'error')
                       return
                     }
+                    setSaving(true)
                     try {
                       const response = await fetch(`${API_BASE}/api/appointments`, {
                         method: 'POST',
@@ -5987,11 +5993,11 @@ function App() {
                       showToast('Cita creada y agregada a Google Calendar', 'success')
                     } catch (err: any) {
                       showToast('Error: ' + err.message, 'error')
-                    }
+                    } finally { setSaving(false) }
                   }}
-                  className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-xl font-semibold"
+                  className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ✅ Crear Cita
+                  {saving ? 'Creando...' : '✅ Crear Cita'}
                 </button>
               </div>
             </div>
@@ -6110,8 +6116,10 @@ function App() {
                   </div>
                 </label>
                 
-                <button 
+                <button
+                  disabled={saving}
                   onClick={async () => {
+                    setSaving(true)
                     try {
                       const response = await fetch(`${API_BASE}/api/appointments/` + editingAppointment.id, {
                         method: 'PUT',
@@ -6136,11 +6144,11 @@ function App() {
                       showToast((editingAppointment as any).notificar ? 'Cita actualizada y notificaciones enviadas por WhatsApp' : 'Cita actualizada', 'success')
                     } catch (err: any) {
                       showToast('Error: ' + err.message, 'error')
-                    }
+                    } finally { setSaving(false) }
                   }}
-                  className={`w-full py-3 rounded-xl font-semibold ${(editingAppointment as any).mode === 'edit' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-yellow-600 hover:bg-yellow-700'}`}
+                  className={`w-full py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${(editingAppointment as any).mode === 'edit' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-yellow-600 hover:bg-yellow-700'}`}
                 >
-                  ✅ Guardar Cambios
+                  {saving ? 'Guardando...' : '✅ Guardar Cambios'}
                 </button>
               </div>
             </div>
