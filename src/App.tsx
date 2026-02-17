@@ -4844,6 +4844,17 @@ function App() {
                 <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
               )}
             </div>
+            {properties.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">🏠</div>
+                <p className="text-slate-400 text-xl mb-4">No hay propiedades</p>
+                {permisos.puedeEditarPropiedades() && (
+                  <button onClick={() => setShowNewProperty(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold">
+                    Agregar Primera Propiedad
+                  </button>
+                )}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {properties.map(prop => (
                 <div key={prop.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden group relative">
@@ -4891,6 +4902,7 @@ function App() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -7976,7 +7988,7 @@ function App() {
                       }
 
                       return (
-                        <div key={i} className={`mb-3 ${colorClass}`}>
+                        <div key={i} className={`mb-3 ${colorClass} break-words`}>
                           <span className="font-semibold">{label}:</span> {msg.content}
                           {msg.via_bridge && <span className="text-xs text-slate-500 ml-2">(chat directo)</span>}
                         </div>
@@ -8295,7 +8307,7 @@ function LeadModal({ lead, properties, team, onSave, onClose }: {
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-gray-600">Cancelar</button>
           <button onClick={() => onSave(form)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
             <Save size={20} /> Guardar
           </button>
@@ -9031,7 +9043,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-gray-600">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 flex items-center gap-2">
+          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
             <Save size={20} /> Guardar
           </button>
         </div>
@@ -9189,7 +9201,7 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-gray-600">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
+          <button onClick={handleSave} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
             <Save size={20} /> Guardar
           </button>
         </div>
@@ -10287,7 +10299,7 @@ function MessageMetricsView() {
   }
 
   const statusLabel = (s: string) => {
-    const map: Record<string, string> = { sent: 'Enviado', delivered: 'Entregado', read: 'Leido', failed: 'Fallido' }
+    const map: Record<string, string> = { sent: 'Enviado', delivered: 'Entregado', read: 'Leído', failed: 'Fallido' }
     return map[s] || s
   }
 
@@ -10313,7 +10325,7 @@ function MessageMetricsView() {
   const totalPeriodo = messageMetrics?.resumen_periodo
   const pieData = totalPeriodo ? [
     { name: 'Entregados', value: (totalPeriodo.total_entregados || 0) - (totalPeriodo.total_leidos || 0), color: '#22c55e' },
-    { name: 'Leidos', value: totalPeriodo.total_leidos || 0, color: '#a855f7' },
+    { name: 'Leídos', value: totalPeriodo.total_leidos || 0, color: '#a855f7' },
     { name: 'Fallidos', value: totalPeriodo.total_fallidos || 0, color: '#ef4444' },
   ].filter(d => d.value > 0) : []
 
@@ -10427,7 +10439,7 @@ function MessageMetricsView() {
                     <Legend />
                     <Bar dataKey="enviados" name="Enviados" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="entregados" name="Entregados" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="leidos" name="Leidos" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="leidos" name="Leídos" fill="#a855f7" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -10436,7 +10448,7 @@ function MessageMetricsView() {
             {/* Pie chart - distribucion de status */}
             {pieData.length > 0 && (
               <div className="bg-slate-800/50 rounded-xl p-6">
-                <h3 className="text-lg font-bold mb-4">Distribucion de Status</h3>
+                <h3 className="text-lg font-bold mb-4">Distribución de Status</h3>
                 <div className="flex items-center justify-center">
                   <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
@@ -10481,7 +10493,7 @@ function MessageMetricsView() {
                       <th className="text-left py-2 px-3">Categoria</th>
                       <th className="text-right py-2 px-3">Enviados</th>
                       <th className="text-right py-2 px-3">Entregados</th>
-                      <th className="text-right py-2 px-3">Leidos</th>
+                      <th className="text-right py-2 px-3">Leídos</th>
                       <th className="text-right py-2 px-3">Tasa Lectura</th>
                     </tr>
                   </thead>
@@ -11418,7 +11430,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
 
           {/* Distribución NPS */}
           <div className="bg-slate-800/50 rounded-2xl p-6">
-            <h3 className="text-xl font-bold mb-4">Distribucion NPS</h3>
+            <h3 className="text-xl font-bold mb-4">Distribución NPS</h3>
             <div className="flex gap-4 items-end h-40">
               {npsDistribution.map(r => (
                 <div key={r.label} className="flex-1 flex flex-col items-center">
