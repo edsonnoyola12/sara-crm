@@ -3,6 +3,8 @@ import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift } from 'lucide-react'
 
+const API_BASE = 'https://sara-backend.edson-633.workers.dev'
+
 async function safeFetch(url: string, options?: RequestInit) {
   const res = await fetch(url, options)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -423,7 +425,7 @@ function App() {
   const [showNewEvent, setShowNewEvent] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
-  // Promociones y Eventos
+  // Promociónes y Eventos
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [crmEvents, setCrmEvents] = useState<CRMEvent[]>([])
   const [eventRegistrations, setEventRegistrations] = useState<EventRegistration[]>([])
@@ -448,6 +450,12 @@ function App() {
     message: string
     onConfirm: () => void
   } | null>(null)
+
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 4000)
+  }
 
   // Esc cierra modales
   useEffect(() => {
@@ -595,7 +603,7 @@ function App() {
         }))
       }
 
-      const data = await safeFetch('https://sara-backend.edson-633.workers.dev/api/dashboard/ask', {
+      const data = await safeFetch(`${API_BASE}/api/dashboard/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pregunta: dashboardPregunta, contexto })
@@ -977,7 +985,7 @@ function App() {
 
   async function loadCalendarEvents() {
     try {
-      const data = await safeFetch("https://sara-backend.edson-633.workers.dev/api/calendar/events")
+      const data = await safeFetch(`${API_BASE}/api/calendar/events`)
       setCalendarEvents(data.items || [])
     } catch (error) {
       console.error("Error loading calendar:", error)
@@ -986,7 +994,7 @@ function App() {
 
   async function createCalendarEvent(eventData: any) {
     try {
-      await safeFetch("https://sara-backend.edson-633.workers.dev/api/calendar/events", {
+      await safeFetch(`${API_BASE}/api/calendar/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(eventData)
@@ -1060,7 +1068,7 @@ function App() {
 
   async function saveMember(member: Partial<TeamMember>) {
     try {
-      const API_URL = 'https://sara-backend.edson-633.workers.dev/api/team-members'
+      const API_URL = `${API_BASE}/api/team-members`
       
       if (member.id) {
         // Editar existente
@@ -1083,7 +1091,7 @@ function App() {
       setShowNewMember(false)
     } catch (error) {
       console.error('Error guardando miembro:', error)
-      alert('Error al guardar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
+      showToast('Error al guardar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'), 'error')
     }
   }
 
@@ -1099,7 +1107,7 @@ function App() {
           loadData()
         } catch (error) {
           console.error('Error eliminando miembro:', error)
-          alert('Error al eliminar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'))
+          showToast('Error al eliminar: ' + (error instanceof Error ? error.message : 'Intenta de nuevo'), 'error')
         }
         setConfirmModal(null)
       }
@@ -1175,7 +1183,7 @@ function App() {
     })
   }
 
-  // CRUD Promociones
+  // CRUD Promociónes
   async function savePromotion(promo: Partial<Promotion>) {
     if (promo.id) {
       await supabase.from('promotions').update(promo).eq('id', promo.id)
@@ -1233,7 +1241,7 @@ function App() {
   async function sendEventInvitations(event: CRMEvent, segment: string, options: { sendImage: boolean, sendVideo: boolean, sendPdf: boolean }) {
     setInviteSending(true)
     try {
-      const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/events/invite', {
+      const result = await safeFetch(`${API_BASE}/api/events/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1245,12 +1253,12 @@ function App() {
         })
       })
       if (result.success) {
-        alert(`Invitaciones enviadas: ${result.sent} enviados, ${result.errors} errores`)
+        showToast(`Invitaciones enviadas: ${result.sent} enviados, ${result.errors} errores`, 'success')
       } else {
-        alert('Error al enviar invitaciones: ' + (result.error || 'Error desconocido'))
+        showToast('Error al enviar invitaciones: ' + (result.error || 'Error desconocido'), 'error')
       }
     } catch (err: any) {
-      alert('Error: ' + err.message)
+      showToast('Error: ' + err.message, 'error')
     } finally {
       setInviteSending(false)
       setShowInviteEventModal(false)
@@ -1275,7 +1283,7 @@ function App() {
     setPromoSending(true)
 
     try {
-      const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/promotions/send', {
+      const result = await safeFetch(`${API_BASE}/api/promotions/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1289,13 +1297,13 @@ function App() {
       })
 
       if (result.success) {
-        alert(`Promocion enviada!\n\nEnviados: ${result.sent}\nErrores: ${result.errors}\nTotal: ${result.total}`)
+        showToast(`Promoción enviada! Enviados: ${result.sent} | Errores: ${result.errors} | Total: ${result.total}`, 'success')
         loadData()
       } else {
-        alert('Error: ' + (result.error || 'Error desconocido'))
+        showToast('Error: ' + (result.error || 'Error desconocido'), 'error')
       }
     } catch (err: any) {
-      alert('Error de conexion: ' + err.message)
+      showToast('Error de conexion: ' + err.message, 'error')
     } finally {
       setPromoSending(false)
       setShowSendPromoModal(false)
@@ -1966,7 +1974,7 @@ function App() {
           )}
           {permisos.puedeVerSeccion('promotions') && (
             <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
-              <Gift size={20} /> Promociones
+              <Gift size={20} /> Promociónes
               {promotions.filter(p => p.status === 'active').length > 0 && (
                 <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
                   {promotions.filter(p => p.status === 'active').length}
@@ -3163,7 +3171,7 @@ function App() {
                       📊 Ver campañas
                     </button>
                     <button onClick={() => setView('promotions')} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-medium">
-                      📣 Promociones
+                      📣 Promociónes
                     </button>
                   </div>
                 </div>
@@ -3424,7 +3432,7 @@ function App() {
                       🏘️ Propiedades
                     </button>
                     <button onClick={() => setView('promotions')} className="flex-1 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl font-medium">
-                      📣 Promociones
+                      📣 Promociónes
                     </button>
                     <button onClick={() => setView('team')} className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl font-medium">
                       👥 Equipo
@@ -4806,7 +4814,7 @@ function App() {
                       </select>
                     </div>
                     <button onClick={async () => {
-                      if (!newLead.name || !newLead.phone) { alert('Nombre y teléfono requeridos'); return }
+                      if (!newLead.name || !newLead.phone) { showToast('Nombre y teléfono requeridos', 'error'); return }
                       const { error } = await supabase.from('leads').insert({
                         name: newLead.name,
                         phone: newLead.phone,
@@ -4817,7 +4825,7 @@ function App() {
                         assigned_to: currentUser?.id,
                         created_at: new Date().toISOString()
                       })
-                      if (error) { alert('Error: ' + error.message); return }
+                      if (error) { showToast('Error: ' + error.message, 'error'); return }
                       setShowNewLead(false)
                       setNewLead({ name: '', phone: '', property_interest: '', budget: '', status: 'new' })
                       const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false })
@@ -5240,13 +5248,13 @@ function App() {
                       <input
                         type="text"
                         readOnly
-                        value="https://sara-backend.edson-633.workers.dev/webhook/facebook-leads"
+                        value={`${API_BASE}/webhook/facebook-leads`}
                         className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-mono"
                       />
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText('https://sara-backend.edson-633.workers.dev/webhook/facebook-leads')
-                          alert('URL copiada!')
+                          navigator.clipboard.writeText(`${API_BASE}/webhook/facebook-leads`)
+                          showToast('URL copiada!', 'success')
                         }}
                         className="bg-slate-600 hover:bg-slate-500 px-3 py-2 rounded-lg"
                       >
@@ -5267,7 +5275,7 @@ function App() {
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText('sara_fb_leads_token')
-                          alert('Token copiado!')
+                          showToast('Token copiado!', 'success')
                         }}
                         className="bg-slate-600 hover:bg-slate-500 px-3 py-2 rounded-lg"
                       >
@@ -5383,7 +5391,7 @@ function App() {
                         }
 
                         if (leadsToImport.length === 0) {
-                          alert('No se encontraron leads válidos en el archivo')
+                          showToast('No se encontraron leads válidos en el archivo', 'error')
                           return
                         }
 
@@ -5394,7 +5402,7 @@ function App() {
 
                           for (const lead of leadsToImport) {
                             try {
-                              const response = await fetch('https://sara-backend.edson-633.workers.dev/api/leads', {
+                              const response = await fetch(`${API_BASE}/api/leads`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(lead)
@@ -5409,11 +5417,11 @@ function App() {
                             }
                           }
 
-                          alert(`✅ ${importados} leads importados${errores > 0 ? ` (${errores} errores)` : ''}`)
+                          showToast(`${importados} leads importados${errores > 0 ? ` (${errores} errores)` : ''}`, 'success')
                           loadData()
                         } catch (err) {
                           console.error('Error importando:', err)
-                          alert('Error al importar leads')
+                          showToast('Error al importar leads', 'error')
                         }
 
                         e.target.value = ''
@@ -5443,7 +5451,7 @@ function App() {
         {view === 'promotions' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-3xl font-bold">Promociones ({promotions.length})</h2>
+              <h2 className="text-3xl font-bold">Promociónes ({promotions.length})</h2>
               <button onClick={() => setShowNewPromotion(true)} className="bg-purple-600 px-4 py-2 rounded-xl hover:bg-purple-700 flex items-center gap-2">
                 <Plus size={20} /> Nueva Promoción
               </button>
@@ -5474,7 +5482,7 @@ function App() {
               <table className="w-full">
                 <thead className="bg-slate-700">
                   <tr>
-                    <th className="text-left p-4">Promocion</th>
+                    <th className="text-left p-4">Promoción</th>
                     <th className="text-left p-4">Fechas</th>
                     <th className="text-left p-4">Segmento</th>
                     <th className="text-left p-4">Recordatorios</th>
@@ -5818,7 +5826,7 @@ function App() {
                                   if (!response.ok) throw new Error('Error al cancelar')
                                   loadData()
                                 } catch (err: any) {
-                                  alert('Error: ' + err.message)
+                                  showToast('Error: ' + err.message, 'error')
                                   loadData()
                                 }
                                 setConfirmModal(null)
@@ -5959,11 +5967,11 @@ function App() {
                 <button 
                   onClick={async () => {
                     if (!newAppointment.lead_id || !newAppointment.scheduled_date || !newAppointment.scheduled_time) {
-                      alert('Completa todos los campos')
+                      showToast('Completa todos los campos', 'error')
                       return
                     }
                     try {
-                      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/appointments', {
+                      const response = await fetch(`${API_BASE}/api/appointments`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -5976,9 +5984,9 @@ function App() {
                       setShowNewAppointment(false)
                       setNewAppointment({})
                       loadData()
-                      alert('✅ Cita creada y agregada a Google Calendar')
+                      showToast('Cita creada y agregada a Google Calendar', 'success')
                     } catch (err: any) {
-                      alert('Error: ' + err.message)
+                      showToast('Error: ' + err.message, 'error')
                     }
                   }}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-xl font-semibold"
@@ -6105,7 +6113,7 @@ function App() {
                 <button 
                   onClick={async () => {
                     try {
-                      const response = await fetch('https://sara-backend.edson-633.workers.dev/api/appointments/' + editingAppointment.id, {
+                      const response = await fetch(`${API_BASE}/api/appointments/` + editingAppointment.id, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -6125,9 +6133,9 @@ function App() {
                       if (!response.ok) throw new Error('Error al guardar')
                       setEditingAppointment(null)
                       loadData()
-                      alert((editingAppointment as any).notificar ? '✅ Cita actualizada y notificaciones enviadas por WhatsApp' : '✅ Cita actualizada')
+                      showToast((editingAppointment as any).notificar ? 'Cita actualizada y notificaciones enviadas por WhatsApp' : 'Cita actualizada', 'success')
                     } catch (err: any) {
-                      alert('Error: ' + err.message)
+                      showToast('Error: ' + err.message, 'error')
                     }
                   }}
                   className={`w-full py-3 rounded-xl font-semibold ${(editingAppointment as any).mode === 'edit' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-yellow-600 hover:bg-yellow-700'}`}
@@ -6263,7 +6271,7 @@ function App() {
                     <button
                       onClick={async () => {
                         await applyAnnualToMonthly()
-                        alert(`Meta de ${Math.round(annualGoal.goal / 12)} casas aplicada a los 12 meses de ${selectedGoalYear}`)
+                        showToast(`Meta de ${Math.round(annualGoal.goal / 12)} casas aplicada a los 12 meses de ${selectedGoalYear}`, 'success')
                       }}
                       className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 px-4 py-2 rounded-lg font-medium text-sm"
                     >
@@ -6335,7 +6343,7 @@ function App() {
                   <button
                     onClick={async () => {
                       await distributeGoalsEqually()
-                      alert('Metas distribuidas equitativamente entre vendedores')
+                      showToast('Metas distribuidas equitativamente entre vendedores', 'success')
                     }}
                     className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2"
                   >
@@ -6495,7 +6503,7 @@ function App() {
             onSendSurvey={async (config) => {
               try {
                 // Llamar al backend para enviar por WhatsApp
-                const result = await safeFetch('https://sara-backend.edson-633.workers.dev/api/send-surveys', {
+                const result = await safeFetch(`${API_BASE}/api/send-surveys`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -6507,15 +6515,16 @@ function App() {
                 })
                 if (result.ok) {
                   const destinatarioTipo = config.targetType === 'vendedores' ? 'vendedores' : 'leads'
-                  alert(`Encuesta "${config.template.name}" enviada a ${result.enviados} ${destinatarioTipo} por WhatsApp.${result.errores > 0 ? `\n\n${result.errores} errores.` : ''}`)
+                  showToast(`Encuesta "${config.template.name}" enviada a ${result.enviados} ${destinatarioTipo} por WhatsApp.${result.errores > 0 ? ` ${result.errores} errores.` : ''}`, 'success')
                 } else {
                   throw new Error(result.error || 'Error desconocido')
                 }
               } catch (error) {
                 console.error('Error enviando encuestas:', error)
-                alert('Error al enviar encuestas. Intenta de nuevo.')
+                showToast('Error al enviar encuestas. Intenta de nuevo.', 'error')
               }
             }}
+            showToast={showToast}
           />
         )}
 
@@ -6525,6 +6534,7 @@ function App() {
             team={team}
             appointments={appointments}
             properties={properties}
+            showToast={showToast}
           />
         )}
 
@@ -6868,14 +6878,14 @@ function App() {
                 const citaLugar = (form.elements.namedItem('coord_cita_lugar') as HTMLSelectElement).value
 
                 if (!nombre || !telefono || !medio) {
-                  alert('Nombre, teléfono y medio son requeridos')
+                  showToast('Nombre, teléfono y medio son requeridos', 'error')
                   return
                 }
 
                 // Validar que si hay cita, tenga fecha, hora y lugar
                 const tieneCita = citaFecha || citaHora || citaLugar
                 if (tieneCita && (!citaFecha || !citaHora || !citaLugar)) {
-                  alert('Si agendas cita, debes completar fecha, hora y lugar')
+                  showToast('Si agendas cita, debes completar fecha, hora y lugar', 'error')
                   return
                 }
 
@@ -6888,7 +6898,7 @@ function App() {
                 const vendedorName = vendedorId ? team.find(t => t.id === vendedorId)?.name : null
                 const lugarCita = citaLugar || desarrollo
 
-                const response = await fetch('https://sara-backend.edson-633.workers.dev/api/leads', {
+                const response = await fetch(`${API_BASE}/api/leads`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -6911,7 +6921,7 @@ function App() {
 
                 const result = await response.json()
                 if (!response.ok) {
-                  alert('Error: ' + (result.error || 'Error desconocido'))
+                  showToast('Error: ' + (result.error || 'Error desconocido'), 'error')
                   return
                 }
 
@@ -6920,7 +6930,7 @@ function App() {
                 form.reset()
 
                 const citaMsg = tieneCita ? `\n📅 Cita: ${citaFecha} a las ${citaHora} en ${lugarCita}` : ''
-                alert(`✅ Lead creado${vendedorName ? ` y asignado a ${vendedorName?.split(' ')[0]}` : ''}${citaMsg}\n📲 Notificación enviada por WhatsApp`)
+                showToast(`Lead creado${vendedorName ? ` y asignado a ${vendedorName?.split(' ')[0]}` : ''}${citaMsg ? ` | Cita: ${citaFecha} a las ${citaHora} en ${lugarCita}` : ''} | Notificación enviada por WhatsApp`, 'success')
               }} className="space-y-4">
                 {/* Fila 1: Datos básicos */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
@@ -7111,7 +7121,7 @@ function App() {
                                     className="w-full h-8 bg-red-600/80 rounded flex items-center justify-center cursor-pointer hover:bg-red-500 transition-colors"
                                     title={`${citaEnHora.lead_name} - ${citaEnHora.property_name}`}
                                     onClick={() => {
-                                      alert(`📅 Cita a las ${hora}:00\n👤 ${citaEnHora.lead_name}\n🏠 ${citaEnHora.property_name}\n📱 ${citaEnHora.lead_phone}`)
+                                      showToast(`Cita a las ${hora}:00 | ${citaEnHora.lead_name} | ${citaEnHora.property_name} | ${citaEnHora.lead_phone}`, 'info')
                                     }}
                                   >
                                     <span className="text-xs">🔴</span>
@@ -7214,7 +7224,7 @@ function App() {
                           await supabase.from('leads').update({ assigned_to: e.target.value }).eq('id', lead.id)
                           setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: e.target.value } : l))
                           const vendedorName = team.find(t => t.id === e.target.value)?.name?.split(' ')[0]
-                          alert(`✅ Asignado a ${vendedorName}`)
+                          showToast(`Asignado a ${vendedorName}`, 'success')
                         }}
                         defaultValue=""
                       >
@@ -7290,7 +7300,7 @@ function App() {
                                         scheduled_time: values.hora
                                       }).eq('id', cita.id)
 
-                                      await safeFetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
+                                      await safeFetch(`${API_BASE}/api/appointments/notify-change`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
@@ -7314,9 +7324,9 @@ function App() {
                                         a.id === cita.id ? { ...a, scheduled_date: values.fecha, scheduled_time: values.hora } : a
                                       ))
 
-                                      alert(`Cita reprogramada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
+                                      showToast(`Cita reprogramada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`, 'success')
                                     } catch (e) {
-                                      alert('Error al cambiar cita: ' + e)
+                                      showToast('Error al cambiar cita: ' + e, 'error')
                                     }
                                   }
                                 })
@@ -7341,7 +7351,7 @@ function App() {
                                         status: 'cancelled'
                                       }).eq('id', cita.id)
 
-                                      await safeFetch('https://sara-backend.edson-633.workers.dev/api/appointments/notify-change', {
+                                      await safeFetch(`${API_BASE}/api/appointments/notify-change`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
@@ -7363,9 +7373,9 @@ function App() {
                                         a.id === cita.id ? { ...a, status: 'cancelled' } : a
                                       ))
 
-                                      alert(`Cita cancelada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`)
+                                      showToast(`Cita cancelada. Notificación enviada a ${vendedor?.name?.split(' ')[0]} y ${cita.lead_name}`, 'success')
                                     } catch (e) {
-                                      alert('Error al cancelar cita: ' + e)
+                                      showToast('Error al cancelar cita: ' + e, 'error')
                                     }
                                   }
                                 })
@@ -7473,7 +7483,7 @@ function App() {
                                       await supabase.from('leads').update({ notes: nuevasNotas }).eq('id', lead.id)
 
                                       if (vendedor?.phone) {
-                                        await safeFetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-note', {
+                                        await safeFetch(`${API_BASE}/api/leads/notify-note`, {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
@@ -7488,9 +7498,9 @@ function App() {
                                       }
 
                                       setLeads(leads.map(l => l.id === lead.id ? { ...l, notes: nuevasNotas } : l))
-                                      alert(`Nota agregada. Notificación enviada a ${vendedor?.name?.split(' ')[0] || 'vendedor'}`)
+                                      showToast(`Nota agregada. Notificación enviada a ${vendedor?.name?.split(' ')[0] || 'vendedor'}`, 'success')
                                     } catch (e) {
-                                      alert('Error: ' + e)
+                                      showToast('Error: ' + e, 'error')
                                     }
                                   }
                                 })
@@ -7518,7 +7528,7 @@ function App() {
                                       await supabase.from('leads').update({ assigned_to: nuevoVendedorId }).eq('id', lead.id)
 
                                       if (nuevoVendedor?.phone) {
-                                        await safeFetch('https://sara-backend.edson-633.workers.dev/api/leads/notify-reassign', {
+                                        await safeFetch(`${API_BASE}/api/leads/notify-reassign`, {
                                           method: 'POST',
                                           headers: { 'Content-Type': 'application/json' },
                                           body: JSON.stringify({
@@ -7534,9 +7544,9 @@ function App() {
                                       }
 
                                       setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: nuevoVendedorId } : l))
-                                      alert(`Lead reasignado a ${nuevoVendedor?.name?.split(' ')[0]}. Notificación enviada`)
+                                      showToast(`Lead reasignado a ${nuevoVendedor?.name?.split(' ')[0]}. Notificación enviada`, 'success')
                                     } catch (e) {
-                                      alert('Error: ' + e)
+                                      showToast('Error: ' + e, 'error')
                                     }
                                   }
                                 })
@@ -7796,7 +7806,7 @@ function App() {
         />
       )}
 
-      {/* Modal Enviar Promocion con Segmentación Especializada */}
+      {/* Modal Enviar Promoción con Segmentación Especializada */}
       {showSendPromoModal && selectedPromoToSend && (
         <SendPromoModal
           promo={selectedPromoToSend}
@@ -8089,6 +8099,14 @@ function App() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[200] px-5 py-3 rounded-xl shadow-2xl text-sm font-medium animate-fade-in max-w-sm ${
+          toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+        }`} onClick={() => setToast(null)}>
+          {toast.message}
         </div>
       )}
     </div>
@@ -8945,12 +8963,12 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold">{promotion ? 'Editar Promocion' : 'Nueva Promocion'}</h3>
+          <h3 className="text-xl font-bold">{promotion ? 'Editar Promoción' : 'Nueva Promoción'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-sm text-slate-400 mb-1">Nombre de la Promocion</label>
+            <label className="block text-sm text-slate-400 mb-1">Nombre de la Promoción</label>
             <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Ej: Outlet Santa Rita Enero 2026" />
           </div>
           <div>
@@ -9003,12 +9021,12 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-sm text-slate-400 mb-1">Mensaje de la Promocion</label>
+            <label className="block text-sm text-slate-400 mb-1">Mensaje de la Promoción</label>
             <textarea value={form.message || ''} onChange={e => setForm({...form, message: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={4} placeholder="Escribe el mensaje que se enviara a los leads..." />
           </div>
           <div className="col-span-2">
-            <label className="block text-sm text-slate-400 mb-1">Descripcion (opcional)</label>
-            <input value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Descripcion interna de la promocion" />
+            <label className="block text-sm text-slate-400 mb-1">Descripción (opcional)</label>
+            <input value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" placeholder="Descripción interna de la promocion" />
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-slate-400 mb-1">URL de Imagen (opcional)</label>
@@ -9026,7 +9044,7 @@ function PromotionModal({ promotion, onSave, onClose, leads, properties }: {
           <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
             <div className="flex items-center gap-3 mb-3">
               <input type="checkbox" id="reminder-enabled" checked={form.reminder_enabled || false} onChange={e => setForm({...form, reminder_enabled: e.target.checked})} className="w-5 h-5 rounded" />
-              <label htmlFor="reminder-enabled" className="text-sm">Activar recordatorios automaticos</label>
+              <label htmlFor="reminder-enabled" className="text-sm">Activar recordatorios automáticos</label>
             </div>
             {form.reminder_enabled && (
               <div>
@@ -9155,7 +9173,7 @@ function CrmEventModal({ event, onSave, onClose, leads, properties }: {
             <input type="number" value={form.max_capacity || ''} onChange={e => setForm({...form, max_capacity: parseInt(e.target.value)})} className="w-full bg-slate-700 rounded-xl p-3" />
           </div>
           <div className="col-span-2">
-            <label className="block text-sm text-slate-400 mb-1">Descripcion</label>
+            <label className="block text-sm text-slate-400 mb-1">Descripción</label>
             <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3" rows={3} placeholder="Describe el evento..." />
           </div>
           <div className="col-span-2 border-t border-slate-600 pt-4 mt-2">
@@ -9277,7 +9295,7 @@ function SendPromoModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold flex items-center gap-2"><Megaphone size={24} /> Enviar Promocion</h3>
+          <h3 className="text-xl font-bold flex items-center gap-2"><Megaphone size={24} /> Enviar Promoción</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
         </div>
 
@@ -9629,11 +9647,12 @@ interface ScheduledFollowup {
 // ═══════════════════════════════════════════════════════════
 // BUSINESS INTELLIGENCE VIEW - Servicios BI Avanzados
 // ═══════════════════════════════════════════════════════════
-function BusinessIntelligenceView({ leads, team, appointments, properties }: {
+function BusinessIntelligenceView({ leads, team, appointments, properties, showToast }: {
   leads: Lead[]
   team: TeamMember[]
   appointments: Appointment[]
   properties: Property[]
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void
 }) {
   const [activeSection, setActiveSection] = useState<'pipeline' | 'alerts' | 'market' | 'clv' | 'offers' | 'reports'>('pipeline')
   const [loading, setLoading] = useState(false)
@@ -9643,8 +9662,6 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
   const [marketData, setMarketData] = useState<any>(null)
   const [clvData, setClvData] = useState<any>(null)
   const [offersData, setOffersData] = useState<any>(null)
-
-  const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
   const STAGE_LABELS: Record<string, string> = {
     'new': 'Nuevos', 'contacted': 'Contactados', 'qualified': 'Calificados',
@@ -10164,7 +10181,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                     const data = await safeFetch(`${API_BASE}/api/reports/weekly/whatsapp`)
                     if (data.success) {
                       navigator.clipboard.writeText(data.message)
-                      alert('Reporte copiado al portapapeles')
+                      showToast('Reporte copiado al portapapeles', 'success')
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
@@ -10193,7 +10210,7 @@ function BusinessIntelligenceView({ leads, team, appointments, properties }: {
                     const data = await safeFetch(`${API_BASE}/api/reports/monthly/whatsapp`)
                     if (data.success) {
                       navigator.clipboard.writeText(data.message)
-                      alert('Reporte copiado al portapapeles')
+                      showToast('Reporte copiado al portapapeles', 'success')
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
@@ -10265,8 +10282,6 @@ function MessageMetricsView() {
   const [refreshing, setRefreshing] = useState(false)
   const [busqueda, setBusqueda] = useState('')
 
-  const API_BASE = 'https://sara-backend.edson-633.workers.dev'
-
   const loadMetrics = async () => {
     try {
       const [msgRes, ttsRes] = await Promise.all([
@@ -10307,7 +10322,7 @@ function MessageMetricsView() {
     const map: Record<string, string> = {
       respuesta_sara: 'Respuesta SARA', recordatorio: 'Recordatorio', alerta: 'Alerta',
       broadcast: 'Broadcast', bridge: 'Bridge', audio_tts: 'Audio TTS',
-      notificacion: 'Notificacion', recurso: 'Recurso', template: 'Template'
+      notificacion: 'Notificación', recurso: 'Recurso', template: 'Template'
     }
     return map[c] || c
   }
@@ -10740,8 +10755,8 @@ function ReportesCEOView() {
     setLoading(true)
     try {
       const [diario, semanal, mensual] = await Promise.all([
-        fetch('https://sara-backend.edson-633.workers.dev/api/reportes/diario').then(r => r.json()),
-        fetch('https://sara-backend.edson-633.workers.dev/api/reportes/semanal').then(r => r.json()),
+        fetch(`${API_BASE}/api/reportes/diario`).then(r => r.json()),
+        fetch(`${API_BASE}/api/reportes/semanal`).then(r => r.json()),
         fetch(`https://sara-backend.edson-633.workers.dev/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.json())
       ])
       setReporteDiario(diario)
@@ -10763,7 +10778,7 @@ function ReportesCEOView() {
         semanal: reporteSemanal,
         diario: reporteDiario
       }
-      const data = await safeFetch('https://sara-backend.edson-633.workers.dev/api/reportes/ask', {
+      const data = await safeFetch(`${API_BASE}/api/reportes/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pregunta: preguntaIA, contexto })
@@ -11110,13 +11125,14 @@ function ReportesCEOView() {
 // ═══════════════════════════════════════════════════════════════
 // COMPONENTE: Encuestas y Eventos
 // ═══════════════════════════════════════════════════════════════
-function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties, teamMembers, onSendSurvey }: {
+function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties, teamMembers, onSendSurvey, showToast }: {
   leads: Lead[],
   crmEvents: CRMEvent[],
   eventRegistrations: EventRegistration[],
   properties: Property[],
   teamMembers: TeamMember[],
-  onSendSurvey: (config: any) => void
+  onSendSurvey: (config: any) => void,
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void
 }) {
   const [activeTab, setActiveTab] = useState<'encuestas' | 'resultados' | 'plantillas' | 'eventos'>('encuestas')
   const [showNewSurvey, setShowNewSurvey] = useState(false)
@@ -11295,7 +11311,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
 
   const handleSendSurvey = async () => {
     if (!selectedTemplate) {
-      alert('Selecciona una plantilla primero')
+      showToast('Selecciona una plantilla primero', 'error')
       return
     }
 
@@ -11319,7 +11335,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
     }
 
     if (destinatarios.length === 0) {
-      alert('No hay destinatarios seleccionados')
+      showToast('No hay destinatarios seleccionados', 'error')
       return
     }
 
@@ -11351,7 +11367,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
       })
     } catch (error) {
       console.error('Error enviando encuesta:', error)
-      alert('Error al enviar encuestas')
+      showToast('Error al enviar encuestas', 'error')
     } finally {
       setSendingSurvey(false)
     }
@@ -11689,7 +11705,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
                       onClick={(e) => {
                         e.stopPropagation()
                         // Preview
-                        alert(`Vista previa:\n\n${template.greeting}\n\n${template.questions.map((q, i) => `${i+1}. ${q.text}`).join('\n')}\n\n${template.closing}`)
+                        showToast(`Vista previa: ${template.greeting} | ${template.questions.map((q, i) => `${i+1}. ${q.text}`).join(' | ')} | ${template.closing}`, 'info')
                       }}
                       className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
                     >
@@ -12300,7 +12316,7 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               <button
                 onClick={() => {
                   if (!newTemplate.name || !newTemplate.greeting || newTemplate.questions.every(q => !q.text)) {
-                    alert('Completa al menos el nombre, saludo y una pregunta')
+                    showToast('Completa al menos el nombre, saludo y una pregunta', 'error')
                     return
                   }
                   setCustomTemplates(prev => [...prev, { ...newTemplate, id: Date.now().toString() }])
