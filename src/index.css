@@ -29,3 +29,77 @@ body {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(71, 85, 105, 0.5);
 }
+
+/* Login fade-in animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Animated gradient for branding */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* KPI card hover effect */
+.kpi-card {
+  transition: transform 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
+}
+.kpi-card:hover {
+  transform: scale(1.02);
+  filter: brightness(1.08);
+}
+
+/* Sidebar section label */
+.sidebar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgb(100, 116, 139);
+  font-weight: 600;
+  padding: 0 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.25rem;
+}
+.sidebar-label:first-child {
+  margin-top: 0;
+}
+
+/* Sidebar nav item */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: 0.625rem;
+  border-left: 2px solid transparent;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+.sidebar-item:hover {
+  background: rgba(30, 41, 59, 0.6);
+}
+.sidebar-item-active {
+  background: rgba(59, 130, 246, 0.12);
+  color: rgb(96, 165, 250);
+  border-left-color: rgb(96, 165, 250);
+  font-weight: 500;
+}
+
+/* Pulse animation for badges */
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.badge-pulse {
+  animation: badgePulse 2s ease-in-out infinite;
+}

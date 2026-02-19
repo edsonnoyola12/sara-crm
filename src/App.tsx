@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut } from 'lucide-react'
 
 const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
@@ -1859,19 +1859,74 @@ function App() {
   // Pantalla de login
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <div className="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">SARA CRM</h1>
-            <p className="text-slate-400 mt-2">Real Estate AI</p>
+      <div className="min-h-screen bg-slate-950 text-white flex">
+        {/* Left side - Branding (hidden on mobile) */}
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 animate-gradient items-center justify-center relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl" />
+            <div className="absolute bottom-20 right-20 w-96 h-96 bg-cyan-300 rounded-full blur-3xl" />
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Tu número de WhatsApp</label>
-              <input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} placeholder="5610016226" className="w-full p-3 bg-slate-700 rounded-xl border border-slate-600 focus:border-cyan-500 focus:outline-none" onKeyPress={(e) => e.key === 'Enter' && handleLogin()} />
+          <div className="relative z-10 text-center px-12 animate-fade-in-up">
+            <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/20">
+              <span className="text-4xl font-bold bg-gradient-to-br from-cyan-300 to-blue-100 bg-clip-text text-transparent">S</span>
             </div>
-            {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
-            <button onClick={handleLogin} className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-semibold hover:opacity-90 transition">Entrar</button>
+            <h1 className="text-5xl font-bold mb-3">SARA</h1>
+            <p className="text-xl text-blue-200 mb-2">CRM Inmobiliario con IA</p>
+            <p className="text-blue-300/70 text-sm max-w-sm mx-auto">Gestiona leads, automatiza seguimiento y cierra mas ventas con inteligencia artificial</p>
+          </div>
+        </div>
+
+        {/* Right side - Login form */}
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm animate-fade-in-up">
+            {/* Mobile branding */}
+            <div className="lg:hidden text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl font-bold">S</span>
+              </div>
+              <h1 className="text-3xl font-bold">SARA</h1>
+              <p className="text-slate-400 text-sm mt-1">CRM Inmobiliario con IA</p>
+            </div>
+
+            {/* Login card */}
+            <div className="bg-slate-800/60 backdrop-blur-xl p-8 rounded-2xl border border-slate-700/50 shadow-2xl">
+              <div className="hidden lg:block mb-6">
+                <h2 className="text-2xl font-bold">Bienvenido</h2>
+                <p className="text-slate-400 text-sm mt-1">Ingresa con tu numero de WhatsApp</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2 font-medium">Numero de WhatsApp</label>
+                  <div className="relative">
+                    <Phone size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="tel"
+                      value={loginPhone}
+                      onChange={(e) => setLoginPhone(e.target.value)}
+                      placeholder="5610016226"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-900/60 rounded-xl border border-slate-600/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 focus:outline-none transition-all text-white placeholder:text-slate-500"
+                      onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    />
+                  </div>
+                </div>
+                {loginError && (
+                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                    <span>!</span> {loginError}
+                  </div>
+                )}
+                <button
+                  onClick={handleLogin}
+                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-blue-500/25 active:scale-[0.98]"
+                >
+                  Entrar
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <p className="text-center text-slate-500 text-xs mt-6">
+              Powered by <span className="text-slate-400">Grupo Santa Rita</span>
+            </p>
           </div>
         </div>
       </div>
@@ -1903,149 +1958,172 @@ function App() {
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">S</div><h1 className="text-2xl font-bold">SARA</h1></div>
-        <p className="text-slate-400 text-sm mb-4">Real Estate AI</p>
-        
+        {/* Branding */}
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 animate-gradient rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">S</div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight">SARA</h1>
+            <p className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">CRM Inmobiliario</p>
+          </div>
+        </div>
+
+        {/* User card */}
         {currentUser && (
-          <div className="bg-slate-800 rounded-xl p-3 mb-4">
-            <p className="text-sm text-slate-400">Conectado como:</p>
-            <p className="font-semibold">{currentUser.name}</p>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              <select
-                value={currentUser.role}
-                onChange={(e) => {
-                  const newRole = e.target.value as any
-                  setCurrentUser({ ...currentUser, role: newRole })
-                  // Redirigir a la sección correcta según el rol
-                  if (newRole === 'agencia') setView('marketing')
-                  else if (newRole === 'asesor') setView('mortgage')
-                  else setView('dashboard')
-                }}
-                className="text-xs px-2 py-1 bg-slate-700 border border-slate-600 rounded cursor-pointer"
-                title="Cambiar rol para testing"
-              >
-                <option value="admin">Admin</option>
-                <option value="vendedor">Vendedor</option>
-                <option value="agencia">Marketing</option>
-                <option value="coordinador">Coordinador</option>
-                <option value="asesor">Asesor</option>
-              </select>
-              <button onClick={() => { setCurrentUser(null); localStorage.removeItem('sara_user_phone') }} className="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded hover:bg-red-600/30">
-                Salir
+          <div className="mt-4 mb-2 bg-slate-800/50 rounded-xl p-3 border border-slate-700/40">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{currentUser.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <select
+                    value={currentUser.role}
+                    onChange={(e) => {
+                      const newRole = e.target.value as any
+                      setCurrentUser({ ...currentUser, role: newRole })
+                      if (newRole === 'agencia') setView('marketing')
+                      else if (newRole === 'asesor') setView('mortgage')
+                      else setView('dashboard')
+                    }}
+                    className="text-[11px] px-1.5 py-0.5 bg-blue-500/15 text-blue-400 border border-blue-500/20 rounded-md cursor-pointer font-medium"
+                    title="Cambiar rol para testing"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="vendedor">Vendedor</option>
+                    <option value="agencia">Marketing</option>
+                    <option value="coordinador">Coordinador</option>
+                    <option value="asesor">Asesor</option>
+                  </select>
+                </div>
+              </div>
+              <button onClick={() => { setCurrentUser(null); localStorage.removeItem('sara_user_phone') }} className="text-xs p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Cerrar sesion">
+                <LogOut size={14} />
               </button>
             </div>
           </div>
         )}
-        
-        <nav className="flex-1 space-y-2 overflow-y-auto">
+
+        <nav className="flex-1 overflow-y-auto mt-2 space-y-0.5">
+          {/* PRINCIPAL */}
+          <p className="sidebar-label">Principal</p>
           {permisos.puedeVerSeccion('dashboard') && (
-            <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <TrendingUp size={20} /> Dashboard
-            </button>
-          )}
-          {permisos.puedeVerSeccion('coordinator') && (
-            <button onClick={() => { setView('coordinator'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'coordinator' ? 'bg-green-600' : 'hover:bg-slate-700'}`}>
-              <Phone size={20} /> Coordinador
+            <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'dashboard' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <TrendingUp size={18} /> Dashboard
             </button>
           )}
           {permisos.puedeVerSeccion('leads') && (
-            <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'leads' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Users size={20} /> Leads
+            <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'leads' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Users size={18} /> Leads
             </button>
           )}
           {permisos.puedeVerSeccion('properties') && (
-            <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'properties' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Building size={20} /> Propiedades
+            <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'properties' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Building size={18} /> Propiedades
             </button>
           )}
-          {permisos.puedeVerSeccion('team') && (
-            <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'team' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <UserCheck size={20} /> Equipo
+
+          {/* VENTAS */}
+          <p className="sidebar-label">Ventas</p>
+          {permisos.puedeVerSeccion('coordinator') && (
+            <button onClick={() => { setView('coordinator'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'coordinator' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Phone size={18} /> Coordinador
+            </button>
+          )}
+          {permisos.puedeVerSeccion('calendar') && (
+            <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'calendar' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <CalendarIcon size={18} /> Calendario
+            </button>
+          )}
+          {permisos.puedeVerSeccion('followups') && (
+            <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'followups' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Clock size={18} /> Seguimientos
             </button>
           )}
           {permisos.puedeVerSeccion('mortgage') && (
-            <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mortgage' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <CreditCard size={20} /> Hipotecas
+            <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mortgage' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <CreditCard size={18} /> Hipotecas
               {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
-                <span className="bg-red-500 text-xs px-2 py-1 rounded-full">
+                <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
                   {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length}
                 </span>
               )}
             </button>
           )}
+
+          {/* COMUNICACION */}
+          <p className="sidebar-label">Comunicacion</p>
+          {permisos.puedeVerSeccion('mensajes') && (
+            <button onClick={() => { setView('mensajes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mensajes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <MessageSquare size={18} /> Mensajes
+            </button>
+          )}
+          {permisos.puedeVerSeccion('encuestas') && (
+            <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'encuestas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Star size={18} /> Encuestas
+            </button>
+          )}
+          {permisos.puedeVerSeccion('referrals') && (
+            <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'referrals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Gift size={18} /> Referidos
+              {leads.filter(l => l.source === 'referral').length > 0 && (
+                <span className="ml-auto bg-pink-500/20 text-pink-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                  {leads.filter(l => l.source === 'referral').length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* INTELIGENCIA */}
+          <p className="sidebar-label">Inteligencia</p>
+          {permisos.puedeVerSeccion('reportes') && (
+            <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'reportes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <BarChart3 size={18} /> Reportes CEO
+            </button>
+          )}
+          {permisos.puedeVerSeccion('bi') && (
+            <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'bi' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Lightbulb size={18} /> Inteligencia Comercial
+            </button>
+          )}
           {permisos.puedeVerSeccion('marketing') && (
-            <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'marketing' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Megaphone size={20} /> Marketing
+            <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'marketing' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Megaphone size={18} /> Marketing
+            </button>
+          )}
+
+          {/* ADMIN */}
+          <p className="sidebar-label">Admin</p>
+          {permisos.puedeVerSeccion('team') && (
+            <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'team' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <UserCheck size={18} /> Equipo
             </button>
           )}
           {permisos.puedeVerSeccion('goals') && (
-            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'goals' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'hover:bg-slate-700'}`}>
-              <Target size={20} /> Metas
+            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'goals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Target size={18} /> Metas
             </button>
           )}
           {permisos.puedeVerSeccion('promotions') && (
-            <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'promotions' ? 'bg-purple-600' : 'hover:bg-slate-700'}`}>
-              <Gift size={20} /> Promociónes
+            <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'promotions' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Gift size={18} /> Promociones
               {promotions.filter(p => p.status === 'active').length > 0 && (
-                <span className="bg-purple-500 text-xs px-2 py-1 rounded-full ml-auto">
+                <span className="ml-auto bg-purple-500/20 text-purple-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
                   {promotions.filter(p => p.status === 'active').length}
                 </span>
               )}
             </button>
           )}
           {permisos.puedeVerSeccion('events') && (
-            <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'events' ? 'bg-emerald-600' : 'hover:bg-slate-700'}`}>
-              <CalendarIcon size={20} /> Eventos
+            <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'events' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <CalendarIcon size={18} /> Eventos
               {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
-                <span className="bg-emerald-500 text-xs px-2 py-1 rounded-full ml-auto">
+                <span className="ml-auto bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
                   {crmEvents.filter(e => e.status === 'upcoming').length}
                 </span>
               )}
             </button>
           )}
-          {permisos.puedeVerSeccion('calendar') && (
-            <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <CalendarIcon size={20} /> Calendario
-            </button>
-          )}
-          {permisos.puedeVerSeccion('followups') && (
-            <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'followups' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Clock size={20} /> Seguimientos
-            </button>
-          )}
-          {permisos.puedeVerSeccion('reportes') && (
-            <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'reportes' ? 'bg-gradient-to-r from-amber-600 to-orange-600' : 'hover:bg-slate-700'}`}>
-              <BarChart3 size={20} /> Reportes CEO
-            </button>
-          )}
-          {permisos.puedeVerSeccion('bi') && (
-            <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'bi' ? 'bg-gradient-to-r from-cyan-600 to-blue-600' : 'hover:bg-slate-700'}`}>
-              <Lightbulb size={20} /> Inteligencia Comercial
-            </button>
-          )}
-          {permisos.puedeVerSeccion('mensajes') && (
-            <button onClick={() => { setView('mensajes'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'mensajes' ? 'bg-gradient-to-r from-green-600 to-emerald-600' : 'hover:bg-slate-700'}`}>
-              <MessageSquare size={20} /> Mensajes
-            </button>
-          )}
-          {permisos.puedeVerSeccion('encuestas') && (
-            <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'encuestas' ? 'bg-gradient-to-r from-yellow-500 to-amber-500' : 'hover:bg-slate-700'}`}>
-              <Star size={20} /> Encuestas
-            </button>
-          )}
-          {permisos.puedeVerSeccion('referrals') && (
-            <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'referrals' ? 'bg-gradient-to-r from-pink-500 to-rose-500' : 'hover:bg-slate-700'}`}>
-              <Gift size={20} /> Referidos
-              {leads.filter(l => l.source === 'referral').length > 0 && (
-                <span className="bg-pink-500 text-xs px-2 py-1 rounded-full ml-auto">
-                  {leads.filter(l => l.source === 'referral').length}
-                </span>
-              )}
-            </button>
-          )}
           {permisos.puedeVerSeccion('config') && (
-            <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${view === 'config' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              <Settings size={20} /> Configuración
+            <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'config' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Settings size={18} /> Configuracion
             </button>
           )}
         </nav>
@@ -2054,11 +2132,16 @@ function App() {
       <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
         {view === 'dashboard' && (
           <div className="space-y-4">
-            {/* HEADER - Hora y última actualización */}
+            {/* HEADER - Saludo y fecha */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                Dashboard
-              </h2>
+              <div>
+                <h2 className="text-2xl lg:text-3xl font-bold">
+                  {(() => { const h = new Date().getHours(); return h < 12 ? 'Buenos dias' : h < 19 ? 'Buenas tardes' : 'Buenas noches'; })()}{currentUser ? `, ${currentUser.name.split(' ')[0]}` : ''}
+                </h2>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
               <div className="flex items-center gap-2 sm:gap-4">
                 <div className="text-xs sm:text-sm text-slate-400">
                   {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
@@ -2361,8 +2444,8 @@ function App() {
                   {/* KPIs principales */}
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {/* Meta vs Real */}
-                    <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
-                      <p className="text-xs text-slate-400 mb-1">META VS REAL</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">META VS REAL</p>
                       <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {ventasDelMes.length}/{metaMes || '?'}
                       </p>
@@ -2378,36 +2461,36 @@ function App() {
                     </div>
 
                     {/* Leads HOT */}
-                    <div className={`rounded-xl p-4 border ${leadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                      <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${leadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LEADS HOT 🔥</p>
                       <p className="text-3xl font-bold text-orange-400">{leadsHot.length}</p>
                       <p className="text-xs text-slate-400 mt-2">${(valorLeadsHot / 1000000).toFixed(1)}M valor</p>
                     </div>
 
                     {/* Conversión */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">CONVERSIÓN</p>
                       <p className={`text-3xl font-bold ${Number(tasaConversion) >= 10 ? 'text-green-400' : Number(tasaConversion) >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{tasaConversion}%</p>
                       <p className="text-xs text-slate-400 mt-2">{totalVentas} de {totalLeads}</p>
                     </div>
 
                     {/* CPL */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CPL</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">CPL</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
                       <p className="text-xs text-slate-400 mt-2">{leadsDelMes} leads/mes</p>
                     </div>
 
                     {/* Hipotecas */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">HIPOTECAS</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">HIPOTECAS</p>
                       <p className="text-3xl font-bold text-cyan-400">{hipotecasPendientes}</p>
                       <p className="text-xs text-slate-400 mt-2">{hipotecasAprobadas} aprobadas/mes</p>
                     </div>
 
                     {/* Llamadas Retell */}
-                    <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                      <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LLAMADAS 📞</p>
                       <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
                       <p className="text-xs text-slate-400 mt-2">{leads.filter(l => l.source === 'phone_inbound').length} total</p>
                     </div>
@@ -2714,8 +2797,8 @@ function App() {
                   {/* KPIs personales - Fila 1 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Mi meta */}
-                    <div className={`rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
-                      <p className="text-xs text-slate-400 mb-1">MI META</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">MI META</p>
                       <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {misVentasMes.length}/{miMeta || '?'}
                       </p>
@@ -2731,22 +2814,22 @@ function App() {
                     </div>
 
                     {/* Pipeline */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">MI PIPELINE</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">MI PIPELINE</p>
                       <p className="text-3xl font-bold text-emerald-400">${(miPipeline / 1000000).toFixed(1)}M</p>
                       <p className="text-xs text-slate-400">{misLeadsActivos.length} leads activos</p>
                     </div>
 
                     {/* Conversión */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">MI CONVERSIÓN</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">MI CONVERSIÓN</p>
                       <p className={`text-3xl font-bold ${miConversion >= 10 ? 'text-green-400' : miConversion >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{miConversion}%</p>
                       <p className="text-xs text-slate-400">lead → venta</p>
                     </div>
 
                     {/* Leads HOT */}
-                    <div className={`rounded-xl p-4 border ${misLeadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                      <p className="text-xs text-slate-400 mb-1">LEADS HOT 🔥</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${misLeadsHot.length > 0 ? 'bg-orange-900/30 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LEADS HOT 🔥</p>
                       <p className={`text-3xl font-bold ${misLeadsHot.length > 0 ? 'text-orange-400' : 'text-slate-400'}`}>{misLeadsHot.length}</p>
                       <p className="text-xs text-slate-400">negociación + reservado</p>
                     </div>
@@ -3021,8 +3104,8 @@ function App() {
                   {/* KPIs principales - Fila 1 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Leads del mes */}
-                    <div className={`rounded-xl p-4 border ${estadoLeads === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoLeads === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
-                      <p className="text-xs text-slate-400 mb-1">LEADS DEL MES</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${estadoLeads === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoLeads === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LEADS DEL MES</p>
                       <p className={`text-3xl font-bold ${estadoLeads === 'good' ? 'text-green-400' : estadoLeads === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {leadsDelMes.length}
                       </p>
@@ -3038,8 +3121,8 @@ function App() {
                     </div>
 
                     {/* ROI */}
-                    <div className={`rounded-xl p-4 border ${estadoROI === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoROI === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
-                      <p className="text-xs text-slate-400 mb-1">ROI</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${estadoROI === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoROI === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">ROI</p>
                       <p className={`text-3xl font-bold ${estadoROI === 'good' ? 'text-green-400' : estadoROI === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {roi}%
                       </p>
@@ -3048,16 +3131,16 @@ function App() {
                     </div>
 
                     {/* CPL y CPQL */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">COSTO POR LEAD</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">COSTO POR LEAD</p>
                       <p className={`text-3xl font-bold ${cpl <= 300 ? 'text-green-400' : cpl <= 500 ? 'text-yellow-400' : 'text-red-400'}`}>${cpl}</p>
                       <p className="text-xs text-slate-400 mt-2">CPQL: ${cpql}</p>
                       <p className="text-xs text-slate-400">CPA: ${cpa.toLocaleString('es-MX')}</p>
                     </div>
 
                     {/* Calidad */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">CALIDAD LEADS</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">CALIDAD LEADS</p>
                       <p className={`text-3xl font-bold ${calidadLeads >= 40 ? 'text-green-400' : calidadLeads >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>{calidadLeads}%</p>
                       <p className="text-xs text-slate-400 mt-2">{leadsCalificados} calificados</p>
                       <p className="text-xs text-slate-400">de {leadsDelMes.length} totales</p>
@@ -3298,36 +3381,36 @@ function App() {
                   {/* KPIs principales */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {/* Leads hoy */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">LEADS HOY</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LEADS HOY</p>
                       <p className="text-3xl font-bold text-blue-400">{leadsHoy.length}</p>
                       <p className="text-xs text-slate-400">capturados</p>
                     </div>
 
                     {/* Leads semana */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">ESTA SEMANA</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">ESTA SEMANA</p>
                       <p className="text-3xl font-bold text-cyan-400">{leadsSemana.length}</p>
                       <p className="text-xs text-slate-400">últimos 7 días</p>
                     </div>
 
                     {/* Leads nuevos (sin contactar) */}
-                    <div className={`rounded-xl p-4 border ${leadsNuevos.length > 10 ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                      <p className="text-xs text-slate-400 mb-1">NUEVOS</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${leadsNuevos.length > 10 ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">NUEVOS</p>
                       <p className={`text-3xl font-bold ${leadsNuevos.length > 10 ? 'text-yellow-400' : 'text-green-400'}`}>{leadsNuevos.length}</p>
                       <p className="text-xs text-slate-400">pendientes contactar</p>
                     </div>
 
                     {/* Total del mes */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">ESTE MES</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">ESTE MES</p>
                       <p className="text-3xl font-bold text-purple-400">{leadsDelMes.length}</p>
                       <p className="text-xs text-slate-400">leads totales</p>
                     </div>
 
                     {/* Llamadas Retell */}
-                    <div className={`rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound').length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                      <p className="text-xs text-slate-400 mb-1">LLAMADAS 📞</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound').length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">LLAMADAS 📞</p>
                       <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
                       <p className="text-xs text-slate-400">por teléfono</p>
                     </div>
@@ -3542,15 +3625,15 @@ function App() {
                   {/* KPIs principales */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Solicitudes activas */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">ACTIVAS</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">ACTIVAS</p>
                       <p className="text-3xl font-bold text-blue-400">{pendientes + enRevision + enviadasBanco}</p>
                       <p className="text-xs text-slate-400">{pendientes} pend. • {enRevision} rev. • {enviadasBanco} banco</p>
                     </div>
 
                     {/* Tasa de aprobación */}
-                    <div className={`rounded-xl p-4 border ${estadoAprobacion === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoAprobacion === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
-                      <p className="text-xs text-slate-400 mb-1">TASA APROBACIÓN</p>
+                    <div className={`kpi-card rounded-xl p-4 border ${estadoAprobacion === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoAprobacion === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">TASA APROBACIÓN</p>
                       <p className={`text-3xl font-bold ${estadoAprobacion === 'good' ? 'text-green-400' : estadoAprobacion === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
                         {tasaAprobacion}%
                       </p>
@@ -3558,15 +3641,15 @@ function App() {
                     </div>
 
                     {/* Monto aprobado */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">MONTO APROBADO</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">MONTO APROBADO</p>
                       <p className="text-3xl font-bold text-emerald-400">${(montoAprobadoMes / 1000000).toFixed(1)}M</p>
                       <p className="text-xs text-slate-400">este mes</p>
                     </div>
 
                     {/* Tiempo promedio */}
-                    <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                      <p className="text-xs text-slate-400 mb-1">TIEMPO PROM.</p>
+                    <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                      <p className="text-[11px] font-medium text-slate-400 mb-1">TIEMPO PROM.</p>
                       <p className={`text-3xl font-bold ${tiempoPromedio <= 7 ? 'text-green-400' : tiempoPromedio <= 14 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {tiempoPromedio}d
                       </p>
@@ -3692,7 +3775,7 @@ function App() {
               return (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* KPI 1: META VS REAL */}
-                  <div className={`bg-gradient-to-br ${getColor(estadoMeta)} border rounded-xl p-4`}>
+                  <div className={`kpi-card bg-gradient-to-br ${getColor(estadoMeta)} border rounded-xl p-4`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-slate-300">META DEL MES</span>
                       <span className="text-2xl">{getIcon(estadoMeta)}</span>
@@ -3724,7 +3807,7 @@ function App() {
                   </div>
 
                   {/* KPI 2: COBERTURA DE PIPELINE */}
-                  <div className={`bg-gradient-to-br ${getColor(estadoPipeline)} border rounded-xl p-4`}>
+                  <div className={`kpi-card bg-gradient-to-br ${getColor(estadoPipeline)} border rounded-xl p-4`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-slate-300">PIPELINE</span>
                       <span className="text-2xl">{getIcon(estadoPipeline)}</span>
@@ -3748,7 +3831,7 @@ function App() {
                   </div>
 
                   {/* KPI 3: TASA DE CONVERSIÓN */}
-                  <div className={`bg-gradient-to-br ${getColor(estadoConversion)} border rounded-xl p-4`}>
+                  <div className={`kpi-card bg-gradient-to-br ${getColor(estadoConversion)} border rounded-xl p-4`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-slate-300">CONVERSIÓN</span>
                       <span className="text-2xl">{getIcon(estadoConversion)}</span>
@@ -4325,7 +4408,7 @@ function App() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {/* Lead to Sale */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
-                  <p className="text-xs text-slate-400 mb-1">Lead ↑ Venta</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">Lead ↑ Venta</p>
                   <p className={`text-2xl font-bold ${parseFloat(conversionLeadToSale) >= 1 ? 'text-green-400' : parseFloat(conversionLeadToSale) >= 0.5 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionLeadToSale}%
                   </p>
@@ -4337,7 +4420,7 @@ function App() {
                 
                 {/* Lead to Cita */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
-                  <p className="text-xs text-slate-400 mb-1">Lead ↑ Cita</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">Lead ↑ Cita</p>
                   <p className={`text-2xl font-bold ${parseFloat(conversionLeadToCita) >= 15 ? 'text-green-400' : parseFloat(conversionLeadToCita) >= 10 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionLeadToCita}%
                   </p>
@@ -4349,7 +4432,7 @@ function App() {
                 
                 {/* Cita to Close */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
-                  <p className="text-xs text-slate-400 mb-1">Visita ↑ Cierre</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">Visita ↑ Cierre</p>
                   <p className={`text-2xl font-bold ${parseFloat(conversionCitaToClose) >= 10 ? 'text-green-400' : parseFloat(conversionCitaToClose) >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {conversionCitaToClose}%
                   </p>
@@ -4361,7 +4444,7 @@ function App() {
                 
                 {/* Ratio Leads/Venta */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
-                  <p className="text-xs text-slate-400 mb-1">Leads por Venta</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">Leads por Venta</p>
                   <p className={`text-2xl font-bold ${ratioLeadsPorVenta <= 50 ? 'text-green-400' : ratioLeadsPorVenta <= 100 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {ratioLeadsPorVenta}:1
                   </p>
@@ -4373,7 +4456,7 @@ function App() {
                 
                 {/* Speed to Lead */}
                 <div className="bg-slate-800/50 p-4 rounded-lg text-center">
-                  <p className="text-xs text-slate-400 mb-1">Tiempo Respuesta</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">Tiempo Respuesta</p>
                   <p className={`text-2xl font-bold ${avgResponseTime <= 5 ? 'text-green-400' : avgResponseTime <= 30 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {avgResponseTime < 60 ? `${avgResponseTime}m` : `${Math.round(avgResponseTime/60)}h`}
                   </p>
@@ -9849,19 +9932,19 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">LEADS ACTIVOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">LEADS ACTIVOS</p>
               <p className="text-3xl font-bold text-cyan-400">{pipelineData.total_leads || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">VALOR PIPELINE</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">VALOR PIPELINE</p>
               <p className="text-3xl font-bold text-green-400">${((pipelineData.total_pipeline_value || 0) / 1000000).toFixed(1)}M</p>
             </div>
             <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">INGRESO ESPERADO</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">INGRESO ESPERADO</p>
               <p className="text-3xl font-bold text-purple-400">${((pipelineData.expected_revenue || 0) / 1000000).toFixed(1)}M</p>
             </div>
             <div className="bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">CONVERSIÓN</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">CONVERSIÓN</p>
               <p className="text-3xl font-bold text-amber-400">{pipelineData.overall_conversion_rate || '0%'}</p>
             </div>
           </div>
@@ -9937,19 +10020,19 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
           {/* Resumen de alertas */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">CRÍTICAS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">CRÍTICAS</p>
               <p className="text-3xl font-bold text-red-400">{alertsData.by_priority?.critical || 0}</p>
             </div>
             <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">ALTAS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">ALTAS</p>
               <p className="text-3xl font-bold text-orange-400">{alertsData.by_priority?.high || 0}</p>
             </div>
             <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">MEDIAS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">MEDIAS</p>
               <p className="text-3xl font-bold text-yellow-400">{alertsData.by_priority?.medium || 0}</p>
             </div>
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">BAJAS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">BAJAS</p>
               <p className="text-3xl font-bold text-blue-400">{alertsData.by_priority?.low || 0}</p>
             </div>
           </div>
@@ -9991,20 +10074,20 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
         <div className="space-y-6">
           {/* KPIs de mercado */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">CONSULTAS TOTALES</p>
+            <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-[11px] font-medium text-slate-400 mb-1">CONSULTAS TOTALES</p>
               <p className="text-3xl font-bold text-cyan-400">{marketData.demand?.total_inquiries || 0}</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">PRESUPUESTO PROM</p>
+            <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-[11px] font-medium text-slate-400 mb-1">PRESUPUESTO PROM</p>
               <p className="text-3xl font-bold text-green-400">${((marketData.pricing?.avg_budget || 0) / 1000000).toFixed(1)}M</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">SENSIBILIDAD PRECIO</p>
+            <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-[11px] font-medium text-slate-400 mb-1">SENSIBILIDAD PRECIO</p>
               <p className="text-3xl font-bold text-amber-400">{marketData.pricing?.price_sensitivity || 'N/A'}</p>
             </div>
-            <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">DÍAS A DECISIÓN</p>
+            <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+              <p className="text-[11px] font-medium text-slate-400 mb-1">DÍAS A DECISIÓN</p>
               <p className="text-3xl font-bold text-purple-400">{marketData.timing?.avg_decision_days || 0}</p>
             </div>
           </div>
@@ -10056,19 +10139,19 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
           {/* KPIs CLV */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">TOTAL CLIENTES</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">TOTAL CLIENTES</p>
               <p className="text-3xl font-bold text-purple-400">{clvData.total_customers || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">CLV TOTAL</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">CLV TOTAL</p>
               <p className="text-3xl font-bold text-green-400">${((clvData.total_clv || 0) / 1000000).toFixed(1)}M</p>
             </div>
             <div className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">CLV PROMEDIO</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">CLV PROMEDIO</p>
               <p className="text-3xl font-bold text-cyan-400">${((clvData.avg_clv || 0) / 1000000).toFixed(2)}M</p>
             </div>
             <div className="bg-gradient-to-br from-pink-600/20 to-rose-600/20 border border-pink-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">REFERIDOS CONV</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">REFERIDOS CONV</p>
               <p className="text-3xl font-bold text-pink-400">{clvData.referrals?.conversion_rate || '0%'}</p>
             </div>
           </div>
@@ -10138,20 +10221,20 @@ function BusinessIntelligenceView({ leads, team, appointments, properties, showT
             <>
               {/* KPIs ofertas */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-1">OFERTAS TOTALES</p>
+                <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">OFERTAS TOTALES</p>
                   <p className="text-3xl font-bold text-cyan-400">{offersData.total_offers || 0}</p>
                 </div>
-                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-1">VALOR OFERTADO</p>
+                <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">VALOR OFERTADO</p>
                   <p className="text-3xl font-bold text-green-400">${((offersData.total_offered_value || 0) / 1000000).toFixed(1)}M</p>
                 </div>
-                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-1">TASA ACEPTACIÓN</p>
+                <div className="kpi-card bg-slate-800/50 border border-slate-600/30 rounded-xl p-4">
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">TASA ACEPTACIÓN</p>
                   <p className="text-3xl font-bold text-purple-400">{offersData.acceptance_rate || '0%'}</p>
                 </div>
                 <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-1">POR VENCER</p>
+                  <p className="text-[11px] font-medium text-slate-400 mb-1">POR VENCER</p>
                   <p className="text-3xl font-bold text-orange-400">{offersData.expiring_soon?.length || 0}</p>
                 </div>
               </div>
@@ -10463,21 +10546,21 @@ function MessageMetricsView() {
           {/* KPIs 24h */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">ENVIADOS (24h)</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">ENVIADOS (24h)</p>
               <p className="text-3xl font-bold text-blue-400">{messageMetrics.resumen_24h?.enviados || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">ENTREGADOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">ENTREGADOS</p>
               <p className="text-3xl font-bold text-green-400">{messageMetrics.resumen_24h?.entregados || 0}</p>
               <p className="text-xs text-slate-400">{messageMetrics.resumen_24h?.tasaEntrega || 0}% tasa</p>
             </div>
             <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">LEIDOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">LEIDOS</p>
               <p className="text-3xl font-bold text-purple-400">{messageMetrics.resumen_24h?.leidos || 0}</p>
               <p className="text-xs text-slate-400">{messageMetrics.resumen_24h?.tasaLectura || 0}% tasa</p>
             </div>
             <div className="bg-gradient-to-br from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">FALLIDOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">FALLIDOS</p>
               <p className="text-3xl font-bold text-red-400">{messageMetrics.resumen_24h?.fallidos || 0}</p>
             </div>
           </div>
@@ -10641,19 +10724,19 @@ function MessageMetricsView() {
           {/* KPIs TTS */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-purple-600/20 to-violet-600/20 border border-purple-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">AUDIOS ENVIADOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">AUDIOS ENVIADOS</p>
               <p className="text-3xl font-bold text-purple-400">{ttsMetrics.resumen?.total_enviados || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">ENTREGADOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">ENTREGADOS</p>
               <p className="text-3xl font-bold text-green-400">{ttsMetrics.resumen?.total_entregados || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-amber-600/20 to-orange-600/20 border border-amber-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">ESCUCHADOS</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">ESCUCHADOS</p>
               <p className="text-3xl font-bold text-amber-400">{ttsMetrics.resumen?.total_escuchados || 0}</p>
             </div>
             <div className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-4">
-              <p className="text-xs text-slate-400 mb-1">TASA ESCUCHA</p>
+              <p className="text-[11px] font-medium text-slate-400 mb-1">TASA ESCUCHA</p>
               <p className="text-3xl font-bold text-cyan-400">{ttsMetrics.resumen?.tasa_escucha_global || '0%'}</p>
             </div>
           </div>
