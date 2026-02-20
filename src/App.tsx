@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical, CheckSquare, FileSpreadsheet, ChevronDown } from 'lucide-react'
 
 const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
@@ -443,6 +443,27 @@ function App() {
   // Activity Timeline filter
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'messages' | 'activities' | 'appointments' | 'notes'>('all')
 
+  // Advanced Filters (Round 5)
+  const [leadFilters, setLeadFilters] = useState<{
+    status: string[]
+    scoreRange: 'all' | 'hot' | 'warm' | 'cold'
+    vendedor: string
+    desarrollo: string
+    dateRange: 'all' | 'today' | 'week' | 'month'
+  }>({ status: [], scoreRange: 'all', vendedor: '', desarrollo: '', dateRange: 'all' })
+  const [savedViews, setSavedViews] = useState<{name: string, filters: typeof leadFilters}[]>(() => {
+    try { return JSON.parse(localStorage.getItem('sara-crm-saved-views') || '[]') } catch { return [] }
+  })
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set())
+  const [showBulkAssign, setShowBulkAssign] = useState(false)
+  const [showBulkStatus, setShowBulkStatus] = useState(false)
+
+  // Lead Detail Tabs (Round 5)
+  const [leadDetailTab, setLeadDetailTab] = useState<'info' | 'timeline' | 'citas' | 'notas' | 'credito'>('info')
+
+  // Toast stack (Round 5 - replaces single toast)
+  const [toasts, setToasts] = useState<{id: string, message: string, type: 'success' | 'error' | 'info'}[]>([])
+
   // Notifications
   const [showNotifications, setShowNotifications] = useState(false)
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => {
@@ -485,6 +506,10 @@ function App() {
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 4000)
+    // Also push to stacking toasts
+    const id = Date.now().toString()
+    setToasts(prev => [...prev.slice(-2), { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
   }
 
   // Notification generation
@@ -772,6 +797,7 @@ function App() {
   // Función para seleccionar lead y cargar sus actividades
   async function selectLead(lead: Lead) {
     setSelectedLead(lead)
+    setLeadDetailTab('info')
     loadLeadActivities(lead.id)
   }
 
@@ -1883,6 +1909,111 @@ function App() {
     { name: 'WARM', value: warmLeads, color: '#f97316' },
     { name: 'COLD', value: coldLeads, color: '#3b82f6' }
   ]
+
+  // ============ DISPLAY LEADS (filteredLeads + leadFilters) ============
+  const displayLeads = useMemo(() => {
+    let result = filteredLeads
+    if (leadFilters.status.length > 0) result = result.filter(l => leadFilters.status.includes(l.status))
+    if (leadFilters.scoreRange === 'hot') result = result.filter(l => l.score >= 70)
+    else if (leadFilters.scoreRange === 'warm') result = result.filter(l => l.score >= 40 && l.score < 70)
+    else if (leadFilters.scoreRange === 'cold') result = result.filter(l => l.score < 40)
+    if (leadFilters.vendedor) result = result.filter(l => l.assigned_to === leadFilters.vendedor)
+    if (leadFilters.desarrollo) result = result.filter(l => l.property_interest?.toLowerCase().includes(leadFilters.desarrollo.toLowerCase()))
+    if (leadFilters.dateRange !== 'all') {
+      const now = new Date()
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      if (leadFilters.dateRange === 'today') result = result.filter(l => new Date(l.created_at) >= startOfDay)
+      else if (leadFilters.dateRange === 'week') {
+        const weekAgo = new Date(startOfDay); weekAgo.setDate(weekAgo.getDate() - 7)
+        result = result.filter(l => new Date(l.created_at) >= weekAgo)
+      } else if (leadFilters.dateRange === 'month') {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        result = result.filter(l => new Date(l.created_at) >= monthStart)
+      }
+    }
+    return result
+  }, [filteredLeads, leadFilters])
+
+  // ============ CHART DATA (useMemos) ============
+  const weeklyLeadsData = useMemo(() => {
+    const weeks: Record<string, number> = {}
+    const now = new Date()
+    for (let i = 7; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i * 7)
+      const weekKey = `${d.getFullYear()}-W${String(Math.ceil((d.getDate() + new Date(d.getFullYear(), d.getMonth(), 1).getDay()) / 7)).padStart(2, '0')}`
+      weeks[weekKey] = 0
+    }
+    filteredLeads.forEach(l => {
+      const d = new Date(l.created_at)
+      const diff = Math.floor((now.getTime() - d.getTime()) / (7 * 86400000))
+      if (diff >= 0 && diff < 8) {
+        const weekLabel = `Sem ${8 - diff}`
+        weeks[weekLabel] = (weeks[weekLabel] || 0) + 1
+      }
+    })
+    // Simplified: group by week offset
+    const data: {week: string, count: number}[] = []
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(now); weekStart.setDate(weekStart.getDate() - i * 7)
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 7)
+      const count = filteredLeads.filter(l => {
+        const d = new Date(l.created_at)
+        return d >= weekStart && d < weekEnd
+      }).length
+      data.push({ week: i === 0 ? 'Esta' : i === 1 ? 'Ant' : `S-${i}`, count })
+    }
+    return data
+  }, [filteredLeads])
+
+  const sourceData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    filteredLeads.forEach(l => {
+      const src = l.source || 'Directo'
+      counts[src] = (counts[src] || 0) + 1
+    })
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    const top6 = sorted.slice(0, 6)
+    const others = sorted.slice(6).reduce((sum, [, v]) => sum + v, 0)
+    const result = top6.map(([name, value]) => ({ name: name.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()), value }))
+    if (others > 0) result.push({ name: 'Otros', value: others })
+    return result
+  }, [filteredLeads])
+
+  const vendorPerformance = useMemo(() => {
+    const activeVendors = team.filter(t => t.role === 'vendedor' && t.active)
+    return activeVendors.map(v => {
+      const vLeads = filteredLeads.filter(l => l.assigned_to === v.id).length
+      const vCitas = appointments.filter(a => {
+        const lead = filteredLeads.find(l => l.id === a.lead_id)
+        return lead?.assigned_to === v.id
+      }).length
+      const vCerrados = filteredLeads.filter(l => l.assigned_to === v.id && (l.status === 'closed' || l.status === 'delivered')).length
+      return { name: v.name?.split(' ')[0] || 'N/A', leads: vLeads, citas: vCitas, cerrados: vCerrados }
+    }).sort((a, b) => b.leads - a.leads).slice(0, 8)
+  }, [filteredLeads, team, appointments])
+
+  const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#6b7280']
+
+  // CSV export function
+  const exportLeadsCSV = () => {
+    const headers = ['Nombre', 'Telefono', 'Interes', 'Score', 'Estado', 'Vendedor', 'Fecha']
+    const rows = displayLeads.map(l => [
+      l.name || 'Sin nombre',
+      l.phone || '',
+      l.property_interest || '',
+      String(l.score || 0),
+      STATUS_LABELS[l.status] || l.status,
+      team.find(t => t.id === l.assigned_to)?.name || '',
+      l.created_at ? new Date(l.created_at).toLocaleDateString('es-MX') : ''
+    ])
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click(); URL.revokeObjectURL(url)
+    showToast(`${displayLeads.length} leads exportados`, 'success')
+  }
 
   // ============ KPIs DE CONVERSIÓN (con filteredLeads) ============
   const conversionLeadToSale = (() => {
@@ -3031,25 +3162,36 @@ function App() {
                       </p>
                     </div>
 
-                    {/* Funnel resumen */}
-                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
-                      <h3 className="font-semibold mb-2">📊 Funnel General</h3>
-                      <div className="flex items-center gap-1">
-                        {[
-                          { label: 'Nuevos', count: funnel.new, color: 'bg-blue-500' },
-                          { label: 'Contactado', count: funnel.contacted, color: 'bg-cyan-500' },
-                          { label: 'Cita', count: funnel.scheduled, color: 'bg-purple-500' },
-                          { label: 'Visita', count: funnel.visited, color: 'bg-pink-500' },
-                          { label: 'Negoc', count: funnel.negotiation, color: 'bg-orange-500' },
-                          { label: 'Reserv', count: funnel.reserved, color: 'bg-yellow-500' },
-                          { label: 'Cerrado', count: funnel.closed, color: 'bg-green-500' }
-                        ].map((s, i) => (
-                          <div key={i} className="flex-1 text-center">
-                            <div className={`${s.color} funnel-bar rounded py-1 text-sm font-bold`} style={{ animationDelay: `${i * 0.08}s` }}>{s.count}</div>
-                            <p className="text-[10px] mt-0.5 text-slate-400">{s.label}</p>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Funnel resumen — Recharts Horizontal BarChart */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4 chart-container">
+                      <h3 className="font-semibold mb-3">📊 Funnel de Conversión</h3>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={[
+                          { name: 'Nuevos', count: funnel.new, fill: '#3b82f6' },
+                          { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4' },
+                          { name: 'Cita', count: funnel.scheduled, fill: '#8b5cf6' },
+                          { name: 'Visita', count: funnel.visited, fill: '#ec4899' },
+                          { name: 'Negociación', count: funnel.negotiation, fill: '#f97316' },
+                          { name: 'Reservado', count: funnel.reserved, fill: '#eab308' },
+                          { name: 'Cerrado', count: funnel.closed, fill: '#22c55e' }
+                        ]} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                          <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} />
+                          <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={80} axisLine={false} />
+                          <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }}
+                            formatter={(value: number) => [value, 'Leads']} />
+                          <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={20}>
+                            {[
+                              { name: 'Nuevos', count: funnel.new, fill: '#3b82f6' },
+                              { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4' },
+                              { name: 'Cita', count: funnel.scheduled, fill: '#8b5cf6' },
+                              { name: 'Visita', count: funnel.visited, fill: '#ec4899' },
+                              { name: 'Negociación', count: funnel.negotiation, fill: '#f97316' },
+                              { name: 'Reservado', count: funnel.reserved, fill: '#eab308' },
+                              { name: 'Cerrado', count: funnel.closed, fill: '#22c55e' }
+                            ].map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
 
@@ -3082,50 +3224,61 @@ function App() {
                         </div>
                       ))}
                     </div>
+                    {/* Vendor Performance — Grouped BarChart */}
+                    {vendorPerformance.length > 0 && (
+                      <div className="mt-3 chart-container">
+                        <h4 className="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Performance por Vendedor</h4>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <BarChart data={vendorPerformance} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                            <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} interval={0} angle={-15} textAnchor="end" height={40} />
+                            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} allowDecimals={false} />
+                            <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }} />
+                            <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+                            <Bar dataKey="leads" name="Leads" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={14} />
+                            <Bar dataKey="citas" name="Citas" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={14} />
+                            <Bar dataKey="cerrados" name="Cerrados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={14} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Por fuente y Por desarrollo */}
+                  {/* Charts Row: Leads por Semana + Fuentes de Leads */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Por fuente */}
-                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
-                      <h3 className="font-semibold mb-3">📣 Por Fuente (mes)</h3>
-                      <div className="space-y-2">
-                        {fuentes.slice(0, 5).map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
-                              <div
-                                className="h-full bg-gradient-to-r from-pink-500 to-purple-500"
-                                style={{ width: `${Math.max(10, (f.leads / (fuentes[0]?.leads || 1)) * 100)}%` }}
-                              />
-                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
-                                <span>{sourceLabel(f.name)}</span>
-                                <span>{f.leads} • {f.conv}%</span>
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Leads por semana — LineChart */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4 chart-container">
+                      <h3 className="font-semibold mb-3">📈 Leads por Semana</h3>
+                      {weeklyLeadsData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={weeklyLeadsData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                            <XAxis dataKey="week" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} />
+                            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} allowDecimals={false} />
+                            <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }}
+                              formatter={(value: number) => [value, 'Leads']} />
+                            <Line type="monotone" dataKey="count" stroke="#60a5fa" strokeWidth={2.5} dot={{ fill: '#60a5fa', r: 4 }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <p className="text-slate-500 text-sm text-center py-8">Sin datos de leads recientes</p>
+                      )}
                     </div>
 
-                    {/* Por desarrollo */}
-                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
-                      <h3 className="font-semibold mb-3">🏘️ Por Desarrollo (mes)</h3>
-                      <div className="space-y-2">
-                        {desarrollos.slice(0, 5).map((d, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <div className="flex-1 h-6 bg-slate-700 rounded-full overflow-hidden relative">
-                              <div
-                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                                style={{ width: `${Math.max(10, (d.ventas / (desarrollos[0]?.ventas || 1)) * 100)}%` }}
-                              />
-                              <span className="absolute inset-0 flex items-center justify-between px-2 text-xs">
-                                <span className="truncate">{d.name}</span>
-                                <span>{d.ventas} ventas</span>
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Fuentes de leads — PieChart */}
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4 chart-container">
+                      <h3 className="font-semibold mb-3">📣 Fuentes de Leads</h3>
+                      {sourceData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie data={sourceData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" nameKey="name" label={({ name, value }) => `${name}: ${value}`} labelLine={false}
+                              style={{ fontSize: 10, fill: '#cbd5e1' }}>
+                              {sourceData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <p className="text-slate-500 text-sm text-center py-8">Sin datos de fuentes</p>
+                      )}
                     </div>
                   </div>
 
@@ -5202,12 +5355,15 @@ function App() {
         {view === 'leads' && (loading ? <SkeletonTable /> :
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-3xl font-bold">Leads ({filteredLeads.length})</h2>
+              <h2 className="text-3xl font-bold">Leads ({displayLeads.length})</h2>
               <div className="flex gap-4 items-center">
                 <div className="flex gap-2">
                   <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'list' ? 'bg-blue-600' : 'bg-slate-700'}`}>Lista</button>
                   <button onClick={() => setLeadViewMode('funnel')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'funnel' ? 'bg-blue-600' : 'bg-slate-700'}`}>Funnel</button>
                 </div>
+                <button onClick={exportLeadsCSV} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
+                  <FileSpreadsheet size={16} /> CSV
+                </button>
                 {permisos.puedeCrearLead() && (
                   <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
                     <Plus size={20} /> Agregar Lead
@@ -5224,6 +5380,170 @@ function App() {
               </div>
             </div>
 
+            {/* Advanced Filter Bar */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Status chips */}
+                <div className="flex flex-wrap gap-1">
+                  {['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved', 'closed'].map(s => (
+                    <button key={s} onClick={() => setLeadFilters(prev => ({
+                      ...prev, status: prev.status.includes(s) ? prev.status.filter(x => x !== s) : [...prev.status, s]
+                    }))} className={`filter-chip px-2.5 py-1 rounded-full text-xs font-medium ${
+                      leadFilters.status.includes(s) ? 'bg-blue-600 text-white filter-chip-active' : 'bg-slate-700 text-slate-300'
+                    }`}>
+                      {STATUS_LABELS[s] || s}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="w-px h-6 bg-slate-600 mx-1" />
+
+                {/* Score range */}
+                <div className="flex gap-1">
+                  {[
+                    { key: 'all' as const, label: 'Todos', color: 'bg-slate-600' },
+                    { key: 'hot' as const, label: '🔥 HOT', color: 'bg-red-600' },
+                    { key: 'warm' as const, label: '⚡ WARM', color: 'bg-orange-600' },
+                    { key: 'cold' as const, label: '❄️ COLD', color: 'bg-blue-600' }
+                  ].map(r => (
+                    <button key={r.key} onClick={() => setLeadFilters(prev => ({ ...prev, scoreRange: r.key }))}
+                      className={`filter-chip px-2.5 py-1 rounded-full text-xs font-medium ${
+                        leadFilters.scoreRange === r.key ? `${r.color} text-white filter-chip-active` : 'bg-slate-700 text-slate-300'
+                      }`}>
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="w-px h-6 bg-slate-600 mx-1" />
+
+                {/* Vendedor dropdown */}
+                <select value={leadFilters.vendedor} onChange={e => setLeadFilters(prev => ({ ...prev, vendedor: e.target.value }))}
+                  className="bg-slate-700 text-sm rounded-lg px-2.5 py-1.5 border border-slate-600 text-slate-200 max-w-[140px]">
+                  <option value="">Vendedor...</option>
+                  {team.filter(t => t.role === 'vendedor' && t.active).map(t => (
+                    <option key={t.id} value={t.id}>{t.name?.split(' ')[0]}</option>
+                  ))}
+                </select>
+
+                {/* Date range */}
+                <select value={leadFilters.dateRange} onChange={e => setLeadFilters(prev => ({ ...prev, dateRange: e.target.value as any }))}
+                  className="bg-slate-700 text-sm rounded-lg px-2.5 py-1.5 border border-slate-600 text-slate-200 max-w-[130px]">
+                  <option value="all">Todo el tiempo</option>
+                  <option value="today">Hoy</option>
+                  <option value="week">Esta semana</option>
+                  <option value="month">Este mes</option>
+                </select>
+
+                {/* Clear filters */}
+                {(leadFilters.status.length > 0 || leadFilters.scoreRange !== 'all' || leadFilters.vendedor || leadFilters.dateRange !== 'all') && (
+                  <button onClick={() => setLeadFilters({ status: [], scoreRange: 'all', vendedor: '', desarrollo: '', dateRange: 'all' })}
+                    className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-700">
+                    <X size={14} className="inline mr-1" />Limpiar
+                  </button>
+                )}
+
+                {/* Saved views */}
+                <div className="ml-auto flex gap-1">
+                  {savedViews.map((sv, i) => (
+                    <button key={i} onClick={() => setLeadFilters(sv.filters)}
+                      className="text-xs bg-slate-700 px-2 py-1 rounded-lg hover:bg-slate-600 text-slate-300">
+                      {sv.name}
+                    </button>
+                  ))}
+                  {(leadFilters.status.length > 0 || leadFilters.scoreRange !== 'all' || leadFilters.vendedor) && savedViews.length < 5 && (
+                    <button onClick={() => {
+                      const name = prompt('Nombre para esta vista:')
+                      if (name) {
+                        const newViews = [...savedViews, { name, filters: { ...leadFilters } }]
+                        setSavedViews(newViews)
+                        localStorage.setItem('sara-crm-saved-views', JSON.stringify(newViews))
+                        showToast(`Vista "${name}" guardada`, 'success')
+                      }
+                    }} className="text-xs bg-slate-600 px-2 py-1 rounded-lg hover:bg-slate-500 text-slate-200">
+                      <Save size={12} className="inline mr-1" />Guardar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk Action Bar */}
+            {selectedLeadIds.size > 0 && (
+              <div className="bulk-bar fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-blue-500/50 rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
+                <span className="text-sm font-semibold text-blue-400">
+                  <CheckSquare size={16} className="inline mr-1" />{selectedLeadIds.size} seleccionados
+                </span>
+                <div className="w-px h-6 bg-slate-600" />
+                <div className="relative">
+                  <button onClick={() => setShowBulkAssign(!showBulkAssign)} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
+                    Asignar a... <ChevronDown size={14} className="inline ml-1" />
+                  </button>
+                  {showBulkAssign && (
+                    <div className="absolute bottom-full mb-2 left-0 bg-slate-700 border border-slate-600 rounded-xl shadow-xl p-2 min-w-[180px]">
+                      {team.filter(t => t.role === 'vendedor' && t.active).map(t => (
+                        <button key={t.id} onClick={async () => {
+                          const ids = Array.from(selectedLeadIds)
+                          for (const id of ids) {
+                            await supabase.from('leads').update({ assigned_to: t.id }).eq('id', id)
+                          }
+                          setLeads(leads.map(l => selectedLeadIds.has(l.id) ? { ...l, assigned_to: t.id } : l))
+                          setSelectedLeadIds(new Set())
+                          setShowBulkAssign(false)
+                          showToast(`${ids.length} leads asignados a ${t.name}`, 'success')
+                        }} className="w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-slate-600 truncate">
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button onClick={() => setShowBulkStatus(!showBulkStatus)} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
+                    Cambiar status... <ChevronDown size={14} className="inline ml-1" />
+                  </button>
+                  {showBulkStatus && (
+                    <div className="absolute bottom-full mb-2 left-0 bg-slate-700 border border-slate-600 rounded-xl shadow-xl p-2 min-w-[180px]">
+                      {['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved', 'closed'].map(s => (
+                        <button key={s} onClick={async () => {
+                          const ids = Array.from(selectedLeadIds)
+                          for (const id of ids) {
+                            await supabase.from('leads').update({ status: s, status_changed_at: new Date().toISOString() }).eq('id', id)
+                          }
+                          setLeads(leads.map(l => selectedLeadIds.has(l.id) ? { ...l, status: s } : l))
+                          setSelectedLeadIds(new Set())
+                          setShowBulkStatus(false)
+                          showToast(`${ids.length} leads movidos a ${STATUS_LABELS[s]}`, 'success')
+                        }} className="w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-slate-600">
+                          {STATUS_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => {
+                  const selected = displayLeads.filter(l => selectedLeadIds.has(l.id))
+                  const headers = ['Nombre', 'Telefono', 'Interes', 'Score', 'Estado', 'Vendedor', 'Fecha']
+                  const rows = selected.map(l => [
+                    l.name || '', l.phone || '', l.property_interest || '', l.score, STATUS_LABELS[l.status] || l.status,
+                    team.find(t => t.id === l.assigned_to)?.name || '', l.created_at ? new Date(l.created_at).toLocaleDateString('es-MX') : ''
+                  ])
+                  const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `leads_seleccionados_${new Date().toISOString().split('T')[0]}.csv`
+                  a.click(); URL.revokeObjectURL(url)
+                  showToast(`${selected.length} leads exportados`, 'success')
+                }} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
+                  <FileSpreadsheet size={14} className="inline mr-1" />Exportar
+                </button>
+                <button onClick={() => setSelectedLeadIds(new Set())} className="text-sm text-slate-400 hover:text-white px-2 py-1.5">
+                  <X size={14} className="inline" />
+                </button>
+              </div>
+            )}
+
             {leadViewMode === 'funnel' ? (
               <div className="space-y-4">
                 {/* Kanban Board */}
@@ -5238,7 +5558,7 @@ function App() {
                       { key: 'reserved', label: 'Reservado', color: 'bg-orange-600', accent: 'border-orange-400' },
                       { key: 'closed', label: 'Cerrado', color: 'bg-green-600', accent: 'border-green-400' }
                     ].map(stage => {
-                      const stageLeads = filteredLeads.filter(l => l.status === stage.key)
+                      const stageLeads = displayLeads.filter(l => l.status === stage.key)
                       const isOver = dragOverColumn === stage.key
                       return (
                         <div
@@ -5252,6 +5572,7 @@ function App() {
                             if (draggedLead && draggedLead.status !== stage.key && permisos.puedeCambiarStatusLead(draggedLead)) {
                               await supabase.from('leads').update({ status: stage.key, status_changed_at: new Date().toISOString() }).eq('id', draggedLead.id)
                               setLeads(leads.map(l => l.id === draggedLead.id ? {...l, status: stage.key} : l))
+                              showToast(`${draggedLead.name || 'Lead'} movido a ${stage.label}`, 'success')
                             }
                             setDraggedLead(null)
                           }}
@@ -5303,8 +5624,8 @@ function App() {
                 </div>
                 {/* Collapsed Other Stages */}
                 {(() => {
-                  const deliveredLeads = filteredLeads.filter(l => l.status === 'delivered')
-                  const fallenLeads = filteredLeads.filter(l => l.status === 'fallen' || l.status === 'lost' || l.status === 'inactive' || l.status === 'paused')
+                  const deliveredLeads = displayLeads.filter(l => l.status === 'delivered')
+                  const fallenLeads = displayLeads.filter(l => l.status === 'fallen' || l.status === 'lost' || l.status === 'inactive' || l.status === 'paused')
                   if (deliveredLeads.length === 0 && fallenLeads.length === 0) return null
                   return (
                     <div className="bg-slate-800/40 rounded-xl border border-slate-700/50">
@@ -5342,6 +5663,15 @@ function App() {
               <table className="w-full">
                 <thead className="bg-slate-700 sticky top-0 z-10">
                   <tr>
+                    <th className="p-4 w-10">
+                      <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
+                        checked={displayLeads.length > 0 && displayLeads.every(l => selectedLeadIds.has(l.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedLeadIds(new Set(displayLeads.map(l => l.id)))
+                          else setSelectedLeadIds(new Set())
+                        }}
+                      />
+                    </th>
                     {[
                       { col: 'name', label: 'Nombre', hide: '' },
                       { col: 'phone', label: 'Teléfono', hide: 'hidden sm:table-cell' },
@@ -5357,13 +5687,24 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...filteredLeads].sort((a: any, b: any) => {
+                  {[...displayLeads].sort((a: any, b: any) => {
                     const va = a[leadSort.col] ?? ''
                     const vb = b[leadSort.col] ?? ''
                     const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
                     return leadSort.asc ? cmp : -cmp
                   }).map(lead => (
                     <tr key={lead.id} onClick={() => selectLead(lead)} className="lead-row border-b border-slate-700/50 cursor-pointer">
+                      <td className="p-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
+                          checked={selectedLeadIds.has(lead.id)}
+                          onChange={() => setSelectedLeadIds(prev => {
+                            const next = new Set(prev)
+                            if (next.has(lead.id)) next.delete(lead.id)
+                            else next.add(lead.id)
+                            return next
+                          })}
+                        />
+                      </td>
                       <td className="p-4">{lead.name || 'Sin nombre'}</td>
                       <td className="p-4 hidden sm:table-cell"><Phone size={16} className="inline mr-1" />{lead.phone}</td>
                       <td className="p-4 hidden md:table-cell">{lead.property_interest || 'Sin definir'}</td>
@@ -5376,8 +5717,8 @@ function App() {
                       <td className="p-4 hidden lg:table-cell">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '-'}</td>
                     </tr>
                   ))}
-                  {filteredLeads.length === 0 && (
-                    <tr><td colSpan={6} className="p-12 text-center empty-state">
+                  {displayLeads.length === 0 && (
+                    <tr><td colSpan={7} className="p-12 text-center empty-state">
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
                         <span className="text-4xl">🔍</span>
                       </div>
@@ -8738,278 +9079,292 @@ function App() {
 
       {selectedLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedLead(null)}>
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-3xl max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">{selectedLead.name || 'Lead'}</h3>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setEditingLead(selectedLead); setSelectedLead(null); }} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Edit size={18} /> Editar</button>
-                <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 pt-5 pb-4 border-b border-slate-700/50">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg font-bold">
+                    {(selectedLead.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedLead.name || 'Sin nombre'}</h3>
+                    <div className="flex items-center gap-3 text-sm text-slate-400 mt-0.5">
+                      <span className="flex items-center gap-1"><Phone size={13} />{selectedLead.phone}</span>
+                      <span className={`${getScoreColor(selectedLead.score)} px-2 py-0.5 rounded text-xs`}>
+                        {getScoreLabel(selectedLead.score)} ({selectedLead.score})
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-xs bg-slate-700">{STATUS_LABELS[selectedLead.status] || selectedLead.status}</span>
+                      {selectedLead.assigned_to && (
+                        <span className="text-xs text-slate-500">{team.find(t => t.id === selectedLead.assigned_to)?.name || ''}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setEditingLead(selectedLead); setSelectedLead(null); }} className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-sm"><Edit size={16} /> Editar</button>
+                  <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X size={20} /></button>
+                </div>
+              </div>
+              {/* Tab bar */}
+              <div className="flex gap-1">
+                {([['info','Info'],['timeline','Timeline'],['citas','Citas'],['notas','Notas'],['credito','Credito']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
+                  <button key={key} onClick={() => setLeadDetailTab(key)}
+                    className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                      leadDetailTab === key ? 'tab-indicator-active text-blue-400 bg-slate-700/50' : 'text-slate-400 hover:text-slate-200'
+                    }`}>{label}</button>
+                ))}
               </div>
             </div>
-            <div className="space-y-3">
-              <p><span className="font-semibold">Teléfono:</span> {selectedLead.phone}</p>
-              <p><span className="font-semibold">Score:</span> <span className={`${getScoreColor(selectedLead.score)} px-2 py-1 rounded`}>{selectedLead.score} {selectedLead.score >= 70 ? '🔥' : selectedLead.score >= 40 ? '⚡' : '❄️'}</span></p>
-              <p><span className="font-semibold">Estado:</span> {STATUS_LABELS[selectedLead.status] || selectedLead.status}</p>
-              {selectedLead.status === 'fallen' && selectedLead.fallen_reason && (
-                <p><span className="font-semibold">Motivo:</span> <span className="text-red-400">{selectedLead.fallen_reason}</span></p>
-              )}
-              {selectedLead.credit_status && (
-                <p><span className="font-semibold">Crédito:</span> <span className={selectedLead.credit_status === 'approved' ? 'text-green-400' : selectedLead.credit_status === 'active' ? 'text-yellow-400' : 'text-red-400'}>{{ approved: 'Aprobado', active: 'En proceso', rejected: 'Rechazado', pending: 'Pendiente' }[selectedLead.credit_status] || selectedLead.credit_status}</span></p>
-              )}
-              <p><span className="font-semibold">Interés:</span> {selectedLead.property_interest || 'No definido'}</p>
-              {selectedLead.notes?.vendor_feedback?.rating && (() => {
-                const vf = selectedLead.notes.vendor_feedback;
-                const emoji = vf.rating === 1 ? '🔥' : vf.rating === 2 ? '👍' : vf.rating === 3 ? '😐' : '❄️';
-                const colors = { 1: 'bg-red-500/20 text-red-300 border-red-500/30', 2: 'bg-green-500/20 text-green-300 border-green-500/30', 3: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30', 4: 'bg-blue-500/20 text-blue-300 border-blue-500/30' } as Record<number, string>;
-                return (
-                  <div className={`mt-2 px-3 py-2 rounded-lg border ${colors[vf.rating] || colors[3]}`}>
-                    <span className="font-semibold">{emoji} Post-visita:</span> {vf.rating_text}
-                    {vf.vendedor_name && <span className="text-xs ml-2 opacity-70">({vf.vendedor_name.split(' ')[0]})</span>}
-                  </div>
-                );
-              })()}
 
-              {/* Sección de Apartado - Solo si tiene datos de apartado */}
-              {selectedLead.status === 'reserved' && selectedLead.notes?.apartado && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 rounded-xl">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-emerald-400">
-                    📋 Datos de Apartado
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-slate-400">💰 Enganche:</span>
-                      <span className="ml-2 font-semibold text-emerald-300">
-                        ${selectedLead.notes.apartado.enganche?.toLocaleString('es-MX') || '0'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">🏠 Propiedad:</span>
-                      <span className="ml-2 font-semibold">
-                        {selectedLead.notes.apartado.propiedad || selectedLead.property_interest || 'Por definir'}
-                      </span>
-                    </div>
-                    {selectedLead.notes.apartado.fecha_apartado && (
-                      <div>
-                        <span className="text-slate-400">📅 Fecha apartado:</span>
-                        <span className="ml-2">
-                          {new Date(selectedLead.notes.apartado.fecha_apartado + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
+            {/* Tab content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* ===== INFO TAB ===== */}
+              {leadDetailTab === 'info' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="bg-slate-700/40 rounded-xl p-4">
+                        <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Datos del Lead</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-slate-400">Nombre</span><span className="font-medium">{selectedLead.name || 'Sin nombre'}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Telefono</span><span className="font-medium">{selectedLead.phone}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Interes</span><span className="font-medium">{selectedLead.property_interest || 'No definido'}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Fuente</span><span className="font-medium">{selectedLead.source || 'No definida'}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Presupuesto</span><span className="font-medium">{selectedLead.budget ? `$${Number(selectedLead.budget).toLocaleString('es-MX')}` : 'No definido'}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-400">Creado</span><span className="font-medium">{selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span></div>
+                        </div>
                       </div>
-                    )}
-                    {selectedLead.notes.apartado.fecha_pago && (
-                      <div>
-                        <span className="text-slate-400">⏰ Fecha pago:</span>
-                        <span className="ml-2 font-semibold text-yellow-300">
-                          {new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
-                      </div>
-                    )}
+                      {selectedLead.status === 'fallen' && selectedLead.fallen_reason && (
+                        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+                          <h4 className="text-xs text-red-400 uppercase tracking-wider font-semibold mb-2">Motivo de Caida</h4>
+                          <p className="text-sm text-red-300">{selectedLead.fallen_reason}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {selectedLead.notes?.vendor_feedback?.rating && (() => {
+                        const vf = selectedLead.notes.vendor_feedback;
+                        const emoji = vf.rating === 1 ? '🔥' : vf.rating === 2 ? '👍' : vf.rating === 3 ? '😐' : '❄️';
+                        return (
+                          <div className="bg-slate-700/40 rounded-xl p-4">
+                            <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Post-visita</h4>
+                            <p className="text-sm">{emoji} {vf.rating_text}</p>
+                            {vf.vendedor_name && <p className="text-xs text-slate-500 mt-1">Por: {vf.vendedor_name}</p>}
+                          </div>
+                        );
+                      })()}
+                      {selectedLead.status === 'reserved' && selectedLead.notes?.apartado && (
+                        <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 rounded-xl p-4">
+                          <h4 className="text-xs text-emerald-400 uppercase tracking-wider font-semibold mb-3">Datos de Apartado</h4>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div><span className="text-slate-400">Enganche:</span><span className="ml-2 font-semibold text-emerald-300">${selectedLead.notes.apartado.enganche?.toLocaleString('es-MX') || '0'}</span></div>
+                            <div><span className="text-slate-400">Propiedad:</span><span className="ml-2 font-semibold">{selectedLead.notes.apartado.propiedad || selectedLead.property_interest || 'Por definir'}</span></div>
+                            {selectedLead.notes.apartado.fecha_apartado && (
+                              <div><span className="text-slate-400">Fecha:</span><span className="ml-2">{new Date(selectedLead.notes.apartado.fecha_apartado + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
+                            )}
+                            {selectedLead.notes.apartado.fecha_pago && (
+                              <div><span className="text-slate-400">Pago:</span><span className="ml-2 font-semibold text-yellow-300">{new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
+                            )}
+                          </div>
+                          {selectedLead.notes.apartado.fecha_pago && (() => {
+                            const hoy = new Date(); const fechaPago = new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00');
+                            const diasRestantes = Math.ceil((fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                            return (<div className={`mt-3 p-2 rounded-lg text-center text-sm font-semibold ${diasRestantes < 0 ? 'bg-red-600/30 text-red-300' : diasRestantes <= 3 ? 'bg-orange-600/30 text-orange-300' : diasRestantes <= 7 ? 'bg-yellow-600/30 text-yellow-300' : 'bg-emerald-600/30 text-emerald-300'}`}>
+                              {diasRestantes < 0 ? `Pago vencido hace ${Math.abs(diasRestantes)} dia(s)` : diasRestantes === 0 ? 'Hoy es el dia del pago' : `Faltan ${diasRestantes} dia(s) para el pago`}
+                            </div>);
+                          })()}
+                        </div>
+                      )}
+                      {selectedLead.notes?.recamaras && (
+                        <div className="bg-slate-700/40 rounded-xl p-4">
+                          <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Preferencias</h4>
+                          <div className="space-y-1 text-sm">
+                            {selectedLead.notes.recamaras && <p><span className="text-slate-400">Recamaras:</span> <span className="font-medium">{selectedLead.notes.recamaras}</span></p>}
+                            {selectedLead.notes.urgencia && <p><span className="text-slate-400">Urgencia:</span> <span className="font-medium">{selectedLead.notes.urgencia}</span></p>}
+                            {selectedLead.notes.preferred_language && <p><span className="text-slate-400">Idioma:</span> <span className="font-medium">{selectedLead.notes.preferred_language === 'en' ? 'English' : 'Espanol'}</span></p>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {selectedLead.notes.apartado.fecha_pago && (() => {
-                    const hoy = new Date();
-                    const fechaPago = new Date(selectedLead.notes.apartado.fecha_pago + 'T12:00:00');
-                    const diasRestantes = Math.ceil((fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div className={`mt-3 p-2 rounded-lg text-center font-semibold ${
-                        diasRestantes < 0 ? 'bg-red-600/30 text-red-300' :
-                        diasRestantes <= 3 ? 'bg-orange-600/30 text-orange-300' :
-                        diasRestantes <= 7 ? 'bg-yellow-600/30 text-yellow-300' :
-                        'bg-emerald-600/30 text-emerald-300'
-                      }`}>
-                        {diasRestantes < 0
-                          ? `⚠️ Pago vencido hace ${Math.abs(diasRestantes)} día(s)`
-                          : diasRestantes === 0
-                          ? '🔔 ¡Hoy es el día del pago!'
-                          : `📆 Faltan ${diasRestantes} día(s) para el pago`
-                        }
+                </div>
+              )}
+
+              {/* ===== TIMELINE TAB ===== */}
+              {leadDetailTab === 'timeline' && (
+                <div>
+                  <div className="flex gap-1 mb-3 flex-wrap">
+                    {([['all','Todo'],['messages','Mensajes'],['activities','Actividades'],['appointments','Citas'],['notes','Notas']] as const).map(([key, label]) => (
+                      <button key={key} onClick={() => setTimelineFilter(key)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          timelineFilter === key ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-slate-200'
+                        }`}>{label}</button>
+                    ))}
+                  </div>
+                  <div className="bg-slate-700/50 rounded-xl max-h-[50vh] overflow-y-auto p-4">
+                    {(() => {
+                      const entries: Array<{type: string, timestamp: string, data: any}> = []
+                      if (selectedLead.conversation_history?.length) {
+                        selectedLead.conversation_history.forEach((msg: any) => {
+                          entries.push({ type: 'message', timestamp: msg.timestamp || selectedLead.created_at, data: { role: msg.role, content: msg.content, via_bridge: msg.via_bridge, vendedor_name: msg.vendedor_name } })
+                        })
+                      }
+                      if (leadActivities?.length) {
+                        leadActivities.forEach((act: LeadActivity) => {
+                          entries.push({ type: 'activity', timestamp: act.created_at, data: { activity_type: act.activity_type, notes: act.notes, team_member: act.team_member_name } })
+                        })
+                      }
+                      const leadAppts = appointments.filter((a: any) => a.lead_id === selectedLead.id)
+                      leadAppts.forEach((apt: any) => {
+                        entries.push({ type: 'appointment', timestamp: apt.created_at || `${apt.scheduled_date}T${apt.scheduled_time || '00:00'}`, data: { date: apt.scheduled_date, time: apt.scheduled_time, property: apt.property_name, status: apt.status } })
+                      })
+                      if (selectedLead.notes?.manual && Array.isArray(selectedLead.notes.manual)) {
+                        selectedLead.notes.manual.forEach((note: any) => {
+                          entries.push({ type: 'note', timestamp: note.timestamp || note.created_at || selectedLead.created_at, data: { text: note.text || note.content, author: note.author } })
+                        })
+                      }
+                      entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      const filtered = entries.filter(e => timelineFilter === 'all' ? true : e.type === (timelineFilter === 'messages' ? 'message' : timelineFilter))
+                      if (filtered.length === 0) return <p className="text-slate-400 text-sm text-center py-4">Sin registros</p>
+                      const timeAgo = (ts: string) => { const diff = Date.now() - new Date(ts).getTime(); const mins = Math.floor(diff / 60000); if (mins < 1) return 'ahora'; if (mins < 60) return `hace ${mins}m`; const hrs = Math.floor(mins / 60); if (hrs < 24) return `hace ${hrs}h`; const days = Math.floor(hrs / 24); if (days < 30) return `hace ${days}d`; return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) }
+                      const dotStyle = (e: typeof entries[0]) => { if (e.type === 'message') { if (e.data.role === 'user') return 'bg-blue-500'; if (e.data.role === 'vendedor') return 'bg-orange-500'; return 'bg-green-500'; } if (e.type === 'activity') return 'bg-purple-500'; if (e.type === 'appointment') return 'bg-cyan-500'; if (e.type === 'note') return 'bg-yellow-500'; return 'bg-slate-500'; }
+                      return (
+                        <div className="timeline-line space-y-3">
+                          {filtered.map((entry, i) => (
+                            <div key={i} className="flex gap-3 items-start pl-0">
+                              <div className={`timeline-dot ${dotStyle(entry)} mt-0.5`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-[11px] text-slate-400">{timeAgo(entry.timestamp)}</span>
+                                  {entry.type === 'message' && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${entry.data.role === 'user' ? 'bg-blue-500/20 text-blue-300' : entry.data.role === 'vendedor' ? 'bg-orange-500/20 text-orange-300' : 'bg-green-500/20 text-green-300'}`}>{entry.data.role === 'user' ? 'Cliente' : entry.data.role === 'vendedor' ? (entry.data.vendedor_name || 'Vendedor') : 'SARA'}</span>}
+                                  {entry.type === 'activity' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">{({call:'Llamada',visit:'Visita',whatsapp:'WhatsApp',email:'Email',quote:'Cotizacion'} as Record<string,string>)[entry.data.activity_type] || entry.data.activity_type}</span>}
+                                  {entry.type === 'appointment' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cita</span>}
+                                  {entry.type === 'note' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">Nota</span>}
+                                </div>
+                                {entry.type === 'message' && <p className="text-sm text-slate-300 break-words leading-relaxed">{entry.data.content}{entry.data.via_bridge && <span className="text-[10px] text-slate-500 ml-1">(bridge)</span>}</p>}
+                                {entry.type === 'activity' && <div><p className="text-sm text-slate-300">{entry.data.notes || 'Sin detalle'}</p><p className="text-[11px] text-slate-500">Por: {entry.data.team_member}</p></div>}
+                                {entry.type === 'appointment' && <p className="text-sm text-slate-300">{entry.data.date} {entry.data.time && `a las ${entry.data.time}`}{entry.data.property && ` - ${entry.data.property}`}<span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${entry.data.status === 'completed' ? 'bg-green-600/30 text-green-300' : entry.data.status === 'cancelled' ? 'bg-red-600/30 text-red-300' : entry.data.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' : 'bg-blue-600/30 text-blue-300'}`}>{entry.data.status}</span></p>}
+                                {entry.type === 'note' && <div><p className="text-sm text-slate-300 break-words">{entry.data.text}</p>{entry.data.author && <p className="text-[11px] text-slate-500">Por: {entry.data.author}</p>}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* ===== CITAS TAB ===== */}
+              {leadDetailTab === 'citas' && (
+                <div className="space-y-3">
+                  {(() => {
+                    const leadAppts = appointments.filter((a: any) => a.lead_id === selectedLead.id).sort((a: any, b: any) => new Date(b.scheduled_date + 'T' + (b.scheduled_time || '00:00')).getTime() - new Date(a.scheduled_date + 'T' + (a.scheduled_time || '00:00')).getTime())
+                    if (leadAppts.length === 0) return (
+                      <div className="text-center py-12 text-slate-400">
+                        <Calendar size={40} className="mx-auto mb-3 opacity-40" />
+                        <p>No hay citas registradas</p>
                       </div>
-                    );
+                    )
+                    return leadAppts.map((apt: any) => {
+                      const vendor = team.find(t => t.id === apt.team_member_id)
+                      return (
+                        <div key={apt.id} className="bg-slate-700/40 rounded-xl p-4 flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-xl bg-slate-600/50 flex flex-col items-center justify-center flex-shrink-0">
+                            <span className="text-lg font-bold leading-none">{apt.scheduled_date ? new Date(apt.scheduled_date + 'T12:00:00').getDate() : '-'}</span>
+                            <span className="text-[10px] text-slate-400 uppercase">{apt.scheduled_date ? new Date(apt.scheduled_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short' }) : ''}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">{apt.scheduled_time || 'Sin hora'}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${apt.status === 'completed' ? 'bg-green-600/30 text-green-300' : apt.status === 'cancelled' ? 'bg-red-600/30 text-red-300' : apt.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' : 'bg-blue-600/30 text-blue-300'}`}>
+                                {apt.status === 'completed' ? 'Completada' : apt.status === 'cancelled' ? 'Cancelada' : apt.status === 'no_show' ? 'No asistio' : apt.status === 'confirmed' ? 'Confirmada' : 'Programada'}
+                              </span>
+                            </div>
+                            {apt.property_name && <p className="text-xs text-slate-400 mt-0.5">{apt.property_name}</p>}
+                            {vendor && <p className="text-xs text-slate-500 mt-0.5">Con: {vendor.name}</p>}
+                          </div>
+                        </div>
+                      )
+                    })
                   })()}
-                  {selectedLead.notes.apartado.vendedor_nombre && (
-                    <p className="mt-2 text-xs text-slate-400">
-                      Registrado por: {selectedLead.notes.apartado.vendedor_nombre}
-                    </p>
+                </div>
+              )}
+
+              {/* ===== NOTAS TAB ===== */}
+              {leadDetailTab === 'notas' && (
+                <div className="space-y-4">
+                  {/* Add note form */}
+                  <div className="bg-slate-700/40 rounded-xl p-4">
+                    <textarea
+                      id="lead-note-input"
+                      placeholder="Escribe una nota..."
+                      className="w-full p-3 bg-slate-600/50 rounded-xl text-sm resize-none h-20 placeholder:text-slate-500"
+                    />
+                    <div className="flex justify-end mt-2">
+                      <button onClick={async () => {
+                        const textarea = document.getElementById('lead-note-input') as HTMLTextAreaElement
+                        const text = textarea?.value?.trim()
+                        if (!text) return
+                        const newNote = { text, author: currentUser?.name || 'CRM', timestamp: new Date().toISOString() }
+                        const existingNotes = selectedLead.notes?.manual || []
+                        const updatedNotes = { ...(selectedLead.notes || {}), manual: [...existingNotes, newNote] }
+                        await supabase.from('leads').update({ notes: updatedNotes }).eq('id', selectedLead.id)
+                        setSelectedLead({ ...selectedLead, notes: updatedNotes })
+                        setLeads(leads.map(l => l.id === selectedLead.id ? { ...l, notes: updatedNotes } : l))
+                        textarea.value = ''
+                        showToast('Nota guardada', 'success')
+                      }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium">Guardar nota</button>
+                    </div>
+                  </div>
+                  {/* Notes list */}
+                  {(() => {
+                    const notes = selectedLead.notes?.manual || []
+                    if (notes.length === 0) return <p className="text-slate-400 text-sm text-center py-8">Sin notas manuales</p>
+                    return [...notes].reverse().map((note: any, i: number) => (
+                      <div key={i} className="bg-slate-700/40 rounded-xl p-4">
+                        <p className="text-sm text-slate-300 break-words">{note.text || note.content}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                          {note.author && <span>Por: {note.author}</span>}
+                          {note.timestamp && <span>{new Date(note.timestamp).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
+                        </div>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              )}
+
+              {/* ===== CREDITO TAB ===== */}
+              {leadDetailTab === 'credito' && (
+                <div className="space-y-4">
+                  {selectedLead.credit_status ? (
+                    <div className="bg-slate-700/40 rounded-xl p-4">
+                      <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Estado del Credito</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Status</span>
+                          <span className={`font-medium px-2 py-0.5 rounded text-xs ${selectedLead.credit_status === 'approved' ? 'bg-green-600/30 text-green-300' : selectedLead.credit_status === 'active' ? 'bg-yellow-600/30 text-yellow-300' : selectedLead.credit_status === 'rejected' ? 'bg-red-600/30 text-red-300' : 'bg-blue-600/30 text-blue-300'}`}>
+                            {{ approved: 'Aprobado', active: 'En proceso', rejected: 'Rechazado', pending: 'Pendiente' }[selectedLead.credit_status] || selectedLead.credit_status}
+                          </span>
+                        </div>
+                        {selectedLead.notes?.credit_bank && <div className="flex justify-between"><span className="text-slate-400">Banco</span><span className="font-medium">{selectedLead.notes.credit_bank}</span></div>}
+                        {selectedLead.notes?.credit_amount && <div className="flex justify-between"><span className="text-slate-400">Monto</span><span className="font-medium">${Number(selectedLead.notes.credit_amount).toLocaleString('es-MX')}</span></div>}
+                        {selectedLead.notes?.monthly_income && <div className="flex justify-between"><span className="text-slate-400">Ingreso mensual</span><span className="font-medium">${Number(selectedLead.notes.monthly_income).toLocaleString('es-MX')}</span></div>}
+                        {selectedLead.notes?.vendedor_original_id && (
+                          <div className="flex justify-between"><span className="text-slate-400">Vendedor original</span><span className="font-medium">{team.find(t => t.id === selectedLead.notes.vendedor_original_id)?.name || 'N/A'}</span></div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-400">
+                      <DollarSign size={40} className="mx-auto mb-3 opacity-40" />
+                      <p>Sin informacion de credito</p>
+                      <p className="text-xs text-slate-500 mt-1">El lead no ha iniciado proceso de credito hipotecario</p>
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* Unified Activity Timeline */}
-              <div className="mt-4">
-                {/* Filter tabs */}
-                <div className="flex gap-1 mb-3 flex-wrap">
-                  {([['all','Todo'],['messages','Mensajes'],['activities','Actividades'],['appointments','Citas'],['notes','Notas']] as const).map(([key, label]) => (
-                    <button key={key} onClick={() => setTimelineFilter(key)}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                        timelineFilter === key ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-slate-200'
-                      }`}>{label}</button>
-                  ))}
-                </div>
-
-                <div className="bg-slate-700/50 rounded-xl max-h-[28rem] overflow-y-auto p-4">
-                  {(() => {
-                    // Build unified timeline entries
-                    const entries: Array<{type: string, timestamp: string, data: any}> = []
-
-                    // Messages from conversation_history
-                    if (selectedLead.conversation_history?.length) {
-                      selectedLead.conversation_history.forEach((msg: any) => {
-                        entries.push({
-                          type: 'message',
-                          timestamp: msg.timestamp || selectedLead.created_at,
-                          data: { role: msg.role, content: msg.content, via_bridge: msg.via_bridge, vendedor_name: msg.vendedor_name }
-                        })
-                      })
-                    }
-
-                    // Activities from leadActivities
-                    if (leadActivities?.length) {
-                      leadActivities.forEach((act: LeadActivity) => {
-                        entries.push({
-                          type: 'activity',
-                          timestamp: act.created_at,
-                          data: { activity_type: act.activity_type, notes: act.notes, team_member: act.team_member_name }
-                        })
-                      })
-                    }
-
-                    // Appointments for this lead
-                    const leadAppts = appointments.filter((a: any) => a.lead_id === selectedLead.id)
-                    leadAppts.forEach((apt: any) => {
-                      entries.push({
-                        type: 'appointment',
-                        timestamp: apt.created_at || `${apt.scheduled_date}T${apt.scheduled_time || '00:00'}`,
-                        data: { date: apt.scheduled_date, time: apt.scheduled_time, property: apt.property_name, status: apt.status }
-                      })
-                    })
-
-                    // Manual notes
-                    if (selectedLead.notes?.manual && Array.isArray(selectedLead.notes.manual)) {
-                      selectedLead.notes.manual.forEach((note: any) => {
-                        entries.push({
-                          type: 'note',
-                          timestamp: note.timestamp || note.created_at || selectedLead.created_at,
-                          data: { text: note.text || note.content, author: note.author }
-                        })
-                      })
-                    }
-
-                    // Sort DESC (newest first)
-                    entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-                    // Apply filter
-                    const filtered = entries.filter(e => {
-                      if (timelineFilter === 'all') return true
-                      if (timelineFilter === 'messages') return e.type === 'message'
-                      if (timelineFilter === 'activities') return e.type === 'activity'
-                      if (timelineFilter === 'appointments') return e.type === 'appointment'
-                      if (timelineFilter === 'notes') return e.type === 'note'
-                      return true
-                    })
-
-                    if (filtered.length === 0) {
-                      return <p className="text-slate-400 text-sm text-center py-4">Sin registros</p>
-                    }
-
-                    // Time ago helper
-                    const timeAgo = (ts: string) => {
-                      const diff = Date.now() - new Date(ts).getTime()
-                      const mins = Math.floor(diff / 60000)
-                      if (mins < 1) return 'ahora'
-                      if (mins < 60) return `hace ${mins}m`
-                      const hrs = Math.floor(mins / 60)
-                      if (hrs < 24) return `hace ${hrs}h`
-                      const days = Math.floor(hrs / 24)
-                      if (days < 30) return `hace ${days}d`
-                      return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
-                    }
-
-                    // Dot color + icon by type
-                    const dotStyle = (e: typeof entries[0]) => {
-                      if (e.type === 'message') {
-                        if (e.data.role === 'user') return 'bg-blue-500'
-                        if (e.data.role === 'vendedor') return 'bg-orange-500'
-                        return 'bg-green-500'
-                      }
-                      if (e.type === 'activity') return 'bg-purple-500'
-                      if (e.type === 'appointment') return 'bg-cyan-500'
-                      if (e.type === 'note') return 'bg-yellow-500'
-                      return 'bg-slate-500'
-                    }
-
-                    return (
-                      <div className="timeline-line space-y-3">
-                        {filtered.map((entry, i) => (
-                          <div key={i} className="flex gap-3 items-start pl-0">
-                            <div className={`timeline-dot ${dotStyle(entry)} mt-0.5`} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[11px] text-slate-400">{timeAgo(entry.timestamp)}</span>
-                                {entry.type === 'message' && (
-                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                                    entry.data.role === 'user' ? 'bg-blue-500/20 text-blue-300' :
-                                    entry.data.role === 'vendedor' ? 'bg-orange-500/20 text-orange-300' :
-                                    'bg-green-500/20 text-green-300'
-                                  }`}>
-                                    {entry.data.role === 'user' ? 'Cliente' :
-                                     entry.data.role === 'vendedor' ? (entry.data.vendedor_name || 'Vendedor') : 'SARA'}
-                                  </span>
-                                )}
-                                {entry.type === 'activity' && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">
-                                    {entry.data.activity_type === 'call' ? 'Llamada' :
-                                     entry.data.activity_type === 'visit' ? 'Visita' :
-                                     entry.data.activity_type === 'whatsapp' ? 'WhatsApp' :
-                                     entry.data.activity_type === 'email' ? 'Email' :
-                                     entry.data.activity_type === 'quote' ? 'Cotización' :
-                                     entry.data.activity_type}
-                                  </span>
-                                )}
-                                {entry.type === 'appointment' && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cita</span>
-                                )}
-                                {entry.type === 'note' && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">Nota</span>
-                                )}
-                              </div>
-
-                              {entry.type === 'message' && (
-                                <p className="text-sm text-slate-300 break-words leading-relaxed">
-                                  {entry.data.content}
-                                  {entry.data.via_bridge && <span className="text-[10px] text-slate-500 ml-1">(bridge)</span>}
-                                </p>
-                              )}
-                              {entry.type === 'activity' && (
-                                <div>
-                                  <p className="text-sm text-slate-300">{entry.data.notes || 'Sin detalle'}</p>
-                                  <p className="text-[11px] text-slate-500">Por: {entry.data.team_member}</p>
-                                </div>
-                              )}
-                              {entry.type === 'appointment' && (
-                                <p className="text-sm text-slate-300">
-                                  {entry.data.date} {entry.data.time && `a las ${entry.data.time}`}
-                                  {entry.data.property && ` - ${entry.data.property}`}
-                                  <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${
-                                    entry.data.status === 'completed' ? 'bg-green-600/30 text-green-300' :
-                                    entry.data.status === 'cancelled' ? 'bg-red-600/30 text-red-300' :
-                                    entry.data.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' :
-                                    'bg-blue-600/30 text-blue-300'
-                                  }`}>{entry.data.status}</span>
-                                </p>
-                              )}
-                              {entry.type === 'note' && (
-                                <div>
-                                  <p className="text-sm text-slate-300 break-words">{entry.data.text}</p>
-                                  {entry.data.author && <p className="text-[11px] text-slate-500">Por: {entry.data.author}</p>}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -9060,13 +9415,16 @@ function App() {
         </div>
       )}
 
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-[200] px-5 py-3 rounded-xl shadow-2xl text-sm font-medium animate-fade-in max-w-sm ${
-          toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
-        }`} onClick={() => setToast(null)}>
-          {toast.message}
-        </div>
-      )}
+      {/* Stacking toasts */}
+      <div className="fixed bottom-6 right-6 z-[200] space-y-2 pointer-events-none">
+        {toasts.map((t, i) => (
+          <div key={t.id} className={`toast-enter pointer-events-auto px-5 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-sm cursor-pointer ${
+            t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+          }`} onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ opacity: 1 - (i * 0.1) }}>
+            {t.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
