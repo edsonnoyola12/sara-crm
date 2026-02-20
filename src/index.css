@@ -532,3 +532,68 @@ body {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
+
+/* ═══ ROUND 8 STYLES ═══ */
+
+/* Scorecard card */
+.scorecard {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.scorecard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+/* Rank medals */
+.rank-medal {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e293b; }
+.rank-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #1e293b; }
+.rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: #1e293b; }
+.rank-other { background: rgba(51, 65, 85, 0.5); color: rgb(148, 163, 184); }
+
+/* AI Response intent badges */
+.intent-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Uptime grid squares */
+.uptime-square {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  transition: transform 0.15s ease;
+}
+.uptime-square:hover {
+  transform: scale(1.5);
+}
+
+/* AI log row expand */
+.ai-log-row {
+  transition: background 0.15s ease;
+}
+.ai-log-row:hover {
+  background: rgba(51, 65, 85, 0.4);
+}
+
+/* Sparkline container */
+.sparkline-container {
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+.sparkline-container:hover {
+  opacity: 1;
+}
