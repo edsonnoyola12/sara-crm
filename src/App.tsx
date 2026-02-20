@@ -1847,43 +1847,6 @@ function App() {
     'Referidos': 'bg-cyan-500'
   }
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
-      <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
-      <p className="text-lg font-semibold text-slate-300">Cargando SARA CRM...</p>
-    </div>
-  )
-
-  // Función de login
-  const handleLogin = async () => {
-    const cleanPhone = loginPhone.replace(/\D/g, '').slice(-10)
-    if (cleanPhone.length !== 10) {
-      setLoginError('Ingresa un número de 10 dígitos')
-      return
-    }
-    
-    const user = team.find((m: TeamMember) => {
-      const memberPhone = m.phone?.replace(/\D/g, '').slice(-10)
-      return memberPhone === cleanPhone
-    })
-    
-    if (user) {
-      setCurrentUser(user)
-      setLoginError('')
-      localStorage.setItem('sara_user_phone', cleanPhone)
-      // Redirigir a la sección correcta según el rol (externos no ven dashboard)
-      if (user.role === 'agencia') {
-        setView('marketing')
-      } else if (user.role === 'asesor') {
-        setView('mortgage')
-      } else {
-        setView('dashboard')
-      }
-    } else {
-      setLoginError('Número no registrado en el equipo')
-    }
-  }
-
   // Filtrar leads por usuario
   const filteredLeads = currentUser && currentUser.role !== 'admin'
     ? leads.filter(l => l.assigned_to === currentUser.id)
@@ -1993,6 +1956,43 @@ function App() {
   }, [filteredLeads, team, appointments])
 
   const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#eab308', '#6b7280']
+
+  if (loading) return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+      <p className="text-lg font-semibold text-slate-300">Cargando SARA CRM...</p>
+    </div>
+  )
+
+  // Función de login
+  const handleLogin = async () => {
+    const cleanPhone = loginPhone.replace(/\D/g, '').slice(-10)
+    if (cleanPhone.length !== 10) {
+      setLoginError('Ingresa un número de 10 dígitos')
+      return
+    }
+    
+    const user = team.find((m: TeamMember) => {
+      const memberPhone = m.phone?.replace(/\D/g, '').slice(-10)
+      return memberPhone === cleanPhone
+    })
+    
+    if (user) {
+      setCurrentUser(user)
+      setLoginError('')
+      localStorage.setItem('sara_user_phone', cleanPhone)
+      // Redirigir a la sección correcta según el rol (externos no ven dashboard)
+      if (user.role === 'agencia') {
+        setView('marketing')
+      } else if (user.role === 'asesor') {
+        setView('mortgage')
+      } else {
+        setView('dashboard')
+      }
+    } else {
+      setLoginError('Número no registrado en el equipo')
+    }
+  }
 
   // CSV export function
   const exportLeadsCSV = () => {
