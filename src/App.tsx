@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, Area, AreaChart } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical, CheckSquare, FileSpreadsheet, ChevronDown } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical, CheckSquare, FileSpreadsheet, ChevronDown, UserX } from 'lucide-react'
 
 const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: 'Entregado', sold: 'Vendido', lost: 'Perdido', fallen: 'Caído', inactive: 'Inactivo', paused: 'Pausado'
 }
 
-type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai'
+type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla'
 
 interface Lead {
   id: string
@@ -540,6 +540,14 @@ function App() {
   const [expandedAiLogId, setExpandedAiLogId] = useState<string | null>(null)
   const [teamViewMode, setTeamViewMode] = useState<'cards' | 'scorecards'>('cards')
 
+  // Round 9: Smart Alerts + SLA Panel
+  const [smartAlerts, setSmartAlerts] = useState<any>(null)
+  const [smartAlertsLoading, setSmartAlertsLoading] = useState(false)
+  const [alertTypeFilter, setAlertTypeFilter] = useState<string>('all')
+  const [slaData, setSlaData] = useState<any>(null)
+  const [slaMetrics, setSlaMetrics] = useState<any>(null)
+  const [slaLoading, setSlaLoading] = useState(false)
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
@@ -1048,13 +1056,13 @@ function App() {
     if (errorFilters.type !== 'all') params.set('type', errorFilters.type)
     if (errorFilters.resolved !== 'all') params.set('resolved', errorFilters.resolved)
     Promise.all([
-      fetch(`${API_BASE}/api/error-logs?${params}`).then(r => r.json()).catch(() => null),
-      fetch(`${API_BASE}/health`).then(r => r.json()).catch(() => null)
+      fetch(`${API_BASE}/api/error-logs?${params}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API_BASE}/health`).then(r => r.ok ? r.json() : null).catch(() => null)
     ]).then(([logs, health]) => {
       setErrorLogs(logs)
       setHealthData(health)
       setErrorLogsLoading(false)
-    })
+    }).catch(() => setErrorLogsLoading(false))
   }, [view, errorFilters])
 
   // Round 8: Fetch AI responses, health history, retry queue for SARA IA view
@@ -1076,6 +1084,30 @@ function App() {
     })
   }, [view, aiDaysFilter])
 
+  // Round 9: Fetch Smart Alerts
+  useEffect(() => {
+    if (view !== 'alertas') return
+    setSmartAlertsLoading(true)
+    fetch(`${API_BASE}/api/alerts`).then(r => r.ok ? r.json() : null).then(data => {
+      if (data) setSmartAlerts(data)
+      setSmartAlertsLoading(false)
+    }).catch(() => setSmartAlertsLoading(false))
+  }, [view])
+
+  // Round 9: Fetch SLA data
+  useEffect(() => {
+    if (view !== 'sla') return
+    setSlaLoading(true)
+    Promise.all([
+      fetch(`${API_BASE}/api/sla/pending`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API_BASE}/api/sla/metrics`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API_BASE}/api/sla/violations`).then(r => r.ok ? r.json() : null).catch(() => null)
+    ]).then(([pending, metrics, violations]) => {
+      setSlaData({ pending: pending?.pending || {}, violations: violations?.violations || [] })
+      setSlaMetrics(metrics?.metrics || null)
+      setSlaLoading(false)
+    }).catch(() => setSlaLoading(false))
+  }, [view])
 
   function generateInsights(leads: Lead[], team: TeamMember[], campaigns: Campaign[]) {
     const newInsights: Insight[] = []
@@ -2582,6 +2614,16 @@ function App() {
           {permisos.puedeVerSeccion('marketing') && (
             <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'marketing' ? 'sidebar-item-active' : 'text-slate-400'}`}>
               <Megaphone size={18} /> Marketing
+            </button>
+          )}
+          {permisos.puedeVerSeccion('sistema') && (
+            <button onClick={() => { setView('alertas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'alertas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Bell size={18} /> Alertas
+            </button>
+          )}
+          {permisos.puedeVerSeccion('sistema') && (
+            <button onClick={() => { setView('sla'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sla' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <Clock size={18} /> SLA
             </button>
           )}
 
@@ -9914,6 +9956,332 @@ function App() {
           )
         })()}
 
+        {/* ═══ ROUND 9: SMART ALERTS DASHBOARD ═══ */}
+        {view === 'alertas' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold flex items-center gap-3"><Bell size={28} /> Alertas Inteligentes</h2>
+              <button onClick={() => { setSmartAlertsLoading(true); fetch(`${API_BASE}/api/alerts/scan`).then(r => r.ok ? r.json() : Promise.reject('scan failed')).then(data => { setSmartAlerts({ success: true, ...{ generated_at: new Date().toISOString(), total_alerts: data.count || 0, by_priority: { critical: 0, high: 0, medium: 0, low: 0 }, by_type: {}, unacknowledged: data.count || 0, alerts: data.alerts || [] } }); setSmartAlertsLoading(false) }).catch(() => setSmartAlertsLoading(false)) }} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2 text-sm">
+                <RefreshCw size={16} className={smartAlertsLoading ? 'animate-spin' : ''} /> Escanear
+              </button>
+            </div>
+
+            {smartAlertsLoading && !smartAlerts ? (
+              <div className="flex items-center justify-center py-20"><RefreshCw size={32} className="animate-spin text-blue-400" /></div>
+            ) : smartAlerts ? (() => {
+              const alerts = smartAlerts.alerts || []
+              const byPriority = smartAlerts.by_priority || { critical: 0, high: 0, medium: 0, low: 0 }
+              const priorityColors: Record<string, string> = { critical: 'bg-red-500/20 text-red-400 border-red-500/30', high: 'bg-orange-500/20 text-orange-400 border-orange-500/30', medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', low: 'bg-slate-500/20 text-slate-400 border-slate-500/30' }
+              const typeLabels: Record<string, string> = { lead_going_cold: 'Lead Enfriando', lead_hot_signal: 'Senal Caliente', lead_stalled: 'Lead Estancado', lead_reactivation: 'Reactivacion', lead_birthday: 'Cumpleanos', offer_expiring: 'Oferta por Vencer', offer_no_response: 'Sin Respuesta Oferta', offer_counter: 'Contraoferta', visit_upcoming: 'Visita Proxima', visit_no_show: 'No Show', visit_followup_due: 'Seguimiento Visita', vendor_inactive: 'Vendedor Inactivo', vendor_low_conversion: 'Baja Conversion', vendor_high_load: 'Carga Alta', goal_at_risk: 'Meta en Riesgo', pipeline_drop: 'Caida Pipeline', competitor_mention: 'Competencia' }
+              const typeIcons: Record<string, any> = { lead_going_cold: TrendingDown, lead_hot_signal: Flame, lead_stalled: Clock, offer_expiring: AlertTriangle, visit_upcoming: Calendar, visit_no_show: XCircle, vendor_inactive: UserX, goal_at_risk: Target }
+              const filteredAlerts = alertTypeFilter === 'all' ? alerts : alerts.filter((a: any) => a.type === alertTypeFilter)
+              const uniqueTypes = [...new Set(alerts.map((a: any) => a.type))] as string[]
+
+              return (<>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="bg-slate-800/50 rounded-2xl p-4 text-center border border-slate-700/50">
+                    <div className="text-3xl font-bold text-white">{smartAlerts.total_alerts || 0}</div>
+                    <div className="text-xs text-slate-400 mt-1">Total Alertas</div>
+                  </div>
+                  <div className="bg-red-500/10 rounded-2xl p-4 text-center border border-red-500/20">
+                    <div className="text-3xl font-bold text-red-400">{byPriority.critical}</div>
+                    <div className="text-xs text-red-400/70 mt-1">Criticas</div>
+                  </div>
+                  <div className="bg-orange-500/10 rounded-2xl p-4 text-center border border-orange-500/20">
+                    <div className="text-3xl font-bold text-orange-400">{byPriority.high}</div>
+                    <div className="text-xs text-orange-400/70 mt-1">Alta Prioridad</div>
+                  </div>
+                  <div className="bg-yellow-500/10 rounded-2xl p-4 text-center border border-yellow-500/20">
+                    <div className="text-3xl font-bold text-yellow-400">{byPriority.medium}</div>
+                    <div className="text-xs text-yellow-400/70 mt-1">Media</div>
+                  </div>
+                  <div className="bg-slate-700/30 rounded-2xl p-4 text-center border border-slate-600/30">
+                    <div className="text-3xl font-bold text-slate-300">{byPriority.low}</div>
+                    <div className="text-xs text-slate-400 mt-1">Baja</div>
+                  </div>
+                </div>
+
+                {/* Type filter chips */}
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setAlertTypeFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${alertTypeFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                    Todas ({alerts.length})
+                  </button>
+                  {uniqueTypes.map(type => (
+                    <button key={type} onClick={() => setAlertTypeFilter(type)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${alertTypeFilter === type ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                      {typeLabels[type] || type} ({alerts.filter((a: any) => a.type === type).length})
+                    </button>
+                  ))}
+                </div>
+
+                {/* Alert Cards */}
+                <div className="space-y-3">
+                  {filteredAlerts.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500">
+                      <CheckCircle size={40} className="mx-auto mb-3 text-green-400" />
+                      <p className="text-lg font-medium">Sin alertas activas</p>
+                      <p className="text-sm mt-1">Todo esta bajo control</p>
+                    </div>
+                  ) : filteredAlerts.map((alert: any, idx: number) => {
+                    const IconComp = typeIcons[alert.type] || AlertTriangle
+                    return (
+                      <div key={alert.id || idx} className={`rounded-xl p-4 border ${priorityColors[alert.priority] || priorityColors.low} transition-all hover:scale-[1.01]`}>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5"><IconComp size={20} /></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">{alert.title}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${alert.priority === 'critical' ? 'bg-red-500/30 text-red-300' : alert.priority === 'high' ? 'bg-orange-500/30 text-orange-300' : alert.priority === 'medium' ? 'bg-yellow-500/30 text-yellow-300' : 'bg-slate-500/30 text-slate-300'}`}>
+                                {alert.priority}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-600/50 text-slate-300">{typeLabels[alert.type] || alert.type}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{alert.message}</p>
+                            <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-500">
+                              {alert.lead_name && <span>Lead: <span className="text-slate-300">{alert.lead_name}</span></span>}
+                              {alert.vendor_name && <span>Vendedor: <span className="text-slate-300">{alert.vendor_name}</span></span>}
+                              {alert.action_required && <span className="text-blue-400">{alert.action_required}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* By-Type Summary */}
+                {Object.keys(smartAlerts.by_type || {}).length > 0 && (
+                  <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                    <h3 className="text-lg font-bold mb-4">Resumen por Tipo</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {Object.entries(smartAlerts.by_type || {}).sort((a: any, b: any) => b[1] - a[1]).map(([type, count]: [string, any]) => (
+                        <div key={type} className="bg-slate-700/30 rounded-xl p-3 text-center cursor-pointer hover:bg-slate-700/50 transition-colors" onClick={() => setAlertTypeFilter(type)}>
+                          <div className="text-xl font-bold text-white">{count}</div>
+                          <div className="text-[10px] text-slate-400 mt-1">{typeLabels[type] || type}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>)
+            })() : (
+              <div className="text-center py-12 text-slate-500">
+                <AlertTriangle size={40} className="mx-auto mb-3" />
+                <p>No se pudieron cargar las alertas</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ ROUND 9: SLA PANEL ═══ */}
+        {view === 'sla' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-3xl font-bold flex items-center gap-3"><Clock size={28} /> SLA - Tiempos de Respuesta</h2>
+              <button onClick={() => { setSlaLoading(true); Promise.all([fetch(`${API_BASE}/api/sla/pending`).then(r => r.ok ? r.json() : null).catch(() => null), fetch(`${API_BASE}/api/sla/metrics`).then(r => r.ok ? r.json() : null).catch(() => null), fetch(`${API_BASE}/api/sla/violations`).then(r => r.ok ? r.json() : null).catch(() => null)]).then(([p, m, v]) => { setSlaData({ pending: p?.pending || {}, violations: v?.violations || [] }); setSlaMetrics(m?.metrics || null); setSlaLoading(false) }).catch(() => setSlaLoading(false)) }} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2 text-sm">
+                <RefreshCw size={16} className={slaLoading ? 'animate-spin' : ''} /> Actualizar
+              </button>
+            </div>
+
+            {slaLoading && !slaMetrics ? (
+              <div className="flex items-center justify-center py-20"><RefreshCw size={32} className="animate-spin text-blue-400" /></div>
+            ) : (<>
+              {/* SLA KPI Cards */}
+              {slaMetrics && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                    <div className="text-xs text-slate-400 mb-1">Cumplimiento SLA</div>
+                    <div className={`text-3xl font-bold ${(slaMetrics.slaComplianceRate || 0) >= 90 ? 'text-green-400' : (slaMetrics.slaComplianceRate || 0) >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {Math.round(slaMetrics.slaComplianceRate || 0)}%
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-1.5 mt-2">
+                      <div className={`h-1.5 rounded-full ${(slaMetrics.slaComplianceRate || 0) >= 90 ? 'bg-green-400' : (slaMetrics.slaComplianceRate || 0) >= 70 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${Math.min(100, slaMetrics.slaComplianceRate || 0)}%` }} />
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                    <div className="text-xs text-slate-400 mb-1">Tiempo Resp. Promedio</div>
+                    <div className="text-3xl font-bold text-blue-400">{Math.round(slaMetrics.avgFirstResponseMinutes || 0)}<span className="text-lg text-slate-400">min</span></div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                    <div className="text-xs text-slate-400 mb-1">Violaciones</div>
+                    <div className={`text-3xl font-bold ${(slaMetrics.violations || 0) === 0 ? 'text-green-400' : 'text-red-400'}`}>{slaMetrics.violations || 0}</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                    <div className="text-xs text-slate-400 mb-1">Leads Atendidos</div>
+                    <div className="text-3xl font-bold text-white">{slaMetrics.totalLeads || 0}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Violations by Type */}
+              {slaMetrics?.violationsByType && (
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                  <h3 className="text-lg font-bold mb-4">Violaciones por Tipo</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
+                      <div className="text-2xl font-bold text-red-400">{slaMetrics?.violationsByType?.first_response || 0}</div>
+                      <div className="text-xs text-slate-400 mt-1">Primera Respuesta</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
+                      <div className="text-2xl font-bold text-orange-400">{slaMetrics?.violationsByType?.follow_up || 0}</div>
+                      <div className="text-xs text-slate-400 mt-1">Seguimiento</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-xl p-4 text-center">
+                      <div className="text-2xl font-bold text-yellow-400">{slaMetrics?.violationsByType?.escalation || 0}</div>
+                      <div className="text-xs text-slate-400 mt-1">Escalamiento</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vendor Compliance Table */}
+              {slaMetrics?.violationsByVendor && slaMetrics.violationsByVendor.length > 0 && (
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                  <h3 className="text-lg font-bold mb-4">Cumplimiento por Vendedor</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-slate-400 text-xs border-b border-slate-700">
+                          <th className="text-left py-2 px-3">Vendedor</th>
+                          <th className="text-center py-2 px-3">Cumplimiento</th>
+                          <th className="text-center py-2 px-3">Violaciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...(slaMetrics?.violationsByVendor || [])].sort((a: any, b: any) => (a.complianceRate || 0) - (b.complianceRate || 0)).map((v: any, i: number) => (
+                          <tr key={v.vendorId || i} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                            <td className="py-2.5 px-3 font-medium">{v.vendorName}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`font-bold ${v.complianceRate >= 90 ? 'text-green-400' : v.complianceRate >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {Math.round(v.complianceRate)}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${v.violations === 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {v.violations}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Responses */}
+              {slaData?.pending && (
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    Respuestas Pendientes
+                    {((slaData.pending.warnings?.length || 0) + (slaData.pending.breaches?.length || 0) + (slaData.pending.escalations?.length || 0)) > 0 && (
+                      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{(slaData.pending.warnings?.length || 0) + (slaData.pending.breaches?.length || 0) + (slaData.pending.escalations?.length || 0)}</span>
+                    )}
+                  </h3>
+                  {(slaData.pending.total || 0) === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                      <CheckCircle size={32} className="mx-auto mb-2 text-green-400" />
+                      <p className="text-sm">Todas las respuestas al dia</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Escalations first (most urgent) */}
+                      {(slaData.pending.escalations || []).map((p: any, i: number) => (
+                        <div key={`esc-${i}`} className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm text-red-300">{p.leadName}</span>
+                              <span className="text-[10px] bg-red-500/30 text-red-300 px-1.5 py-0.5 rounded-full">ESCALADO</span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">Vendedor: {p.vendorName} — Esperando {Math.round(p.waitingMinutes)} min (limite: {p.slaLimit} min)</div>
+                          </div>
+                        </div>
+                      ))}
+                      {/* Breaches */}
+                      {(slaData.pending.breaches || []).map((p: any, i: number) => (
+                        <div key={`br-${i}`} className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
+                          <div className="w-2 h-2 rounded-full bg-orange-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm text-orange-300">{p.leadName}</span>
+                              <span className="text-[10px] bg-orange-500/30 text-orange-300 px-1.5 py-0.5 rounded-full">VIOLACION</span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">Vendedor: {p.vendorName} — {Math.round(p.waitingMinutes)} min ({Math.round(p.percentUsed)}% del SLA)</div>
+                          </div>
+                        </div>
+                      ))}
+                      {/* Warnings */}
+                      {(slaData.pending.warnings || []).map((p: any, i: number) => (
+                        <div key={`warn-${i}`} className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm text-yellow-300">{p.leadName}</span>
+                              <span className="text-[10px] bg-yellow-500/30 text-yellow-300 px-1.5 py-0.5 rounded-full">ADVERTENCIA</span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">Vendedor: {p.vendorName} — {Math.round(p.waitingMinutes)} min ({Math.round(p.percentUsed)}% del SLA)</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Recent Violations */}
+              {slaData?.violations && slaData.violations.length > 0 && (
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                  <h3 className="text-lg font-bold mb-4">Violaciones Recientes</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-slate-400 text-xs border-b border-slate-700">
+                          <th className="text-left py-2 px-3">Lead</th>
+                          <th className="text-left py-2 px-3">Vendedor</th>
+                          <th className="text-center py-2 px-3">Tipo</th>
+                          <th className="text-center py-2 px-3">Tiempo Real</th>
+                          <th className="text-center py-2 px-3">Limite</th>
+                          <th className="text-center py-2 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {slaData.violations.slice(0, 20).map((v: any, i: number) => (
+                          <tr key={v.id || i} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                            <td className="py-2.5 px-3 font-medium">{v.leadName}</td>
+                            <td className="py-2.5 px-3 text-slate-400">{v.vendorName}</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-600/50 text-slate-300">
+                                {v.violationType === 'first_response' ? '1ra Resp.' : v.violationType === 'follow_up' ? 'Follow-up' : 'Escalado'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-red-400 font-mono">{Math.round(v.actualMinutes)} min</td>
+                            <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{v.expectedMinutes} min</td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${v.status === 'resolved' ? 'bg-green-500/20 text-green-400' : v.status === 'escalated' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                {v.status === 'resolved' ? 'Resuelto' : v.status === 'escalated' ? 'Escalado' : 'Abierto'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state when no metrics yet */}
+              {!slaMetrics && !slaData && (
+                <div className="text-center py-12 text-slate-500">
+                  <Clock size={40} className="mx-auto mb-3" />
+                  <p className="text-lg font-medium">Sin datos de SLA</p>
+                  <p className="text-sm mt-1">Los datos se generan conforme se procesan mensajes</p>
+                </div>
+              )}
+            </>)}
+          </div>
+        )}
+
         {view === 'config' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Configuración</h2>
@@ -13009,7 +13377,10 @@ function MessageMetricsView() {
         fetch(`${API_BASE}/api/message-metrics?days=${diasFiltro}`),
         fetch(`${API_BASE}/api/tts-metrics?days=${diasFiltro}`)
       ])
-      const [msgData, ttsData] = await Promise.all([msgRes.json(), ttsRes.json()])
+      const [msgData, ttsData] = await Promise.all([
+        msgRes.ok ? msgRes.json() : null,
+        ttsRes.ok ? ttsRes.json() : null
+      ])
       setMessageMetrics(msgData)
       setTtsMetrics(ttsData)
     } catch (err) {
@@ -13473,9 +13844,9 @@ function ReportesCEOView() {
     setLoading(true)
     try {
       const [diario, semanal, mensual] = await Promise.all([
-        fetch(`${API_BASE}/api/reportes/diario`).then(r => r.json()),
-        fetch(`${API_BASE}/api/reportes/semanal`).then(r => r.json()),
-        fetch(`${API_BASE}/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.json())
+        fetch(`${API_BASE}/api/reportes/diario`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/reportes/semanal`).then(r => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/reportes/mensual?mes=${mesSeleccionado}&ano=${añoSeleccionado}`).then(r => r.ok ? r.json() : null)
       ])
       setReporteDiario(diario)
       setReporteSemanal(semanal)
