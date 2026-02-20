@@ -9118,9 +9118,9 @@ function App() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { label: 'Status', value: healthData.allPassed ? 'Saludable' : 'Con problemas', color: healthData.allPassed ? 'text-green-400' : 'text-red-400' },
-                    { label: 'Supabase', value: healthData.supabase?.ok ? `OK (${healthData.supabase.leads} leads)` : 'Error', color: healthData.supabase?.ok ? 'text-green-400' : 'text-red-400' },
-                    { label: 'Meta API', value: healthData.meta?.ok || healthData.meta?.configured ? 'OK' : 'Error', color: (healthData.meta?.ok || healthData.meta?.configured) ? 'text-green-400' : 'text-red-400' },
-                    { label: 'Team', value: `${healthData.team?.active || healthData.teamMembers || 0} activos`, color: 'text-blue-400' }
+                    { label: 'Supabase', value: (() => { const c = healthData.checks?.find((x: any) => x.name === 'supabase_connectivity'); return c?.passed ? `OK (${c.details})` : 'Error'; })(), color: healthData.checks?.find((x: any) => x.name === 'supabase_connectivity')?.passed ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Meta API', value: (() => { const c = healthData.checks?.find((x: any) => x.name === 'meta_whatsapp_api'); return c?.passed ? `OK (${c.latency_ms}ms)` : 'Error'; })(), color: healthData.checks?.find((x: any) => x.name === 'meta_whatsapp_api')?.passed ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Team', value: (() => { const c = healthData.checks?.find((x: any) => x.name === 'team_members'); const m = c?.details?.match(/(\d+)/); return `${m?.[1] || 0} activos`; })(), color: 'text-blue-400' }
                   ].map((item, i) => (
                     <div key={i} className="bg-slate-700/50 rounded-xl p-3">
                       <p className="text-xs text-slate-400 mb-1">{item.label}</p>
