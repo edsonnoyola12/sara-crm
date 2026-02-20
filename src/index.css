@@ -192,3 +192,15 @@ body {
 .online-indicator {
   animation: onlinePulse 2s ease-in-out infinite;
 }
+
+/* Loading skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(51,65,85,0.3) 25%, rgba(71,85,105,0.5) 50%, rgba(51,65,85,0.3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}

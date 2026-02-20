@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search } from 'lucide-react'
 
 const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
@@ -424,6 +424,16 @@ function App() {
   const [showAllAppointments, setShowAllAppointments] = useState(false) // Toggle: ver todas las citas vs solo las mías
   const [showNewEvent, setShowNewEvent] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
+
+  // Global Search (Cmd+K)
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Visual Calendar
+  const [calendarViewMode, setCalendarViewMode] = useState<'list' | 'month'>('month')
+  const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null)
 
   // Promociónes y Eventos
   const [promotions, setPromotions] = useState<Promotion[]>([])
@@ -849,6 +859,30 @@ function App() {
   useEffect(() => {
     loadAnnualGoal(selectedGoalYear)
   }, [selectedGoalYear])
+
+  // GLOBAL SEARCH — Cmd+K keyboard shortcut (must be before ALL conditional returns)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowGlobalSearch(prev => !prev)
+        setGlobalSearch('')
+      }
+      if (e.key === 'Escape' && showGlobalSearch) {
+        setShowGlobalSearch(false)
+        setGlobalSearch('')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showGlobalSearch])
+
+  // Focus search input when modal opens
+  useEffect(() => {
+    if (showGlobalSearch && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [showGlobalSearch])
 
 
   function generateInsights(leads: Lead[], team: TeamMember[], campaigns: Campaign[]) {
@@ -1933,6 +1967,171 @@ function App() {
     )
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // GLOBAL SEARCH — Results computation
+  // ═══════════════════════════════════════════════════════════
+  const globalSearchResults = (() => {
+    if (!globalSearch || globalSearch.length < 2) return { leads: [], properties: [], team: [], appointments: [] }
+    const q = globalSearch.toLowerCase()
+    return {
+      leads: leads.filter(l =>
+        l.name?.toLowerCase().includes(q) ||
+        l.phone?.includes(q) ||
+        l.property_interest?.toLowerCase().includes(q)
+      ).slice(0, 5),
+      properties: properties.filter(p =>
+        p.name?.toLowerCase().includes(q) ||
+        (p as any).development_name?.toLowerCase().includes(q) ||
+        (p as any).development?.toLowerCase().includes(q) ||
+        p.city?.toLowerCase().includes(q)
+      ).slice(0, 5),
+      team: team.filter(t =>
+        t.name?.toLowerCase().includes(q) ||
+        t.phone?.includes(q)
+      ).slice(0, 5),
+      appointments: filteredAppointments.filter(a =>
+        a.lead_name?.toLowerCase().includes(q) ||
+        a.property_name?.toLowerCase().includes(q)
+      ).slice(0, 5)
+    }
+  })()
+  const hasSearchResults = globalSearchResults.leads.length + globalSearchResults.properties.length + globalSearchResults.team.length + globalSearchResults.appointments.length > 0
+
+  // ═══════════════════════════════════════════════════════════
+  // SKELETON COMPONENTS
+  // ═══════════════════════════════════════════════════════════
+  const SkeletonBlock = ({ h = '1rem', w = '100%' }: { h?: string; w?: string }) => (
+    <div className="skeleton" style={{ height: h, width: w }} />
+  )
+
+  const SkeletonDashboard = () => (
+    <div className="space-y-6 animate-fade-in-up">
+      <SkeletonBlock h="2rem" w="40%" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="bg-slate-800/50 rounded-xl p-4 space-y-3 border border-slate-700/50">
+            <SkeletonBlock h="0.75rem" w="60%" />
+            <SkeletonBlock h="2rem" w="40%" />
+            <SkeletonBlock h="0.5rem" w="80%" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-slate-800/50 rounded-xl p-4 space-y-3 border border-slate-700/50">
+          <SkeletonBlock h="1rem" w="30%" />
+          <SkeletonBlock h="12rem" w="100%" />
+        </div>
+        <div className="bg-slate-800/50 rounded-xl p-4 space-y-3 border border-slate-700/50">
+          <SkeletonBlock h="1rem" w="30%" />
+          {[1,2,3,4].map(i => <SkeletonBlock key={i} h="2rem" w="100%" />)}
+        </div>
+      </div>
+    </div>
+  )
+
+  const SkeletonTable = () => (
+    <div className="space-y-4 animate-fade-in-up">
+      <div className="flex justify-between">
+        <SkeletonBlock h="2rem" w="30%" />
+        <SkeletonBlock h="2rem" w="15%" />
+      </div>
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+        <div className="p-3 border-b border-slate-700/50 flex gap-4">
+          {[1,2,3,4,5].map(i => <SkeletonBlock key={i} h="0.75rem" w="15%" />)}
+        </div>
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="p-3 border-b border-slate-700/30 flex gap-4">
+            <SkeletonBlock h="0.75rem" w="20%" />
+            <SkeletonBlock h="0.75rem" w="15%" />
+            <SkeletonBlock h="0.75rem" w="10%" />
+            <SkeletonBlock h="0.75rem" w="12%" />
+            <SkeletonBlock h="0.75rem" w="18%" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const SkeletonCards = () => (
+    <div className="space-y-4 animate-fade-in-up">
+      <SkeletonBlock h="2rem" w="30%" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+            <SkeletonBlock h="8rem" w="100%" />
+            <div className="p-4 space-y-2">
+              <SkeletonBlock h="1rem" w="70%" />
+              <SkeletonBlock h="0.75rem" w="50%" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const SkeletonCalendar = () => (
+    <div className="space-y-4 animate-fade-in-up">
+      <div className="flex justify-between">
+        <SkeletonBlock h="2rem" w="30%" />
+        <SkeletonBlock h="2rem" w="20%" />
+      </div>
+      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 space-y-2">
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {[1,2,3,4,5,6,7].map(i => <SkeletonBlock key={i} h="0.75rem" />)}
+        </div>
+        {[1,2,3,4,5].map(row => (
+          <div key={row} className="grid grid-cols-7 gap-2">
+            {[1,2,3,4,5,6,7].map(col => <SkeletonBlock key={col} h="4rem" />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // ═══════════════════════════════════════════════════════════
+  // CALENDAR HELPERS — Month grid
+  // ═══════════════════════════════════════════════════════════
+  const getCalendarDays = (month: Date) => {
+    const year = month.getFullYear()
+    const m = month.getMonth()
+    const firstDay = new Date(year, m, 1)
+    const lastDay = new Date(year, m + 1, 0)
+    // Start from Monday of the week containing the 1st
+    let startDate = new Date(firstDay)
+    const dayOfWeek = startDate.getDay()
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    startDate.setDate(startDate.getDate() - mondayOffset)
+
+    const days: { date: Date; isCurrentMonth: boolean; isToday: boolean }[] = []
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      const dStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      days.push({
+        date: d,
+        isCurrentMonth: d.getMonth() === m,
+        isToday: dStr === todayStr
+      })
+    }
+    return days
+  }
+
+  const appointmentsByDay = (() => {
+    const map = new Map<string, Appointment[]>()
+    filteredAppointments.forEach(a => {
+      if (!a.scheduled_date) return
+      const key = a.scheduled_date
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(a)
+    })
+    return map
+  })()
+
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex">
       {/* Overlay para móvil */}
@@ -2130,8 +2329,145 @@ function App() {
       </div>
 
       <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
+        {/* Search button — fixed top-right */}
+        <button
+          onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
+          className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 text-sm hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm"
+        >
+          <Search size={14} />
+          <span>Buscar...</span>
+          <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-slate-700 rounded border border-slate-600">⌘K</kbd>
+        </button>
+        {/* Mobile search button */}
+        <button
+          onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
+          className="fixed top-4 right-4 z-30 lg:hidden p-2 bg-slate-800 rounded-lg"
+        >
+          <Search size={16} className="text-slate-400" />
+        </button>
+
+        {/* ═══ GLOBAL SEARCH OVERLAY ═══ */}
+        {showGlobalSearch && (
+          <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh]" onClick={() => { setShowGlobalSearch(false); setGlobalSearch('') }}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div
+              className="relative w-full max-w-lg mx-4 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Search input */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/60">
+                <Search size={18} className="text-slate-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={globalSearch}
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  placeholder="Buscar leads, propiedades, equipo, citas..."
+                  className="flex-1 bg-transparent text-white placeholder-slate-500 outline-none text-sm"
+                />
+                <kbd className="px-1.5 py-0.5 text-[10px] text-slate-500 bg-slate-800 rounded border border-slate-700">ESC</kbd>
+              </div>
+
+              {/* Results */}
+              <div className="max-h-[50vh] overflow-y-auto">
+                {globalSearch.length < 2 && (
+                  <div className="px-4 py-8 text-center text-slate-500 text-sm">Escribe al menos 2 caracteres para buscar</div>
+                )}
+                {globalSearch.length >= 2 && !hasSearchResults && (
+                  <div className="px-4 py-8 text-center text-slate-500 text-sm">No se encontraron resultados</div>
+                )}
+                {/* Leads results */}
+                {globalSearchResults.leads.length > 0 && (
+                  <div className="p-2">
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Leads</p>
+                    {globalSearchResults.leads.map(lead => (
+                      <button
+                        key={lead.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-colors text-left"
+                        onClick={() => { setSelectedLead(lead); setShowGlobalSearch(false); setGlobalSearch('') }}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <Users size={14} className="text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{lead.name || 'Sin nombre'}</p>
+                          <p className="text-xs text-slate-400 truncate">{lead.phone} · {STATUS_LABELS[lead.status] || lead.status}</p>
+                        </div>
+                        {lead.score > 0 && <span className="text-xs text-amber-400 font-medium">{lead.score}pts</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Properties results */}
+                {globalSearchResults.properties.length > 0 && (
+                  <div className="p-2 border-t border-slate-800">
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Propiedades</p>
+                    {globalSearchResults.properties.map(prop => (
+                      <button
+                        key={prop.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-colors text-left"
+                        onClick={() => { setView('properties'); setShowGlobalSearch(false); setGlobalSearch('') }}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                          <Building size={14} className="text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{prop.name}</p>
+                          <p className="text-xs text-slate-400 truncate">{(prop as any).development_name || prop.city || ''} · ${(prop.price || 0).toLocaleString()}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Team results */}
+                {globalSearchResults.team.length > 0 && (
+                  <div className="p-2 border-t border-slate-800">
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Equipo</p>
+                    {globalSearchResults.team.map(member => (
+                      <button
+                        key={member.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-colors text-left"
+                        onClick={() => { setView('team'); setShowGlobalSearch(false); setGlobalSearch('') }}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                          <UserCheck size={14} className="text-purple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{member.name}</p>
+                          <p className="text-xs text-slate-400 truncate">{member.role} · {member.phone}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Appointment results */}
+                {globalSearchResults.appointments.length > 0 && (
+                  <div className="p-2 border-t border-slate-800">
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Citas</p>
+                    {globalSearchResults.appointments.map(apt => (
+                      <button
+                        key={apt.id}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-colors text-left"
+                        onClick={() => { setView('calendar'); setShowGlobalSearch(false); setGlobalSearch('') }}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                          <CalendarIcon size={14} className="text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">{apt.lead_name}</p>
+                          <p className="text-xs text-slate-400 truncate">{apt.scheduled_date} {apt.scheduled_time} · {apt.property_name || ''}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div key={view} className="section-enter">
-        {view === 'dashboard' && (
+        {view === 'dashboard' && (loading ? <SkeletonDashboard /> :
           <div className="space-y-4">
             {/* HEADER - Saludo y fecha */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -4710,7 +5046,7 @@ function App() {
           </div>
         )}
 
-        {view === 'leads' && (
+        {view === 'leads' && (loading ? <SkeletonTable /> :
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Leads ({filteredLeads.length})</h2>
@@ -4960,7 +5296,7 @@ function App() {
           </div>
         )}
 
-        {view === 'properties' && (
+        {view === 'properties' && (loading ? <SkeletonCards /> :
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Propiedades ({properties.length})</h2>
@@ -5037,7 +5373,7 @@ function App() {
           </div>
         )}
 
-        {view === 'team' && (
+        {view === 'team' && (loading ? <SkeletonCards /> :
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-3xl font-bold">Equipo ({team.length})</h2>
@@ -5890,7 +6226,7 @@ function App() {
           </div>
         )}
 
-        {view === 'calendar' && (
+        {view === 'calendar' && (loading ? <SkeletonCalendar /> :
           <div className="space-y-6">
             {/* Header con botones */}
             <div className="flex justify-between items-center flex-wrap gap-4">
@@ -5925,10 +6261,148 @@ function App() {
                 )}
                 <span className="px-3 py-2 bg-green-600/30 border border-green-500 rounded-xl text-sm">✅ {filteredAppointments.filter(a => a.status === 'scheduled').length} Programadas</span>
                 <span className="px-3 py-2 bg-red-600/30 border border-red-500 rounded-xl text-sm">❌ {filteredAppointments.filter(a => a.status === 'cancelled').length} Canceladas</span>
+                {/* Toggle Lista / Mes */}
+                <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+                  <button
+                    onClick={() => setCalendarViewMode('month')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${calendarViewMode === 'month' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Mes
+                  </button>
+                  <button
+                    onClick={() => setCalendarViewMode('list')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${calendarViewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Lista
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Lista de citas programadas */}
+            {/* ═══ MONTH GRID VIEW ═══ */}
+            {calendarViewMode === 'month' && (
+              <div className="space-y-4">
+                {/* Month navigation */}
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => setCalendarMonth(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d })}
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <ChevronLeft size={20} className="text-slate-400" />
+                  </button>
+                  <h3 className="text-lg font-semibold min-w-[200px] text-center">
+                    {monthNames[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+                  </h3>
+                  <button
+                    onClick={() => setCalendarMonth(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d })}
+                    className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                  >
+                    <ChevronRight size={20} className="text-slate-400" />
+                  </button>
+                </div>
+
+                {/* Day headers */}
+                <div className="grid grid-cols-7 gap-1">
+                  {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+                    <div key={d} className="text-center text-xs font-medium text-slate-500 py-2">{d}</div>
+                  ))}
+                </div>
+
+                {/* Day cells */}
+                <div className="grid grid-cols-7 gap-1">
+                  {getCalendarDays(calendarMonth).map((day, idx) => {
+                    const dateStr = `${day.date.getFullYear()}-${String(day.date.getMonth()+1).padStart(2,'0')}-${String(day.date.getDate()).padStart(2,'0')}`
+                    const dayAppts = appointmentsByDay.get(dateStr) || []
+                    const scheduledAppts = dayAppts.filter(a => a.status === 'scheduled')
+                    const isSelected = selectedCalendarDay === dateStr
+                    const isPast = day.date < new Date(new Date().setHours(0,0,0,0)) && !day.isToday
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedCalendarDay(isSelected ? null : dateStr)}
+                        className={`min-h-[5rem] p-1.5 rounded-lg border text-left transition-all ${
+                          !day.isCurrentMonth ? 'opacity-20 border-transparent' :
+                          isSelected ? 'border-blue-500 bg-blue-500/10' :
+                          day.isToday ? 'border-blue-500/50 bg-blue-500/5 ring-1 ring-blue-500/30' :
+                          isPast ? 'opacity-40 border-slate-800 hover:border-slate-700' :
+                          'border-slate-800 hover:border-slate-700 hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <span className={`text-xs font-medium ${
+                          day.isToday ? 'text-blue-400' :
+                          !day.isCurrentMonth ? 'text-slate-600' :
+                          'text-slate-300'
+                        }`}>
+                          {day.date.getDate()}
+                        </span>
+                        <div className="mt-1 space-y-0.5">
+                          {scheduledAppts.slice(0, 2).map((a, i) => (
+                            <div key={i} className="flex items-center gap-1 text-[10px] leading-tight">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                              <span className="text-slate-300 truncate">{a.scheduled_time?.slice(0,5)} {(a.property_name || a.lead_name || '').slice(0, 10)}</span>
+                            </div>
+                          ))}
+                          {scheduledAppts.length > 2 && (
+                            <p className="text-[10px] text-blue-400 font-medium">+{scheduledAppts.length - 2} más</p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Selected day detail panel */}
+                {selectedCalendarDay && (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">
+                        {(() => {
+                          const [y,m,d] = selectedCalendarDay.split('-').map(Number)
+                          return new Date(y, m-1, d).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
+                        })()}
+                      </h3>
+                      <button onClick={() => setSelectedCalendarDay(null)} className="text-slate-400 hover:text-white">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    {(appointmentsByDay.get(selectedCalendarDay) || []).filter(a => a.status === 'scheduled').length === 0 ? (
+                      <div className="text-center py-6 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                        <p className="text-slate-500 text-sm">No hay citas programadas este día</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3">
+                        {(appointmentsByDay.get(selectedCalendarDay) || []).filter(a => a.status === 'scheduled').map(appt => {
+                          const vendedorNombre = appt.vendedor_name || team.find(t => t.id === appt.vendedor_id)?.name || 'Sin asignar'
+                          return (
+                            <div key={appt.id} className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="text-2xl">🏠</div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold truncate">{appt.property_name || 'Visita'}</p>
+                                  <p className="text-sm text-slate-400">👤 {appt.lead_name || appt.lead_phone} · 🕐 {appt.scheduled_time?.slice(0,5)} · 🏢 {vendedorNombre}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => setEditingAppointment({...appt, mode: 'edit', notificar: true})}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-medium"
+                                >
+                                  ✏️
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ LIST VIEW ═══ */}
+            {calendarViewMode === 'list' && (
             <div className="grid grid-cols-1 gap-4">
               {filteredAppointments.filter(a => a.status === 'scheduled').map((appt) => {
                 const fecha = (appt.scheduled_date && appt.scheduled_time) ? new Date(appt.scheduled_date + 'T' + appt.scheduled_time) : null
@@ -6034,6 +6508,7 @@ function App() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Citas Canceladas */}
             {filteredAppointments.filter(a => a.status === 'cancelled').length > 0 && (
