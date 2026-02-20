@@ -339,3 +339,119 @@ body {
 .kanban-card-landed {
   animation: cardLand 0.2s ease-out;
 }
+
+/* ═══ ROUND 6 STYLES ═══ */
+
+/* Week calendar grid */
+.week-grid {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  gap: 1px;
+  background: rgba(51, 65, 85, 0.3);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+.week-grid-header {
+  background: rgba(30, 41, 59, 0.8);
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(148, 163, 184);
+}
+.week-grid-header.today {
+  color: rgb(96, 165, 250);
+  background: rgba(59, 130, 246, 0.08);
+}
+.week-grid-time {
+  background: rgba(30, 41, 59, 0.6);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  color: rgb(100, 116, 139);
+  text-align: right;
+  border-right: 1px solid rgba(51, 65, 85, 0.5);
+}
+.week-grid-cell {
+  background: rgba(15, 23, 42, 0.4);
+  min-height: 3rem;
+  position: relative;
+  transition: background 0.15s ease;
+}
+.week-grid-cell:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+.week-appt-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.65rem;
+  cursor: pointer;
+  overflow: hidden;
+  transition: filter 0.15s ease;
+  z-index: 1;
+}
+.week-appt-block:hover {
+  filter: brightness(1.2);
+  z-index: 2;
+}
+
+/* Error severity badges */
+.severity-critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(252, 165, 165);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.severity-error {
+  background: rgba(245, 158, 11, 0.15);
+  color: rgb(252, 211, 77);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.severity-warning {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgb(147, 197, 253);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Mortgage detail timeline */
+.mortgage-timeline {
+  position: relative;
+  padding-left: 2rem;
+}
+.mortgage-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgb(51, 65, 85);
+}
+.mortgage-timeline-dot {
+  position: absolute;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgb(30, 41, 59);
+  z-index: 1;
+}
+.mortgage-timeline-dot.active {
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+/* Report tab active gradient */
+.report-tab-active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.2));
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* Health status indicator */
+@keyframes healthPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 8px currentColor; }
+}
+.health-pulse {
+  animation: healthPulse 2s ease-in-out infinite;
+}

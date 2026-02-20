@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical, CheckSquare, FileSpreadsheet, ChevronDown } from 'lucide-react'
@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: 'Entregado', sold: 'Vendido', lost: 'Perdido', fallen: 'Caído', inactive: 'Inactivo', paused: 'Pausado'
 }
 
-type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes'
+type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema'
 
 interface Lead {
   id: string
@@ -371,6 +371,7 @@ function App() {
         config: ['admin'],
         bi: ['admin', 'coordinador'], // Business Intelligence
         mensajes: ['admin', 'coordinador'], // Métricas de mensajes WhatsApp
+        sistema: ['admin'], // Error logs + health
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -432,7 +433,7 @@ function App() {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Visual Calendar
-  const [calendarViewMode, setCalendarViewMode] = useState<'list' | 'month'>('month')
+  const [calendarViewMode, setCalendarViewMode] = useState<'list' | 'month' | 'week'>('month')
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null)
 
@@ -502,6 +503,25 @@ function App() {
   const [saving, setSaving] = useState(false)
   const [leadSort, setLeadSort] = useState<{ col: string; asc: boolean }>({ col: 'created_at', asc: false })
   const [campSort, setCampSort] = useState<{ col: string; asc: boolean }>({ col: 'name', asc: true })
+
+  // Round 6: Calendar week view
+  const [calendarWeekStart, setCalendarWeekStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0,0,0,0); return d
+  })
+  const [calendarTeamFilter, setCalendarTeamFilter] = useState('')
+
+  // Round 6: Hipotecas detail modal + calculator
+  const [mortgageDetailId, setMortgageDetailId] = useState<string | null>(null)
+  const [mortgageCalc, setMortgageCalc] = useState({ precio: 2000000, enganche: 20, plazo: 20, tasa: 9.5 })
+  const [mortgageDragId, setMortgageDragId] = useState<string | null>(null)
+  const [mortgageDragOverCol, setMortgageDragOverCol] = useState<string | null>(null)
+
+  // Round 6: Error Logs (Sistema)
+  const [errorLogs, setErrorLogs] = useState<any>(null)
+  const [errorLogsLoading, setErrorLogsLoading] = useState(false)
+  const [errorFilters, setErrorFilters] = useState({ severity: 'all', type: 'all', resolved: 'all', days: 7 })
+  const [healthData, setHealthData] = useState<any>(null)
+  const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
@@ -973,6 +993,25 @@ function App() {
       setTimeout(() => searchInputRef.current?.focus(), 50)
     }
   }, [showGlobalSearch])
+
+  // Round 6: Fetch error logs + health for Sistema view
+  useEffect(() => {
+    if (view !== 'sistema') return
+    setErrorLogsLoading(true)
+    const params = new URLSearchParams()
+    if (errorFilters.days) params.set('days', String(errorFilters.days))
+    if (errorFilters.severity !== 'all') params.set('severity', errorFilters.severity)
+    if (errorFilters.type !== 'all') params.set('type', errorFilters.type)
+    if (errorFilters.resolved !== 'all') params.set('resolved', errorFilters.resolved)
+    Promise.all([
+      fetch(`${API_BASE}/api/error-logs?${params}`).then(r => r.json()).catch(() => null),
+      fetch(`${API_BASE}/health`).then(r => r.json()).catch(() => null)
+    ]).then(([logs, health]) => {
+      setErrorLogs(logs)
+      setHealthData(health)
+      setErrorLogsLoading(false)
+    })
+  }, [view, errorFilters])
 
 
   function generateInsights(leads: Lead[], team: TeamMember[], campaigns: Campaign[]) {
@@ -2513,6 +2552,11 @@ function App() {
                   {crmEvents.filter(e => e.status === 'upcoming').length}
                 </span>
               )}
+            </button>
+          )}
+          {permisos.puedeVerSeccion('sistema') && (
+            <button onClick={() => { setView('sistema'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sistema' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+              <AlertTriangle size={18} /> Sistema
             </button>
           )}
           {permisos.puedeVerSeccion('config') && (
@@ -6072,48 +6116,113 @@ function App() {
           </div>
         )}
 
-        {view === 'mortgage' && (
+        {view === 'mortgage' && (() => {
+          const filteredMortgagesForRole = currentUser?.role === 'asesor'
+            ? mortgages.filter(m => m.assigned_advisor_id === currentUser.id)
+            : mortgages
+          const approvedCount = filteredMortgagesForRole.filter(m => m.status === 'approved').length
+          const inProcessCount = filteredMortgagesForRole.filter(m => ['pending','in_review','sent_to_bank'].includes(m.status)).length
+          const completedMortgages = filteredMortgagesForRole.filter(m => ['approved','rejected'].includes(m.status) && m.created_at && m.decision_at)
+          const avgDays = completedMortgages.length > 0
+            ? Math.round(completedMortgages.reduce((s, m) => s + (new Date(m.decision_at).getTime() - new Date(m.created_at).getTime()) / (1000*60*60*24), 0) / completedMortgages.length)
+            : 0
+          const selectedMortgage = mortgageDetailId ? filteredMortgagesForRole.find(m => m.id === mortgageDetailId) : null
+          const calcMensualidad = (() => {
+            const p = mortgageCalc.precio * (1 - mortgageCalc.enganche / 100)
+            const r = mortgageCalc.tasa / 100 / 12
+            const n = mortgageCalc.plazo * 12
+            if (r === 0) return p / n
+            return p * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
+          })()
+          const calcTotal = calcMensualidad * mortgageCalc.plazo * 12
+          const calcIntereses = calcTotal - mortgageCalc.precio * (1 - mortgageCalc.enganche / 100)
+          const mortStatusTimeline = ['pending','in_review','sent_to_bank','approved']
+
+          return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-3xl font-bold">Solicitudes Hipotecarias ({mortgages.length})</h2>
+              <h2 className="text-3xl font-bold">Hipotecas ({filteredMortgagesForRole.length})</h2>
               {['admin', 'coordinador', 'asesor'].includes(currentUser?.role || '') ? (
                 <button onClick={() => setShowNewMortgage(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
                   <Plus size={20} /> Nueva Solicitud
                 </button>
               ) : (
-                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">👁️ Solo lectura</span>
+                <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
               )}
             </div>
 
+            {/* KPI Bar */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="kpi-card bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 rounded-2xl">
+                <p className="text-slate-400 text-xs mb-1">Total Solicitudes</p>
+                <p className="text-2xl font-bold">{filteredMortgagesForRole.length}</p>
+              </div>
+              <div className="kpi-card bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 rounded-2xl">
+                <p className="text-slate-400 text-xs mb-1">Aprobadas</p>
+                <p className="text-2xl font-bold text-green-400">{approvedCount}</p>
+                <p className="text-xs text-slate-500">{filteredMortgagesForRole.length > 0 ? Math.round(approvedCount/filteredMortgagesForRole.length*100) : 0}% del total</p>
+              </div>
+              <div className="kpi-card bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 rounded-2xl">
+                <p className="text-slate-400 text-xs mb-1">En Proceso</p>
+                <p className="text-2xl font-bold text-blue-400">{inProcessCount}</p>
+              </div>
+              <div className="kpi-card bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 rounded-2xl">
+                <p className="text-slate-400 text-xs mb-1">Tiempo Promedio</p>
+                <p className="text-2xl font-bold">{avgDays}d</p>
+                <p className="text-xs text-slate-500">hasta resolución</p>
+              </div>
+            </div>
+
+            {/* Kanban with drag & drop */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {mortgageStatuses.map(status => {
                 const StatusIcon = status.icon
-                // Filtrar hipotecas: asesor solo ve las suyas, admin/coordinador ven todas
-                const filteredMortgagesForRole = currentUser?.role === 'asesor'
-                  ? mortgages.filter(m => m.assigned_advisor_id === currentUser.id)
-                  : mortgages
                 const statusMortgages = filteredMortgagesForRole.filter(m => m.status === status.key)
                 return (
-                  <div key={status.key} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4">
+                  <div
+                    key={status.key}
+                    className={`bg-slate-800/50 backdrop-blur-sm border rounded-2xl p-4 transition-all ${mortgageDragOverCol === status.key ? 'kanban-column-highlight' : 'border-slate-700/50'}`}
+                    onDragOver={e => { e.preventDefault(); setMortgageDragOverCol(status.key) }}
+                    onDragLeave={() => setMortgageDragOverCol(null)}
+                    onDrop={async e => {
+                      e.preventDefault(); setMortgageDragOverCol(null)
+                      if (mortgageDragId && mortgageDragId !== status.key) {
+                        const m = mortgages.find(x => x.id === mortgageDragId)
+                        if (m && m.status !== status.key) {
+                          await updateMortgageStatus(mortgageDragId, status.key)
+                          showToast(`${m.lead_name} movido a ${status.label}`, 'success')
+                        }
+                      }
+                      setMortgageDragId(null)
+                    }}
+                  >
                     <div className="flex items-center gap-2 mb-4">
                       <StatusIcon className="text-white" size={20} />
-                      <h3 className="font-semibold">{status.label}</h3>
-                      <span className={`${status.color} text-xs px-2 py-1 rounded-full ml-auto`}>
-                        {statusMortgages.length}
-                      </span>
+                      <h3 className="font-semibold text-sm">{status.label}</h3>
+                      <span className={`${status.color} text-xs px-2 py-1 rounded-full ml-auto`}>{statusMortgages.length}</span>
                     </div>
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {statusMortgages.map(mortgage => {
                         const daysInStatus = getDaysInStatus(mortgage)
                         return (
-                          <div key={mortgage.id} onClick={() => permisos.puedeEditarHipoteca(mortgage) && setEditingMortgage(mortgage)} className={`bg-slate-700 p-3 rounded-xl relative ${permisos.puedeEditarHipoteca(mortgage) ? 'cursor-pointer hover:bg-gray-600' : 'opacity-70'}`}>
-                            {daysInStatus > 3 && !['approved', 'rejected'].includes(mortgage.status) && (
-                              <AlertTriangle className="absolute top-2 right-2 text-red-400 bg-red-500/20 p-2 rounded-xl" size={16} />
+                          <div
+                            key={mortgage.id}
+                            draggable={['admin','coordinador','asesor'].includes(currentUser?.role || '')}
+                            onDragStart={() => setMortgageDragId(mortgage.id)}
+                            onDragEnd={() => { setMortgageDragId(null); setMortgageDragOverCol(null) }}
+                            onClick={() => setMortgageDetailId(mortgage.id)}
+                            className={`kanban-card bg-slate-700 p-3 rounded-xl relative cursor-pointer ${mortgageDragId === mortgage.id ? 'dragging' : ''}`}
+                          >
+                            {daysInStatus > 3 && !['approved','rejected'].includes(mortgage.status) && (
+                              <AlertTriangle className="absolute top-2 right-2 text-red-400" size={14} />
                             )}
                             <p className="font-semibold text-sm">{mortgage.lead_name}</p>
                             <p className="text-xs text-slate-400">{mortgage.property_name}</p>
-                            <p className="text-xs text-slate-400 mt-1">${(mortgage.requested_amount || 0).toLocaleString('es-MX')}</p>
-                            <p className="text-xs text-slate-400 mt-1">{daysInStatus}d en {status.label.toLowerCase()}</p>
+                            <div className="flex justify-between items-center mt-1">
+                              <p className="text-xs text-slate-400">${(mortgage.requested_amount || 0).toLocaleString('es-MX')}</p>
+                              <p className="text-[10px] text-slate-500">{daysInStatus}d</p>
+                            </div>
+                            {mortgage.bank && <p className="text-[10px] text-blue-400 mt-1">{mortgage.bank}</p>}
                           </div>
                         )
                       })}
@@ -6122,8 +6231,130 @@ function App() {
                 )
               })}
             </div>
+
+            {/* Mortgage Detail Modal */}
+            {selectedMortgage && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setMortgageDetailId(null)}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                <div className="relative bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-xl font-bold">{selectedMortgage.lead_name}</h3>
+                      <p className="text-sm text-slate-400">{selectedMortgage.lead_phone} · {selectedMortgage.property_name}</p>
+                      <p className="text-sm text-blue-400 mt-1">${(selectedMortgage.requested_amount || 0).toLocaleString('es-MX')} · {selectedMortgage.bank || 'Sin banco'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setMortgageDetailId(null); setEditingMortgage(selectedMortgage) }} className="bg-blue-600 px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 flex items-center gap-1"><Edit size={14} /> Editar</button>
+                      <button onClick={() => setMortgageDetailId(null)} className="text-slate-400 hover:text-white p-1"><X size={20} /></button>
+                    </div>
+                  </div>
+
+                  {/* Status Timeline */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-slate-300 mb-3">Progreso</h4>
+                    <div className="flex items-center gap-1">
+                      {mortStatusTimeline.map((st, i) => {
+                        const stIdx = mortStatusTimeline.indexOf(selectedMortgage.status)
+                        const isActive = i <= stIdx || selectedMortgage.status === 'approved'
+                        const isCurrent = st === selectedMortgage.status
+                        const dateMap: Record<string, string|null> = { pending: selectedMortgage.pending_at, in_review: selectedMortgage.in_review_at, sent_to_bank: selectedMortgage.sent_to_bank_at, approved: selectedMortgage.decision_at }
+                        const statusLabel: Record<string, string> = { pending: 'Pendiente', in_review: 'Revisión', sent_to_bank: 'En Banco', approved: 'Aprobado' }
+                        return (
+                          <div key={st} className="flex-1 text-center">
+                            <div className={`mx-auto w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
+                              selectedMortgage.status === 'rejected' && i > stIdx ? 'border-red-500/30 bg-red-500/10 text-red-400' :
+                              isCurrent ? 'border-blue-500 bg-blue-500 text-white mortgage-timeline-dot active' :
+                              isActive ? 'border-green-500 bg-green-500/20 text-green-400' :
+                              'border-slate-600 bg-slate-700 text-slate-500'
+                            }`}>{i + 1}</div>
+                            <p className={`text-[10px] mt-1 ${isCurrent ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>{statusLabel[st]}</p>
+                            {dateMap[st] && <p className="text-[9px] text-slate-600">{new Date(dateMap[st]!).toLocaleDateString('es-MX', { day:'numeric', month:'short' })}</p>}
+                          </div>
+                        )
+                      })}
+                      {selectedMortgage.status === 'rejected' && (
+                        <div className="flex-1 text-center">
+                          <div className="mx-auto w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 border-red-500 bg-red-500 text-white"><XCircle size={14} /></div>
+                          <p className="text-[10px] mt-1 text-red-400 font-medium">Rechazado</p>
+                          {selectedMortgage.decision_at && <p className="text-[9px] text-slate-600">{new Date(selectedMortgage.decision_at).toLocaleDateString('es-MX', { day:'numeric', month:'short' })}</p>}
+                        </div>
+                      )}
+                    </div>
+                    {selectedMortgage.status === 'rejected' && selectedMortgage.status_notes && (
+                      <p className="text-xs text-red-400/80 mt-2 bg-red-500/10 p-2 rounded-lg">Motivo: {selectedMortgage.status_notes}</p>
+                    )}
+                  </div>
+
+                  {/* Financial Details */}
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-slate-700/50 p-3 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Ingreso Mensual</p>
+                      <p className="text-sm font-semibold">${(selectedMortgage.monthly_income || 0).toLocaleString('es-MX')}</p>
+                    </div>
+                    <div className="bg-slate-700/50 p-3 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Enganche</p>
+                      <p className="text-sm font-semibold">${(selectedMortgage.down_payment || 0).toLocaleString('es-MX')}</p>
+                    </div>
+                    <div className="bg-slate-700/50 p-3 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Plazo</p>
+                      <p className="text-sm font-semibold">{selectedMortgage.credit_term_years || 20} años</p>
+                    </div>
+                    <div className="bg-slate-700/50 p-3 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">Pago Estimado</p>
+                      <p className="text-sm font-semibold text-green-400">${(selectedMortgage.estimated_monthly_payment || 0).toLocaleString('es-MX')}/mes</p>
+                    </div>
+                  </div>
+
+                  {/* Financing Calculator */}
+                  <div className="bg-slate-700/30 border border-slate-600/50 p-4 rounded-xl mb-6">
+                    <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2"><DollarSign size={14} /> Calculadora</h4>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-[10px] text-slate-400 uppercase">Precio</label>
+                        <input type="number" value={mortgageCalc.precio} onChange={e => setMortgageCalc(p => ({...p, precio: +e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 uppercase">Enganche %</label>
+                        <input type="number" value={mortgageCalc.enganche} onChange={e => setMortgageCalc(p => ({...p, enganche: +e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm" min={0} max={100} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 uppercase">Plazo (años)</label>
+                        <input type="number" value={mortgageCalc.plazo} onChange={e => setMortgageCalc(p => ({...p, plazo: +e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm" min={1} max={30} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 uppercase">Tasa Anual %</label>
+                        <input type="number" value={mortgageCalc.tasa} onChange={e => setMortgageCalc(p => ({...p, tasa: +e.target.value}))} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm" step={0.1} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-800 p-2 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-400">Mensualidad</p>
+                        <p className="text-sm font-bold text-green-400">${Math.round(calcMensualidad).toLocaleString('es-MX')}</p>
+                      </div>
+                      <div className="bg-slate-800 p-2 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-400">Total a Pagar</p>
+                        <p className="text-sm font-bold">${Math.round(calcTotal).toLocaleString('es-MX')}</p>
+                      </div>
+                      <div className="bg-slate-800 p-2 rounded-lg text-center">
+                        <p className="text-[9px] text-slate-400">Intereses</p>
+                        <p className="text-sm font-bold text-red-400">${Math.round(calcIntereses).toLocaleString('es-MX')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Advisor Info */}
+                  {selectedMortgage.assigned_advisor_name && (
+                    <div className="bg-slate-700/30 p-3 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Asesor Asignado</p>
+                      <p className="text-sm font-semibold">{selectedMortgage.assigned_advisor_name}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          )
+        })()}
 
         {view === 'marketing' && (
           <div className="space-y-6">
@@ -6797,13 +7028,19 @@ function App() {
                 )}
                 <span className="px-3 py-2 bg-green-600/30 border border-green-500 rounded-xl text-sm">✅ {filteredAppointments.filter(a => a.status === 'scheduled').length} Programadas</span>
                 <span className="px-3 py-2 bg-red-600/30 border border-red-500 rounded-xl text-sm">❌ {filteredAppointments.filter(a => a.status === 'cancelled').length} Canceladas</span>
-                {/* Toggle Lista / Mes */}
+                {/* Toggle Mes / Semana / Lista */}
                 <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
                   <button
                     onClick={() => setCalendarViewMode('month')}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${calendarViewMode === 'month' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
                   >
                     Mes
+                  </button>
+                  <button
+                    onClick={() => setCalendarViewMode('week')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${calendarViewMode === 'week' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Semana
                   </button>
                   <button
                     onClick={() => setCalendarViewMode('list')}
@@ -6936,6 +7173,95 @@ function App() {
                 )}
               </div>
             )}
+
+            {/* ═══ WEEK VIEW ═══ */}
+            {calendarViewMode === 'week' && (() => {
+              const weekDays: Date[] = []
+              for (let i = 0; i < 7; i++) { const d = new Date(calendarWeekStart); d.setDate(d.getDate() + i); weekDays.push(d) }
+              const weekEnd = new Date(calendarWeekStart); weekEnd.setDate(weekEnd.getDate() + 6)
+              const fmtRange = `${calendarWeekStart.getDate()} - ${weekEnd.getDate()} ${monthNames[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`
+              const hours = Array.from({ length: 13 }, (_, i) => i + 8) // 8:00 - 20:00
+              const todayStr = new Date().toISOString().split('T')[0]
+              const weekAppts = filteredAppointments.filter(a => {
+                if (a.status !== 'scheduled') return false
+                if (calendarTeamFilter && a.vendedor_id !== calendarTeamFilter) return false
+                return true
+              })
+              const typeColors: Record<string, string> = { visit: 'bg-blue-500/80', mortgage_consultation: 'bg-purple-500/80', follow_up: 'bg-green-500/80' }
+
+              return (
+              <div className="space-y-4">
+                {/* Week navigation + team filter */}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setCalendarWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() - 7); return d })} className="p-2 hover:bg-slate-800 rounded-lg"><ChevronLeft size={20} className="text-slate-400" /></button>
+                    <h3 className="text-lg font-semibold min-w-[240px] text-center">{fmtRange}</h3>
+                    <button onClick={() => setCalendarWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() + 7); return d })} className="p-2 hover:bg-slate-800 rounded-lg"><ChevronRight size={20} className="text-slate-400" /></button>
+                    <button onClick={() => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0,0,0,0); setCalendarWeekStart(d) }} className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30">Hoy</button>
+                  </div>
+                  {['admin','coordinador'].includes(currentUser?.role || '') && (
+                    <select value={calendarTeamFilter} onChange={e => setCalendarTeamFilter(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm">
+                      <option value="">Todos</option>
+                      {team.filter(t => t.active && ['vendedor','coordinador'].includes(t.role)).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  )}
+                </div>
+
+                {/* Week grid */}
+                <div className="week-grid">
+                  {/* Header row */}
+                  <div className="week-grid-header" />
+                  {weekDays.map(d => {
+                    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                    return (
+                      <div key={ds} className={`week-grid-header ${ds === todayStr ? 'today' : ''}`}>
+                        <div className="text-[10px]">{['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][((d.getDay() + 6) % 7)]}</div>
+                        <div className={`text-lg font-bold ${ds === todayStr ? 'text-blue-400' : ''}`}>{d.getDate()}</div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Time rows */}
+                  {hours.map(hour => (
+                    <Fragment key={hour}>
+                      <div className="week-grid-time">{hour}:00</div>
+                      {weekDays.map(d => {
+                        const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                        const cellAppts = weekAppts.filter(a => {
+                          if (a.scheduled_date !== ds) return false
+                          const h = parseInt(a.scheduled_time?.slice(0,2) || '0')
+                          return h === hour
+                        })
+                        return (
+                          <div key={`${ds}-${hour}`} className="week-grid-cell">
+                            {cellAppts.map(a => (
+                              <div
+                                key={a.id}
+                                onClick={() => setEditingAppointment({...a, mode: 'edit', notificar: true})}
+                                className={`week-appt-block ${typeColors[a.appointment_type || 'visit'] || 'bg-blue-500/80'}`}
+                                style={{ top: '2px', height: 'calc(100% - 4px)' }}
+                                title={`${a.scheduled_time?.slice(0,5)} - ${a.lead_name || ''} - ${a.property_name || ''}`}
+                              >
+                                <span className="font-medium text-white">{a.scheduled_time?.slice(0,5)}</span>
+                                <span className="text-white/80 ml-1 truncate">{(a.lead_name || '').split(' ')[0]}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </Fragment>
+                  ))}
+                </div>
+
+                {/* Color legend */}
+                <div className="flex gap-4 text-xs text-slate-400">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500/80" /> Visita</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-500/80" /> Crédito</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/80" /> Seguimiento</span>
+                </div>
+              </div>
+              )
+            })()}
 
             {/* ═══ LIST VIEW ═══ */}
             {calendarViewMode === 'list' && (
@@ -8759,6 +9085,198 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* ═══ SISTEMA (Error Logs + Health) — Admin Only ═══ */}
+        {view === 'sistema' && (() => {
+          const stats = errorLogs?.stats || { total: 0, critical: 0, unresolved: 0, by_type: {} }
+          const errors = errorLogs?.errors || []
+          const resolveError = async (id: string) => {
+            try {
+              await fetch(`${API_BASE}/api/error-logs/${id}/resolve`, { method: 'POST' })
+              showToast('Error marcado como resuelto', 'success')
+              setErrorFilters({ ...errorFilters })
+            } catch { showToast('Error al resolver', 'error') }
+          }
+          const refreshData = () => setErrorFilters({ ...errorFilters })
+
+          return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold flex items-center gap-3"><AlertTriangle className="text-amber-400" size={28} /> Sistema</h2>
+              <button onClick={refreshData} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm transition-all">
+                <RefreshCw size={16} className={errorLogsLoading ? 'animate-spin' : ''} /> Actualizar
+              </button>
+            </div>
+
+            {/* Health Status */}
+            <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${healthData?.status === 'healthy' || healthData?.allPassed ? 'bg-green-500 health-pulse' : 'bg-red-500 health-pulse'}`} />
+                Estado del Sistema
+              </h3>
+              {healthData ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Status', value: healthData.allPassed ? 'Saludable' : 'Con problemas', color: healthData.allPassed ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Supabase', value: healthData.supabase?.ok ? `OK (${healthData.supabase.leads} leads)` : 'Error', color: healthData.supabase?.ok ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Meta API', value: healthData.meta?.ok || healthData.meta?.configured ? 'OK' : 'Error', color: (healthData.meta?.ok || healthData.meta?.configured) ? 'text-green-400' : 'text-red-400' },
+                    { label: 'Team', value: `${healthData.team?.active || healthData.teamMembers || 0} activos`, color: 'text-blue-400' }
+                  ].map((item, i) => (
+                    <div key={i} className="bg-slate-700/50 rounded-xl p-3">
+                      <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+                      <p className={`text-sm font-bold ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-slate-400"><RefreshCw size={16} className="animate-spin" /> Cargando...</div>
+              )}
+            </div>
+
+            {/* Error Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="kpi-card rounded-2xl p-4 border bg-amber-500/10 border-amber-500/30">
+                <div className="flex items-center gap-2 mb-2"><AlertTriangle size={20} className="text-amber-400" /><span className="text-xs text-slate-400">Errores ({errorFilters.days}d)</span></div>
+                <p className="text-2xl font-bold text-amber-400">{stats.total}</p>
+              </div>
+              <div className="kpi-card rounded-2xl p-4 border bg-red-500/10 border-red-500/30">
+                <div className="flex items-center gap-2 mb-2"><XCircle size={20} className="text-red-400" /><span className="text-xs text-slate-400">Criticos</span></div>
+                <p className="text-2xl font-bold text-red-400">{stats.critical}</p>
+              </div>
+              <div className="kpi-card rounded-2xl p-4 border bg-yellow-500/10 border-yellow-500/30">
+                <div className="flex items-center gap-2 mb-2"><Clock size={20} className="text-yellow-400" /><span className="text-xs text-slate-400">Sin Resolver</span></div>
+                <p className="text-2xl font-bold text-yellow-400">{stats.unresolved}</p>
+              </div>
+              <div className="kpi-card rounded-2xl p-4 border bg-blue-500/10 border-blue-500/30">
+                <div className="flex items-center gap-2 mb-2"><BarChart3 size={20} className="text-blue-400" /><span className="text-xs text-slate-400">Tipos</span></div>
+                <p className="text-2xl font-bold text-blue-400">{Object.keys(stats.by_type || {}).length}</p>
+              </div>
+            </div>
+
+            {/* Error Type Breakdown */}
+            {stats.by_type && Object.keys(stats.by_type).length > 0 && (
+              <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
+                <h3 className="text-sm font-semibold mb-3 text-slate-300">Errores por Tipo</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(stats.by_type).map(([type, count]) => (
+                    <span key={type} className="px-3 py-1 bg-slate-700/50 rounded-lg text-sm">
+                      <span className="text-slate-400">{type}:</span> <span className="text-white font-bold">{count as number}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3">
+              <select value={errorFilters.severity} onChange={e => setErrorFilters({ ...errorFilters, severity: e.target.value })}
+                className="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="all">Severidad: Todas</option>
+                <option value="critical">Critical</option>
+                <option value="error">Error</option>
+                <option value="warning">Warning</option>
+              </select>
+              <select value={errorFilters.type} onChange={e => setErrorFilters({ ...errorFilters, type: e.target.value })}
+                className="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="all">Tipo: Todos</option>
+                <option value="fetch_error">Fetch Error</option>
+                <option value="cron_error">CRON Error</option>
+                <option value="webhook_error">Webhook Error</option>
+              </select>
+              <select value={errorFilters.resolved} onChange={e => setErrorFilters({ ...errorFilters, resolved: e.target.value })}
+                className="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="all">Estado: Todos</option>
+                <option value="no">Sin Resolver</option>
+                <option value="yes">Resueltos</option>
+              </select>
+              <select value={errorFilters.days} onChange={e => setErrorFilters({ ...errorFilters, days: Number(e.target.value) })}
+                className="bg-slate-700 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value={1}>1 dia</option>
+                <option value={3}>3 dias</option>
+                <option value={7}>7 dias</option>
+                <option value={30}>30 dias</option>
+              </select>
+            </div>
+
+            {/* Error List */}
+            {errorLogsLoading ? (
+              <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
+            ) : errors.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <CheckCircle size={48} className="mx-auto mb-3 text-green-500" />
+                <p className="text-lg font-semibold">Sin errores</p>
+                <p className="text-sm">No hay errores en los ultimos {errorFilters.days} dias</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {errors.map((err: any) => {
+                  const isExpanded = expandedErrorId === err.id
+                  const severityClass = err.severity === 'critical' ? 'severity-critical' : err.severity === 'error' ? 'severity-error' : 'severity-warning'
+                  const timeAgo = (() => {
+                    const mins = Math.floor((Date.now() - new Date(err.created_at).getTime()) / 60000)
+                    if (mins < 60) return `${mins}m`
+                    const hrs = Math.floor(mins / 60)
+                    if (hrs < 24) return `${hrs}h`
+                    return `${Math.floor(hrs / 24)}d`
+                  })()
+
+                  return (
+                    <div key={err.id} className={`bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden transition-all ${err.resolved ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-700/30 transition-all" onClick={() => setExpandedErrorId(isExpanded ? null : err.id)}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${severityClass}`}>{err.severity}</span>
+                        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-300">{err.error_type}</span>
+                        <span className="flex-1 text-sm text-slate-200 truncate">{err.message?.substring(0, 100)}</span>
+                        <span className="text-xs text-slate-500 whitespace-nowrap">{timeAgo}</span>
+                        {err.resolved && <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded">Resuelto</span>}
+                        <ChevronRight size={16} className={`text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </div>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-slate-700/50 pt-3 space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div><span className="text-slate-400">Tipo:</span> <span className="text-white">{err.error_type}</span></div>
+                            <div><span className="text-slate-400">Fuente:</span> <span className="text-white">{err.source || 'N/A'}</span></div>
+                            <div><span className="text-slate-400">Fecha:</span> <span className="text-white">{new Date(err.created_at).toLocaleString('es-MX')}</span></div>
+                            <div><span className="text-slate-400">ID:</span> <span className="text-white font-mono text-xs">{err.id?.substring(0, 8)}</span></div>
+                          </div>
+
+                          {err.message && (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-1">Mensaje completo:</p>
+                              <pre className="bg-slate-900 rounded-lg p-3 text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-32">{err.message}</pre>
+                            </div>
+                          )}
+
+                          {err.stack && (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-1">Stack trace:</p>
+                              <pre className="bg-slate-900 rounded-lg p-3 text-xs text-red-300 overflow-x-auto whitespace-pre-wrap max-h-40">{err.stack}</pre>
+                            </div>
+                          )}
+
+                          {err.context && (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-1">Contexto:</p>
+                              <pre className="bg-slate-900 rounded-lg p-3 text-xs text-blue-300 overflow-x-auto whitespace-pre-wrap max-h-32">{JSON.stringify(err.context, null, 2)}</pre>
+                            </div>
+                          )}
+
+                          {!err.resolved && (
+                            <button onClick={(e) => { e.stopPropagation(); resolveError(err.id) }}
+                              className="flex items-center gap-2 bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+                              <CheckCircle size={16} /> Marcar como Resuelto
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          )
+        })()}
 
         {view === 'config' && (
           <div className="space-y-6">
@@ -12045,27 +12563,24 @@ function MessageMetricsView() {
 // REPORTES CEO VIEW - Diario, Semanal, Mensual
 // ═══════════════════════════════════════════════════════════
 function ReportesCEOView() {
-  const [activeTab, setActiveTab] = useState<'diario' | 'semanal' | 'mensual'>('mensual')
+  const [activeTab, setActiveTab] = useState<'diario' | 'semanal' | 'mensual'>('semanal')
   const [loading, setLoading] = useState(true)
   const [reporteDiario, setReporteDiario] = useState<any>(null)
   const [reporteSemanal, setReporteSemanal] = useState<any>(null)
   const [reporteMensual, setReporteMensual] = useState<any>(null)
 
-  // Selector de mes/año
   const hoy = new Date()
-  const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth() + 1) // 1-12
+  const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth() + 1)
   const [añoSeleccionado, setAñoSeleccionado] = useState(hoy.getFullYear())
 
-  // Chat IA
   const [preguntaIA, setPreguntaIA] = useState('')
   const [respuestaIA, setRespuestaIA] = useState('')
   const [loadingIA, setLoadingIA] = useState(false)
 
   const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+  const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#6366f1']
 
-  useEffect(() => {
-    loadReportes()
-  }, [mesSeleccionado, añoSeleccionado])
+  useEffect(() => { loadReportes() }, [mesSeleccionado, añoSeleccionado])
 
   async function loadReportes() {
     setLoading(true)
@@ -12078,360 +12593,359 @@ function ReportesCEOView() {
       setReporteDiario(diario)
       setReporteSemanal(semanal)
       setReporteMensual(mensual)
-    } catch (err) {
-      console.error('Error cargando reportes:', err)
-    }
+    } catch (err) { console.error('Error cargando reportes:', err) }
     setLoading(false)
   }
 
   async function preguntarIA() {
     if (!preguntaIA.trim()) return
-    setLoadingIA(true)
-    setRespuestaIA('')
+    setLoadingIA(true); setRespuestaIA('')
     try {
-      const contexto = {
-        mensual: reporteMensual,
-        semanal: reporteSemanal,
-        diario: reporteDiario
-      }
       const data = await safeFetch(`${API_BASE}/api/reportes/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pregunta: preguntaIA, contexto })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta: preguntaIA, contexto: { mensual: reporteMensual, semanal: reporteSemanal, diario: reporteDiario } })
       })
       setRespuestaIA(data.respuesta || 'No pude procesar tu pregunta.')
-    } catch (err) {
-      setRespuestaIA('Error al consultar IA.')
-    }
+    } catch { setRespuestaIA('Error al consultar IA.') }
     setLoadingIA(false)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
-      </div>
-    )
-  }
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div></div>
+
+  // Chart data transforms
+  const rankingChartData = (data: any[]) => (data || []).map(v => ({ name: (v.name || '').split(' ')[0], ventas: v.ventas || 0, citas: v.citas || 0, revenue: Math.round((v.revenue || 0) / 1000000 * 10) / 10 })).slice(0, 8)
+  const fuentesChartData = (data: any[]) => (data || []).filter(f => f.leads > 0).map(f => ({ name: f.fuente || 'Otro', value: f.leads }))
+  const desarrollosChartData = (data: any[]) => (data || []).map(d => ({ name: (d.desarrollo || '').substring(0, 12), ventas: d.ventas || 0, revenue: Math.round((d.revenue || 0) / 1000000 * 10) / 10 }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 section-enter">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-          📊 Reportes CEO
-        </h2>
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Reportes CEO</h2>
         <div className="flex items-center gap-3">
-          {/* Selector de mes/año */}
-          <select
-            value={mesSeleccionado}
-            onChange={(e) => setMesSeleccionado(Number(e.target.value))}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
-          >
-            {meses.map((m, i) => (
-              <option key={i} value={i + 1}>{m}</option>
-            ))}
+          <select value={mesSeleccionado} onChange={(e) => setMesSeleccionado(Number(e.target.value))} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+            {meses.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
-          <select
-            value={añoSeleccionado}
-            onChange={(e) => setAñoSeleccionado(Number(e.target.value))}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
-          >
-            {[2024, 2025, 2026].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+          <select value={añoSeleccionado} onChange={(e) => setAñoSeleccionado(Number(e.target.value))} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm">
+            {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button onClick={loadReportes} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-2">
-            🔄 Actualizar
-          </button>
+          <button onClick={loadReportes} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-2"><RefreshCw size={14} /> Actualizar</button>
         </div>
       </div>
 
       {/* Chat IA */}
       <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 p-4 rounded-2xl">
         <div className="flex gap-3">
-          <input
-            type="text"
-            value={preguntaIA}
-            onChange={(e) => setPreguntaIA(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && preguntarIA()}
-            placeholder="Pregunta sobre tus reportes... (ej: ¿Cuántos leads cerró Rosalía?)"
-            className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 placeholder-slate-500"
-          />
-          <button
-            onClick={preguntarIA}
-            disabled={loadingIA}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold disabled:opacity-50"
-          >
-            {loadingIA ? '🔄' : '🤖 Preguntar'}
-          </button>
+          <input type="text" value={preguntaIA} onChange={(e) => setPreguntaIA(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && preguntarIA()} placeholder="Pregunta sobre tus reportes..." className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 placeholder-slate-500 text-sm" />
+          <button onClick={preguntarIA} disabled={loadingIA} className="px-5 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold disabled:opacity-50 text-sm">{loadingIA ? '...' : 'Preguntar'}</button>
         </div>
-        {respuestaIA && (
-          <div className="mt-3 p-4 bg-slate-800/50 rounded-xl">
-            <p className="text-purple-300 whitespace-pre-wrap">{respuestaIA}</p>
-          </div>
-        )}
+        {respuestaIA && <div className="mt-3 p-4 bg-slate-800/50 rounded-xl"><p className="text-purple-300 whitespace-pre-wrap text-sm">{respuestaIA}</p></div>}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        <button onClick={() => setActiveTab('diario')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'diario' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-          📅 Diario
-        </button>
-        <button onClick={() => setActiveTab('semanal')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'semanal' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-          📈 Semanal
-        </button>
-        <button onClick={() => setActiveTab('mensual')} className={`px-6 py-3 rounded-xl font-semibold ${activeTab === 'mensual' ? 'bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-          📉 Mensual
-        </button>
+      <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700 w-fit">
+        {(['diario', 'semanal', 'mensual'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition-all ${activeTab === tab ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+            {tab === 'diario' ? 'Diario' : tab === 'semanal' ? 'Semanal' : 'Mensual'}
+          </button>
+        ))}
       </div>
 
-      {/* REPORTE DIARIO */}
+      {/* ═══ DIARIO ═══ */}
       {activeTab === 'diario' && reporteDiario && (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-amber-900/30 to-orange-900/30 border border-amber-500/30 p-6 rounded-2xl">
-            <h3 className="text-xl font-bold mb-4">☀️ Reporte del Día - {reporteDiario.fecha}</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { val: reporteDiario.hoy?.leads_nuevos || reporteDiario.ayer?.leads_nuevos || 0, label: 'Leads Nuevos', color: 'text-blue-400', sub: 'Hoy' },
+              { val: reporteDiario.hoy?.citas_agendadas || 0, label: 'Citas Hoy', color: 'text-purple-400' },
+              { val: reporteDiario.pipeline?.leads_hot || 0, label: 'Leads HOT', color: 'text-orange-400' },
+              { val: reporteDiario.pipeline?.leads_estancados || 0, label: 'Estancados', color: 'text-red-400' },
+            ].map((kpi, i) => (
+              <div key={i} className="kpi-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-2xl text-center">
+                <p className={`text-3xl font-bold ${kpi.color}`}>{kpi.val}</p>
+                <p className="text-xs text-slate-400 mt-1">{kpi.label}</p>
+              </div>
+            ))}
+          </div>
 
-            {/* KPIs principales */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-blue-400">{reporteDiario.ayer?.leads_nuevos || 0}</p>
-                <p className="text-sm text-slate-400">Leads Ayer</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-green-400">{reporteDiario.ayer?.cierres || 0}</p>
-                <p className="text-sm text-slate-400">Cierres Ayer</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-purple-400">{reporteDiario.hoy?.citas_agendadas || 0}</p>
-                <p className="text-sm text-slate-400">Citas Hoy</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-orange-400">{reporteDiario.pipeline?.leads_hot || 0}</p>
-                <p className="text-sm text-slate-400">Leads HOT 🔥</p>
+          {reporteDiario.pipeline?.leads_estancados > 0 && (
+            <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-xl flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-400" />
+              <p className="text-red-400 text-sm font-medium">{reporteDiario.pipeline.leads_estancados} leads sin contactar</p>
+            </div>
+          )}
+
+          {/* Ayer vs Hoy comparison */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+              <h4 className="text-sm font-semibold text-slate-400 mb-3">Ayer</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between"><span className="text-slate-400 text-sm">Leads</span><span className="font-bold text-blue-400">{reporteDiario.ayer?.leads_nuevos || 0}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 text-sm">Cierres</span><span className="font-bold text-green-400">{reporteDiario.ayer?.cierres || 0}</span></div>
               </div>
             </div>
-
-            {/* Alertas */}
-            {reporteDiario.pipeline?.leads_estancados > 0 && (
-              <div className="bg-red-900/30 border border-red-500/50 p-4 rounded-xl mb-4">
-                <p className="text-red-400 font-semibold">⚠️ {reporteDiario.pipeline.leads_estancados} leads sin contactar</p>
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+              <h4 className="text-sm font-semibold text-slate-400 mb-3">Hoy</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between"><span className="text-slate-400 text-sm">Leads</span><span className="font-bold text-blue-400">{reporteDiario.hoy?.leads_nuevos || 0}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400 text-sm">Citas</span><span className="font-bold text-purple-400">{reporteDiario.hoy?.citas_agendadas || 0}</span></div>
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Citas de hoy */}
-            {reporteDiario.hoy?.citas?.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-3">📅 Citas de Hoy</h4>
-                <div className="space-y-2">
-                  {reporteDiario.hoy.citas.map((cita: any, i: number) => (
-                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                      <div>
-                        <span className="font-semibold">{cita.hora?.substring(0,5)}</span>
-                        <span className="mx-2">-</span>
-                        <span>{cita.lead || 'Sin nombre'}</span>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs ${cita.status === 'scheduled' ? 'bg-green-600' : 'bg-slate-600'}`}>
-                        {cita.status === 'scheduled' ? 'Confirmada' : cita.status}
-                      </span>
+          {/* Citas de hoy - table */}
+          {reporteDiario.hoy?.citas?.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+              <h4 className="font-semibold mb-3 text-sm">Citas del Dia</h4>
+              <div className="space-y-2">
+                {reporteDiario.hoy.citas.map((cita: any, i: number) => (
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono bg-slate-700 px-2 py-1 rounded">{cita.hora?.substring(0,5)}</span>
+                      <span className="text-sm">{cita.lead || 'Sin nombre'}</span>
+                      {cita.desarrollo && <span className="text-xs text-slate-500">{cita.desarrollo}</span>}
                     </div>
-                  ))}
-                </div>
+                    <span className={`px-2 py-0.5 rounded text-xs ${cita.status === 'scheduled' ? 'bg-green-600/30 text-green-400' : 'bg-slate-600/30 text-slate-400'}`}>
+                      {cita.status === 'scheduled' ? 'Confirmada' : cita.status}
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Pipeline snapshot - horizontal bars */}
+          <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+            <h4 className="font-semibold mb-3 text-sm">Pipeline Snapshot</h4>
+            <div className="space-y-2">
+              {[
+                { label: 'Nuevos', val: reporteDiario.pipeline?.nuevos || 0, color: 'bg-blue-500' },
+                { label: 'Contactados', val: reporteDiario.pipeline?.contactados || 0, color: 'bg-purple-500' },
+                { label: 'Con cita', val: reporteDiario.pipeline?.con_cita || reporteDiario.hoy?.citas_agendadas || 0, color: 'bg-amber-500' },
+                { label: 'HOT', val: reporteDiario.pipeline?.leads_hot || 0, color: 'bg-red-500' },
+              ].map((item, i) => {
+                const maxVal = Math.max(...[reporteDiario.pipeline?.nuevos || 0, reporteDiario.pipeline?.contactados || 0, reporteDiario.pipeline?.con_cita || 0, reporteDiario.pipeline?.leads_hot || 0, 1])
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs text-slate-400 w-24">{item.label}</span>
+                    <div className="flex-1 h-5 bg-slate-700/50 rounded-full overflow-hidden">
+                      <div className={`h-full ${item.color} rounded-full funnel-bar`} style={{ width: `${(item.val / maxVal) * 100}%` }}></div>
+                    </div>
+                    <span className="text-xs font-bold w-8 text-right">{item.val}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {/* REPORTE SEMANAL */}
+      {/* ═══ SEMANAL ═══ */}
       {activeTab === 'semanal' && reporteSemanal && (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/30 p-6 rounded-2xl">
-            <h3 className="text-xl font-bold mb-4">📈 Reporte Semanal ({reporteSemanal.fecha_inicio} al {reporteSemanal.fecha_fin})</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { val: reporteSemanal.resumen?.leads_nuevos || 0, label: 'Leads', color: 'text-blue-400' },
+              { val: reporteSemanal.resumen?.citas_totales || 0, label: 'Citas', color: 'text-purple-400' },
+              { val: reporteSemanal.resumen?.cierres || 0, label: 'Cierres', color: 'text-green-400' },
+              { val: reporteSemanal.resumen?.revenue_formatted || '$0', label: 'Revenue', color: 'text-amber-400' },
+              { val: `${reporteSemanal.conversion?.lead_a_cierre || 0}%`, label: 'Conversión', color: 'text-cyan-400' },
+            ].map((kpi, i) => (
+              <div key={i} className="kpi-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-2xl text-center">
+                <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.val}</p>
+                <p className="text-xs text-slate-400 mt-1">{kpi.label}</p>
+              </div>
+            ))}
+          </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-blue-400">{reporteSemanal.resumen?.leads_nuevos || 0}</p>
-                <p className="text-sm text-slate-400">Leads</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-purple-400">{reporteSemanal.resumen?.citas_totales || 0}</p>
-                <p className="text-sm text-slate-400">Citas</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-green-400">{reporteSemanal.resumen?.cierres || 0}</p>
-                <p className="text-sm text-slate-400">Cierres</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-amber-400">{reporteSemanal.resumen?.revenue_formatted || '$0'}</p>
-                <p className="text-sm text-slate-400">Ingresos</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-cyan-400">{reporteSemanal.conversion?.lead_a_cierre || 0}%</p>
-                <p className="text-sm text-slate-400">Conversión</p>
-              </div>
+          {reporteSemanal.conversion?.insight && (
+            <div className={`p-3 rounded-xl text-sm ${reporteSemanal.conversion?.lead_a_cierre >= 5 ? 'bg-green-900/20 border border-green-500/30 text-green-300' : 'bg-yellow-900/20 border border-yellow-500/30 text-yellow-300'}`}>
+              {reporteSemanal.conversion.insight}
             </div>
+          )}
 
-            {/* Insight */}
-            <div className={`p-4 rounded-xl mb-6 ${reporteSemanal.conversion?.lead_a_cierre >= 5 ? 'bg-green-900/30 border border-green-500/30' : 'bg-yellow-900/30 border border-yellow-500/30'}`}>
-              <p>{reporteSemanal.conversion?.lead_a_cierre >= 5 ? '✅' : '⚠️'} {reporteSemanal.conversion?.insight}</p>
-            </div>
-
-            {/* Ranking Vendedores */}
-            {reporteSemanal.ranking_vendedores?.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-3">🏆 Top Vendedores</h4>
-                <div className="space-y-2">
-                  {reporteSemanal.ranking_vendedores.map((v: any, i: number) => (
-                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '👤'}</span>
-                        <span className="font-semibold">{v.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-green-400 font-bold">{v.ventas} ventas</span>
-                        <span className="text-slate-400 mx-2">|</span>
-                        <span className="text-blue-400">{v.citas} citas</span>
-                      </div>
+          {/* Conversion Funnel - visual */}
+          <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+            <h4 className="font-semibold mb-4 text-sm">Funnel de Conversión</h4>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {[
+                { label: 'Leads', val: reporteSemanal.resumen?.leads_nuevos || 0, color: 'bg-blue-500', pct: '' },
+                { label: 'Citas', val: reporteSemanal.resumen?.citas_totales || 0, color: 'bg-purple-500', pct: `${reporteSemanal.conversion?.lead_a_cita || 0}%` },
+                { label: 'Cierres', val: reporteSemanal.resumen?.cierres || 0, color: 'bg-green-500', pct: `${reporteSemanal.conversion?.cita_a_cierre || 0}%` },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  {i > 0 && <div className="flex flex-col items-center"><ArrowRight size={14} className="text-slate-500" /><span className="text-[10px] text-slate-500">{step.pct}</span></div>}
+                  <div className="text-center">
+                    <div className={`w-16 h-16 ${step.color}/20 border-2 ${step.color.replace('bg-', 'border-')} rounded-full flex items-center justify-center mx-auto mb-1`}>
+                      <span className="text-lg font-bold">{step.val}</span>
                     </div>
-                  ))}
+                    <span className="text-xs text-slate-400">{step.label}</span>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Ranking Chart */}
+            {reporteSemanal.ranking_vendedores?.length > 0 && (
+              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+                <h4 className="font-semibold mb-3 text-sm">Ranking Vendedores</h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={rankingChartData(reporteSemanal.ranking_vendedores)} layout="vertical" margin={{ left: 10, right: 10 }}>
+                    <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={70} />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }} />
+                    <Bar dataKey="ventas" fill="#10b981" radius={[0,4,4,0]} name="Ventas" />
+                    <Bar dataKey="citas" fill="#3b82f6" radius={[0,4,4,0]} name="Citas" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
 
-            {/* Fuentes */}
+            {/* Fuentes PieChart */}
             {reporteSemanal.fuentes?.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-3">📣 Fuentes de Leads</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {reporteSemanal.fuentes.map((f: any, i: number) => (
-                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg text-center">
-                      <p className="text-xl font-bold text-blue-400">{f.leads}</p>
-                      <p className="text-xs text-slate-400 truncate">{f.fuente}</p>
-                    </div>
-                  ))}
-                </div>
+              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+                <h4 className="font-semibold mb-3 text-sm">Fuentes de Leads</h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={fuentesChartData(reporteSemanal.fuentes)} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      {fuentesChartData(reporteSemanal.fuentes).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             )}
           </div>
+
+          {/* Cierres Detalle */}
+          {reporteSemanal.cierres_detalle?.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+              <h4 className="font-semibold mb-3 text-sm">Cierres de la Semana</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-slate-500 text-xs border-b border-slate-700"><th className="pb-2">Lead</th><th className="pb-2">Propiedad</th><th className="pb-2 text-right">Precio</th><th className="pb-2">Fecha</th></tr></thead>
+                  <tbody>
+                    {reporteSemanal.cierres_detalle.map((c: any, i: number) => (
+                      <tr key={i} className="border-b border-slate-700/30"><td className="py-2">{c.lead || c.nombre}</td><td className="py-2 text-slate-400">{c.propiedad || c.desarrollo}</td><td className="py-2 text-right text-green-400">${((c.precio || 0)/1000000).toFixed(1)}M</td><td className="py-2 text-slate-500">{c.fecha}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* REPORTE MENSUAL */}
+      {/* ═══ MENSUAL ═══ */}
       {activeTab === 'mensual' && reporteMensual && (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 p-6 rounded-2xl">
-            <h3 className="text-xl font-bold mb-4">📉 Reporte Mensual - {reporteMensual.mes} {reporteMensual.año}</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { val: reporteMensual.resumen?.leads_nuevos || 0, label: 'Leads', color: 'text-blue-400', growth: reporteMensual.resumen?.crecimiento_leads },
+              { val: reporteMensual.resumen?.citas_totales || 0, label: 'Citas', color: 'text-purple-400' },
+              { val: reporteMensual.resumen?.cierres || 0, label: 'Cierres', color: 'text-green-400' },
+              { val: reporteMensual.resumen?.revenue_formatted || '$0', label: 'Revenue', color: 'text-amber-400' },
+              { val: `${reporteMensual.conversion?.lead_a_cita || 0}%`, label: 'Lead→Cita', color: 'text-cyan-400' },
+              { val: `${reporteMensual.conversion?.cita_a_cierre || 0}%`, label: 'Cita→Cierre', color: 'text-emerald-400' },
+            ].map((kpi, i) => (
+              <div key={i} className="kpi-card bg-slate-800/60 border border-slate-700/50 p-3 rounded-2xl text-center">
+                <p className={`text-xl font-bold ${kpi.color}`}>{kpi.val}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{kpi.label}</p>
+                {kpi.growth != null && kpi.growth !== 0 && <p className={`text-[10px] ${kpi.growth > 0 ? 'text-green-400' : 'text-red-400'}`}>{kpi.growth > 0 ? '↑' : '↓'}{Math.abs(kpi.growth)}%</p>}
+              </div>
+            ))}
+          </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-blue-400">{reporteMensual.resumen?.leads_nuevos || 0}</p>
-                <p className="text-sm text-slate-400">Leads</p>
-                {reporteMensual.resumen?.crecimiento_leads !== 0 && (
-                  <p className={`text-xs ${reporteMensual.resumen?.crecimiento_leads > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {reporteMensual.resumen?.crecimiento_leads > 0 ? '↑' : '↓'} {Math.abs(reporteMensual.resumen?.crecimiento_leads)}% vs mes anterior
-                  </p>
-                )}
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-green-400">{reporteMensual.resumen?.cierres || 0}</p>
-                <p className="text-sm text-slate-400">Cierres</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-amber-400">{reporteMensual.resumen?.revenue_formatted || '$0'}</p>
-                <p className="text-sm text-slate-400">Ingresos</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl text-center">
-                <p className="text-3xl font-bold text-cyan-400">{reporteMensual.conversion?.lead_a_cierre || 0}%</p>
-                <p className="text-sm text-slate-400">Conversión Total</p>
-              </div>
+          {/* Funnel visual with bars */}
+          <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+            <h4 className="font-semibold mb-4 text-sm">Funnel de Conversión</h4>
+            <div className="space-y-3">
+              {[
+                { label: 'Leads', val: reporteMensual.resumen?.leads_nuevos || 0, color: 'bg-blue-500', pct: 100 },
+                { label: 'Citas', val: reporteMensual.resumen?.citas_totales || 0, color: 'bg-purple-500', pct: reporteMensual.conversion?.lead_a_cita || 0 },
+                { label: 'Cierres', val: reporteMensual.resumen?.cierres || 0, color: 'bg-green-500', pct: reporteMensual.conversion?.lead_a_cierre || 0 },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400 w-16">{step.label}</span>
+                  <div className="flex-1 h-8 bg-slate-700/30 rounded-lg overflow-hidden relative">
+                    <div className={`h-full ${step.color} rounded-lg funnel-bar flex items-center px-3`} style={{ width: `${Math.max(step.pct, 5)}%` }}>
+                      <span className="text-xs font-bold text-white drop-shadow">{step.val}</span>
+                    </div>
+                  </div>
+                  <span className="text-xs text-slate-500 w-10 text-right">{step.pct}%</span>
+                </div>
+              ))}
             </div>
+          </div>
 
-            {/* Funnel de conversión */}
-            <div className="bg-slate-800/50 p-4 rounded-xl mb-6">
-              <h4 className="font-semibold mb-3">🔄 Funnel de Conversión</h4>
-              <div className="flex items-center justify-around">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">{reporteMensual.resumen?.leads_nuevos || 0}</p>
-                  <p className="text-xs text-slate-400">Leads</p>
-                </div>
-                <span className="text-slate-400">→ {reporteMensual.conversion?.lead_a_cita || 0}%</span>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-400">{reporteMensual.resumen?.citas_totales || 0}</p>
-                  <p className="text-xs text-slate-400">Citas</p>
-                </div>
-                <span className="text-slate-400">→ {reporteMensual.conversion?.cita_a_cierre || 0}%</span>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">{reporteMensual.resumen?.cierres || 0}</p>
-                  <p className="text-xs text-slate-400">Cierres</p>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Revenue por Desarrollo - BarChart */}
+            {reporteMensual.desarrollos?.length > 0 && (
+              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+                <h4 className="font-semibold mb-3 text-sm">Revenue por Desarrollo</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={desarrollosChartData(reporteMensual.desarrollos)} margin={{ bottom: 20 }}>
+                    <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} angle={-30} textAnchor="end" />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }} formatter={(val: any) => [`$${val}M`, 'Revenue']} />
+                    <Bar dataKey="revenue" radius={[4,4,0,0]}>
+                      {desarrollosChartData(reporteMensual.desarrollos).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            </div>
+            )}
 
-            {/* Ranking Vendedores */}
-            {reporteMensual.ranking_vendedores?.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-3">🏆 Ranking de Vendedores</h4>
+            {/* Fuentes PieChart */}
+            {reporteMensual.fuentes?.length > 0 && (
+              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+                <h4 className="font-semibold mb-3 text-sm">Fuentes de Leads</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={fuentesChartData(reporteMensual.fuentes)} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={75} paddingAngle={2} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      {fuentesChartData(reporteMensual.fuentes).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Ranking Vendedores - table + chart */}
+          {reporteMensual.ranking_vendedores?.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-2xl">
+              <h4 className="font-semibold mb-3 text-sm">Ranking de Vendedores</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
-                        <th className="pb-2">#</th>
-                        <th className="pb-2">Vendedor</th>
-                        <th className="pb-2 text-right">Ventas</th>
-                        <th className="pb-2 text-right">Citas</th>
-                        <th className="pb-2 text-right">Ingresos</th>
-                      </tr>
-                    </thead>
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-slate-500 text-xs border-b border-slate-700"><th className="pb-2">#</th><th className="pb-2">Vendedor</th><th className="pb-2 text-right">Ventas</th><th className="pb-2 text-right">Citas</th><th className="pb-2 text-right">Revenue</th></tr></thead>
                     <tbody>
                       {reporteMensual.ranking_vendedores.map((v: any) => (
-                        <tr key={v.posicion} className="border-b border-slate-700/50">
-                          <td className="py-2 text-xl">{v.posicion === 1 ? '🥇' : v.posicion === 2 ? '🥈' : v.posicion === 3 ? '🥉' : v.posicion}</td>
-                          <td className="py-2 font-semibold">{v.name}</td>
-                          <td className="py-2 text-right text-green-400">{v.ventas}</td>
+                        <tr key={v.posicion} className="border-b border-slate-700/30">
+                          <td className="py-2">{v.posicion === 1 ? <span className="medal-gold">🥇</span> : v.posicion === 2 ? '🥈' : v.posicion === 3 ? '🥉' : <span className="text-slate-500">{v.posicion}</span>}</td>
+                          <td className="py-2 font-medium">{v.name}</td>
+                          <td className="py-2 text-right text-green-400 font-medium">{v.ventas}</td>
                           <td className="py-2 text-right text-blue-400">{v.citas}</td>
-                          <td className="py-2 text-right text-amber-400">${(v.revenue/1000000).toFixed(1)}M</td>
+                          <td className="py-2 text-right text-amber-400">${((v.revenue || 0)/1000000).toFixed(1)}M</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={rankingChartData(reporteMensual.ranking_vendedores)} layout="vertical" margin={{ left: 10, right: 10 }}>
+                    <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} width={60} />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }} />
+                    <Bar dataKey="ventas" fill="#10b981" radius={[0,4,4,0]} name="Ventas" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            )}
-
-            {/* Desarrollos */}
-            {reporteMensual.desarrollos?.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold mb-3">🏘️ Ventas por Desarrollo</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {reporteMensual.desarrollos.map((d: any, i: number) => (
-                    <div key={i} className="bg-slate-800/50 p-4 rounded-lg">
-                      <p className="font-semibold truncate">{d.desarrollo}</p>
-                      <p className="text-2xl font-bold text-green-400">{d.ventas}</p>
-                      <p className="text-xs text-amber-400">{d.revenue_formatted}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Fuentes */}
-            {reporteMensual.fuentes?.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-3">📣 Fuentes de Leads</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {reporteMensual.fuentes.map((f: any, i: number) => (
-                    <div key={i} className="bg-slate-800/50 p-3 rounded-lg text-center">
-                      <p className="text-xl font-bold text-blue-400">{f.leads}</p>
-                      <p className="text-xs text-slate-400 truncate">{f.fuente}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
