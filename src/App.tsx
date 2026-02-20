@@ -459,8 +459,8 @@ function App() {
   const [showBulkAssign, setShowBulkAssign] = useState(false)
   const [showBulkStatus, setShowBulkStatus] = useState(false)
 
-  // Lead Detail Tabs (Round 5)
-  const [leadDetailTab, setLeadDetailTab] = useState<'info' | 'timeline' | 'citas' | 'notas' | 'credito'>('info')
+  // Lead Detail Tabs (Round 5 + Round 7: Resumen)
+  const [leadDetailTab, setLeadDetailTab] = useState<'resumen' | 'info' | 'timeline' | 'citas' | 'notas' | 'credito'>('resumen')
 
   // Toast stack (Round 5 - replaces single toast)
   const [toasts, setToasts] = useState<{id: string, message: string, type: 'success' | 'error' | 'info'}[]>([])
@@ -522,6 +522,13 @@ function App() {
   const [errorFilters, setErrorFilters] = useState({ severity: 'all', type: 'all', resolved: 'all', days: 7 })
   const [healthData, setHealthData] = useState<any>(null)
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null)
+
+  // Round 7: Lead Detail Pro + Notification Center
+  const [expandedMsgIndex, setExpandedMsgIndex] = useState<number | null>(null)
+  const [notifDrawerOpen, setNotifDrawerOpen] = useState(false)
+  const [notifCategory, setNotifCategory] = useState<'all' | 'leads' | 'citas' | 'sistema'>('all')
+  const [notifTimeFilter, setNotifTimeFilter] = useState<'today' | '24h' | '7d' | 'all'>('all')
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type })
@@ -556,17 +563,41 @@ function App() {
       }
     })
 
-    // Appointments today
+    // Mortgage stalled (>7 days same status)
+    leads.forEach((l: any) => {
+      if (l.credit_status && l.credit_status !== 'approved' && l.credit_status !== 'rejected') {
+        const statusAge = l.status_changed_at ? (now - new Date(l.status_changed_at).getTime()) : 0
+        if (statusAge > 7 * 24 * 3600000) {
+          notifs.push({ id: `mort-${l.id}`, type: 'mortgage_stalled', title: 'Hipoteca estancada', description: `${l.name || l.phone} - ${l.credit_status}`, timestamp: l.status_changed_at || l.created_at, leadId: l.id })
+        }
+      }
+      // Score jump (>20 points, check score_history)
+      if (l.notes?.score_history?.length >= 2) {
+        const hist = l.notes.score_history
+        const prev = hist[hist.length - 2]?.score || 0
+        const curr = hist[hist.length - 1]?.score || l.score || 0
+        if (curr - prev > 20) {
+          notifs.push({ id: `score-${l.id}`, type: 'score_jump', title: `Score subio +${curr - prev}`, description: `${l.name || l.phone}: ${prev} → ${curr}`, timestamp: hist[hist.length - 1]?.fecha || l.last_message_at || l.created_at, leadId: l.id })
+        }
+      }
+    })
+
+    // Appointments today + tomorrow
     const today = new Date().toISOString().split('T')[0]
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
     appointments.forEach((a: any) => {
       if (a.scheduled_date === today && a.status !== 'cancelled') {
         const leadName = leads.find((l: any) => l.id === a.lead_id)?.name || 'Lead'
         notifs.push({ id: `apt-${a.id}`, type: 'appointment_today', title: `Cita hoy: ${leadName}`, description: `${a.scheduled_time || ''}${a.property_name ? ' - ' + a.property_name : ''}`, timestamp: a.created_at || `${a.scheduled_date}T08:00`, leadId: a.lead_id })
       }
+      if (a.scheduled_date === tomorrow && a.status !== 'cancelled') {
+        const leadName = leads.find((l: any) => l.id === a.lead_id)?.name || 'Lead'
+        notifs.push({ id: `apt-tom-${a.id}`, type: 'appointment_tomorrow', title: `Cita manana: ${leadName}`, description: `${a.scheduled_time || ''}${a.property_name ? ' - ' + a.property_name : ''}`, timestamp: a.created_at || `${a.scheduled_date}T08:00`, leadId: a.lead_id })
+      }
     })
 
     notifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    return notifs.slice(0, 20)
+    return notifs.slice(0, 30)
   }, [leads, appointments])
 
   const unreadNotifCount = notifications.filter(n => !readNotificationIds.has(n.id)).length
@@ -589,6 +620,7 @@ function App() {
         setEditingMember(null)
         setEditingMortgage(null)
         setShowNotifications(false)
+        setNotifDrawerOpen(false)
         setEditingCampaign(null)
         setEditingPromotion(null)
         setEditingCrmEvent(null)
@@ -817,7 +849,8 @@ function App() {
   // Función para seleccionar lead y cargar sus actividades
   async function selectLead(lead: Lead) {
     setSelectedLead(lead)
-    setLeadDetailTab('info')
+    setLeadDetailTab('resumen')
+    setExpandedMsgIndex(null)
     loadLeadActivities(lead.id)
   }
 
@@ -2571,7 +2604,7 @@ function App() {
         {/* Search + Notifications — fixed top-right */}
         <div className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2">
           <button
-            onClick={() => { setShowNotifications(!showNotifications) }}
+            onClick={() => setNotifDrawerOpen(true)}
             className="relative p-2 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm"
           >
             <Bell size={15} />
@@ -2593,7 +2626,7 @@ function App() {
         {/* Mobile: bell + search */}
         <div className="fixed top-4 right-4 z-30 lg:hidden flex items-center gap-2">
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => setNotifDrawerOpen(true)}
             className="relative p-2 bg-slate-800 rounded-lg"
           >
             <Bell size={16} className="text-slate-400" />
@@ -2611,64 +2644,135 @@ function App() {
           </button>
         </div>
 
-        {/* Notification Panel */}
-        {showNotifications && (
+        {/* Notification Drawer (Round 7) */}
+        {notifDrawerOpen && (
           <>
-          <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
-          <div className="fixed top-14 right-4 z-40 w-80 max-h-[28rem] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setNotifDrawerOpen(false)} />
+          <div className="notif-drawer fixed top-0 right-0 z-50 w-96 max-w-full h-full bg-slate-800 border-l border-slate-700 shadow-2xl flex flex-col"
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/60">
-              <h3 className="font-semibold text-sm">Notificaciones</h3>
-              {unreadNotifCount > 0 && (
-                <button onClick={() => { setReadNotificationIds(new Set(notifications.map(n => n.id))) }}
-                  className="text-[11px] text-blue-400 hover:text-blue-300">
-                  Marcar todo leido
-                </button>
-              )}
+            {/* Drawer header */}
+            <div className="px-5 py-4 border-b border-slate-700/60">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base">Notificaciones</h3>
+                  {unreadNotifCount > 0 && (
+                    <span className="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">{unreadNotifCount}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {unreadNotifCount > 0 && (
+                    <button onClick={() => setReadNotificationIds(new Set(notifications.map(n => n.id)))}
+                      className="text-[11px] text-blue-400 hover:text-blue-300">Marcar todo leido</button>
+                  )}
+                  <button onClick={() => setNotifDrawerOpen(false)} className="text-slate-400 hover:text-white p-1"><X size={18} /></button>
+                </div>
+              </div>
+              {/* Category tabs */}
+              <div className="flex gap-1 mb-2">
+                {([['all','Todos'],['leads','Leads'],['citas','Citas'],['sistema','Sistema']] as [typeof notifCategory, string][]).map(([key, label]) => {
+                  const catNotifs = key === 'all' ? notifications :
+                    key === 'leads' ? notifications.filter(n => ['new_lead','hot_inactive','no_followup','score_jump'].includes(n.type)) :
+                    key === 'citas' ? notifications.filter(n => ['appointment_today','appointment_tomorrow'].includes(n.type)) :
+                    notifications.filter(n => ['status_change','mortgage_stalled'].includes(n.type))
+                  const catUnread = catNotifs.filter(n => !readNotificationIds.has(n.id)).length
+                  return (
+                    <button key={key} onClick={() => setNotifCategory(key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                        notifCategory === key ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}>
+                      {label}
+                      {catUnread > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${notifCategory === key ? 'bg-blue-500' : 'bg-slate-600'}`}>{catUnread}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+              {/* Time filters */}
+              <div className="flex gap-1">
+                {([['today','Hoy'],['24h','24h'],['7d','7d'],['all','Todos']] as [typeof notifTimeFilter, string][]).map(([key, label]) => (
+                  <button key={key} onClick={() => setNotifTimeFilter(key)}
+                    className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors ${
+                      notifTimeFilter === key ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                    }`}>{label}</button>
+                ))}
+              </div>
             </div>
-            <div className="overflow-y-auto max-h-[24rem]">
-              {notifications.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-8">Sin notificaciones</p>
-              ) : notifications.map(n => {
-                const isUnread = !readNotificationIds.has(n.id)
-                const timeAgo = (() => {
-                  const diff = Date.now() - new Date(n.timestamp).getTime()
-                  const mins = Math.floor(diff / 60000)
-                  if (mins < 1) return 'ahora'
-                  if (mins < 60) return `${mins}m`
-                  const hrs = Math.floor(mins / 60)
-                  if (hrs < 24) return `${hrs}h`
-                  return `${Math.floor(hrs / 24)}d`
-                })()
-                return (
-                  <button key={n.id}
-                    onClick={() => {
-                      setReadNotificationIds(prev => new Set([...prev, n.id]))
-                      if (n.leadId) {
-                        const lead = leads.find((l: any) => l.id === n.leadId)
-                        if (lead) { setSelectedLead(lead); setShowNotifications(false) }
-                      }
-                    }}
-                    className={`w-full text-left px-4 py-3 border-b border-slate-700/40 hover:bg-slate-700/50 transition-colors ${isUnread ? 'bg-slate-700/20' : ''}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-                        n.type === 'new_lead' ? 'bg-green-400' :
-                        n.type === 'hot_inactive' ? 'bg-red-400' :
-                        n.type === 'appointment_today' ? 'bg-cyan-400' :
-                        n.type === 'no_followup' ? 'bg-yellow-400' :
-                        n.type === 'status_change' ? 'bg-blue-400' :
-                        'bg-slate-400'
-                      } ${isUnread ? '' : 'opacity-30'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate ${isUnread ? 'font-medium text-slate-200' : 'text-slate-400'}`}>{n.title}</p>
-                        {n.description && <p className="text-[11px] text-slate-500 truncate">{n.description}</p>}
-                      </div>
-                      <span className="text-[10px] text-slate-500 flex-shrink-0">{timeAgo}</span>
-                    </div>
-                  </button>
+            {/* Notification items */}
+            <div className="flex-1 overflow-y-auto">
+              {(() => {
+                const now = Date.now()
+                const catFiltered = notifCategory === 'all' ? notifications :
+                  notifCategory === 'leads' ? notifications.filter(n => ['new_lead','hot_inactive','no_followup','score_jump'].includes(n.type)) :
+                  notifCategory === 'citas' ? notifications.filter(n => ['appointment_today','appointment_tomorrow'].includes(n.type)) :
+                  notifications.filter(n => ['status_change','mortgage_stalled'].includes(n.type))
+                const timeFiltered = catFiltered.filter(n => {
+                  if (notifTimeFilter === 'all') return true
+                  const age = now - new Date(n.timestamp).getTime()
+                  if (notifTimeFilter === 'today') return age < 16 * 3600000
+                  if (notifTimeFilter === '24h') return age < 24 * 3600000
+                  return age < 7 * 24 * 3600000
+                })
+                if (timeFiltered.length === 0) return (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                    <Bell size={36} className="mb-3 opacity-30" />
+                    <p className="text-sm font-medium">Sin notificaciones</p>
+                    <p className="text-[11px] text-slate-500 mt-1">{notifTimeFilter !== 'all' ? 'Intenta con otro rango de tiempo' : notifCategory !== 'all' ? 'No hay en esta categoria' : 'Todo al dia'}</p>
+                  </div>
                 )
-              })}
+                const notifIcon = (type: string) => {
+                  if (type === 'new_lead') return '+'
+                  if (type === 'hot_inactive') return '!'
+                  if (type === 'no_followup') return '?'
+                  if (type === 'appointment_today' || type === 'appointment_tomorrow') return '📅'
+                  if (type === 'status_change') return '→'
+                  if (type === 'mortgage_stalled') return '$'
+                  if (type === 'score_jump') return '↑'
+                  return '•'
+                }
+                const notifDotColor = (type: string) => {
+                  if (type === 'new_lead') return 'bg-green-400'
+                  if (type === 'hot_inactive') return 'bg-red-400'
+                  if (type === 'no_followup') return 'bg-yellow-400'
+                  if (type === 'appointment_today') return 'bg-cyan-400'
+                  if (type === 'appointment_tomorrow') return 'bg-blue-400'
+                  if (type === 'status_change') return 'bg-purple-400'
+                  if (type === 'mortgage_stalled') return 'bg-orange-400'
+                  if (type === 'score_jump') return 'bg-emerald-400'
+                  return 'bg-slate-400'
+                }
+                return timeFiltered.map(n => {
+                  const isUnread = !readNotificationIds.has(n.id)
+                  const diff = now - new Date(n.timestamp).getTime()
+                  const mins = Math.floor(diff / 60000)
+                  const timeAgo = mins < 1 ? 'ahora' : mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`
+                  return (
+                    <div key={n.id}
+                      className={`notif-drawer-item px-5 py-3 border-b border-slate-700/30 cursor-pointer ${isUnread ? 'notif-drawer-item-unread' : ''}`}
+                      onClick={() => {
+                        setReadNotificationIds(prev => new Set([...prev, n.id]))
+                        if (n.leadId) {
+                          const lead = leads.find((l: any) => l.id === n.leadId)
+                          if (lead) { selectLead(lead); setNotifDrawerOpen(false) }
+                        }
+                      }}>
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className={`w-7 h-7 rounded-lg ${notifDotColor(n.type)} bg-opacity-20 flex items-center justify-center text-xs font-bold`}>
+                            <div className={`w-2 h-2 rounded-full ${notifDotColor(n.type)}`} />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${isUnread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>{n.title}</p>
+                          {n.description && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{n.description}</p>}
+                          <span className="text-[10px] text-slate-600 mt-0.5 block">{timeAgo}</span>
+                        </div>
+                        {n.leadId && (
+                          <span className="flex-shrink-0 text-[10px] text-blue-400 font-medium mt-1">Ver →</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           </div>
           </>
@@ -9626,7 +9730,7 @@ function App() {
               </div>
               {/* Tab bar */}
               <div className="flex gap-1">
-                {([['info','Info'],['timeline','Timeline'],['citas','Citas'],['notas','Notas'],['credito','Credito']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
+                {([['resumen','Resumen'],['info','Info'],['timeline','Timeline'],['citas','Citas'],['notas','Notas'],['credito','Credito']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
                   <button key={key} onClick={() => setLeadDetailTab(key)}
                     className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
                       leadDetailTab === key ? 'tab-indicator-active text-blue-400 bg-slate-700/50' : 'text-slate-400 hover:text-slate-200'
@@ -9637,6 +9741,149 @@ function App() {
 
             {/* Tab content */}
             <div className="flex-1 overflow-y-auto p-6">
+              {/* ===== RESUMEN TAB (Round 7) ===== */}
+              {leadDetailTab === 'resumen' && (() => {
+                const sl = selectedLead
+                const notes = sl.notes || {} as any
+                // Score factors (local computation matching backend leadScoring.ts)
+                const statusScoreMap: Record<string,number> = { new: 0, contacted: 5, qualified: 10, scheduled: 15, visit_scheduled: 15, visited: 20, negotiation: 25, negotiating: 25, reserved: 28, closed: 30, sold: 30, delivered: 30 }
+                const statusScore = statusScoreMap[sl.status] || 0
+                const interactionScore = Math.min(20, (sl.conversation_history?.length || 0) * 2)
+                const hotSignals = notes.historial_señales_calientes?.length || 0
+                const signalScore = Math.min(25, hotSignals * 5)
+                const daysSinceMsg = sl.last_message_at ? Math.floor((Date.now() - new Date(sl.last_message_at).getTime()) / 86400000) : 999
+                const recencyScore = daysSinceMsg === 0 ? 15 : daysSinceMsg <= 1 ? 12 : daysSinceMsg <= 3 ? 8 : daysSinceMsg <= 7 ? 4 : 0
+                const creditScore = sl.credit_status ? 10 : notes.monthly_income ? 5 : 0
+                const userMsgs = sl.conversation_history?.filter((m: any) => m.role === 'user')?.length || 0
+                const engagementScore = Math.min(10, userMsgs * 2)
+
+                const factors = [
+                  { label: 'Status', value: statusScore, max: 30, color: 'bg-blue-500' },
+                  { label: 'Interaccion', value: interactionScore, max: 20, color: 'bg-green-500' },
+                  { label: 'Senales', value: signalScore, max: 25, color: 'bg-orange-500' },
+                  { label: 'Recencia', value: recencyScore, max: 15, color: 'bg-cyan-500' },
+                  { label: 'Credito', value: creditScore, max: 10, color: 'bg-purple-500' },
+                  { label: 'Engagement', value: engagementScore, max: 10, color: 'bg-pink-500' },
+                ]
+                const totalScore = sl.score || factors.reduce((s, f) => s + f.value, 0)
+
+                // Score donut config
+                const scoreColor = totalScore < 30 ? '#ef4444' : totalScore < 60 ? '#eab308' : totalScore < 80 ? '#22c55e' : '#3b82f6'
+                const scoreLabel = totalScore < 30 ? 'FRIO' : totalScore < 60 ? 'TIBIO' : totalScore < 80 ? 'CALIENTE' : 'MUY CALIENTE'
+                const circumference = 2 * Math.PI * 42
+                const dashOffset = circumference - (circumference * Math.min(totalScore, 100) / 100)
+
+                // Journey stages
+                const JOURNEY = ['new','contacted','qualified','scheduled','visited','negotiation','reserved','closed','delivered']
+                const JOURNEY_LABELS = ['Nuevo','Contactado','Cita','Visita','Negociacion','Reservado','Cerrado','Entregado']
+                const currentIdx = Math.max(0, JOURNEY.indexOf(sl.status === 'visit_scheduled' ? 'scheduled' : sl.status === 'negotiating' ? 'negotiation' : sl.status === 'sold' ? 'closed' : sl.status))
+
+                // Days active
+                const daysActive = sl.created_at ? Math.max(0, Math.floor((Date.now() - new Date(sl.created_at).getTime()) / 86400000)) : 0
+                // Last contact
+                const lastContact = sl.last_message_at ? (() => { const d = Math.floor((Date.now() - new Date(sl.last_message_at).getTime()) / 86400000); return d === 0 ? 'Hoy' : d === 1 ? 'Ayer' : `Hace ${d}d` })() : 'Sin contacto'
+                // Next best action
+                const nextAction = sl.status === 'new' ? 'Contactar al lead - primer follow-up' :
+                  sl.status === 'contacted' ? 'Agendar visita a desarrollo' :
+                  sl.status === 'scheduled' || sl.status === 'visit_scheduled' ? 'Confirmar cita programada' :
+                  sl.status === 'visited' ? 'Enviar cotizacion personalizada' :
+                  sl.status === 'negotiation' || sl.status === 'negotiating' ? 'Cerrar venta - hacer seguimiento' :
+                  sl.status === 'reserved' ? 'Verificar documentacion y pagos' : 'Dar seguimiento'
+
+                return (
+                  <div className="space-y-5">
+                    {/* Top row: Donut + Factors */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* Score Donut */}
+                      <div className="bg-slate-700/40 rounded-xl p-5 flex flex-col items-center">
+                        <svg width="120" height="120" viewBox="0 0 96 96" className="mb-2">
+                          <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(51,65,85,0.5)" strokeWidth="6" />
+                          <circle cx="48" cy="48" r="42" fill="none" stroke={scoreColor} strokeWidth="6"
+                            strokeDasharray={circumference} strokeDashoffset={dashOffset}
+                            strokeLinecap="round" className="score-ring" transform="rotate(-90 48 48)" />
+                          <text x="48" y="44" textAnchor="middle" className="fill-white text-2xl font-bold" style={{fontSize:'24px'}}>{totalScore}</text>
+                          <text x="48" y="58" textAnchor="middle" className="fill-slate-400" style={{fontSize:'7px',textTransform:'uppercase',letterSpacing:'0.05em'}}>{scoreLabel}</text>
+                        </svg>
+                        <p className="text-xs text-slate-500">Score general del lead</p>
+                      </div>
+                      {/* Factor bars */}
+                      <div className="bg-slate-700/40 rounded-xl p-5">
+                        <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Factores de Score</h4>
+                        <div className="space-y-3">
+                          {factors.map(f => (
+                            <div key={f.label}>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-400">{f.label}</span>
+                                <span className="text-slate-300 font-medium">{f.value}/{f.max}</span>
+                              </div>
+                              <div className="score-factor-bar">
+                                <div className={`score-factor-fill ${f.color}`} style={{ width: `${(f.value / f.max) * 100}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Info Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {[
+                        { label: 'Dias activo', value: `${daysActive}d` },
+                        { label: 'Ultimo contacto', value: lastContact },
+                        { label: 'Desarrollo', value: sl.property_interest || notes.desarrollos_interes?.[0] || 'No definido' },
+                        { label: 'Recamaras', value: notes.recamaras || 'No definido' },
+                        { label: 'Fuente', value: sl.source || 'No definida' },
+                        { label: 'Vendedor', value: team.find(t => t.id === sl.assigned_to)?.name || 'Sin asignar' },
+                      ].map((item, i) => (
+                        <div key={i} className="bg-slate-700/30 rounded-xl p-3">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{item.label}</p>
+                          <p className="text-sm font-medium mt-0.5 truncate">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Next Best Action */}
+                    <div className="next-action-card rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0">
+                          <ArrowRight size={16} className="text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold">Siguiente accion recomendada</p>
+                          <p className="text-sm font-medium mt-0.5">{nextAction}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Journey Progress */}
+                    <div className="bg-slate-700/40 rounded-xl p-5">
+                      <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-4">Progreso en Funnel</h4>
+                      <div className="relative flex items-center justify-between">
+                        {/* Progress line */}
+                        <div className="absolute top-3 left-4 right-4 h-0.5 bg-slate-600 rounded-full" />
+                        <div className="absolute top-3 left-4 h-0.5 bg-blue-500 rounded-full transition-all" style={{ width: `${currentIdx > 0 ? (currentIdx / (JOURNEY.length - 1)) * (100 - 8) : 0}%` }} />
+                        {JOURNEY_LABELS.map((label, i) => {
+                          const isPast = i < currentIdx
+                          const isCurrent = i === currentIdx
+                          return (
+                            <div key={i} className="relative flex flex-col items-center z-10" style={{ width: `${100 / JOURNEY_LABELS.length}%` }}>
+                              <div className={`journey-dot w-6 h-6 rounded-full border-2 flex items-center justify-center text-[8px] font-bold ${
+                                isCurrent ? 'journey-dot-current bg-blue-600 border-blue-400 text-white' :
+                                isPast ? 'bg-blue-600/40 border-blue-500/60 text-blue-300' :
+                                'bg-slate-700 border-slate-600 text-slate-500'
+                              }`}>
+                                {isPast ? '✓' : i + 1}
+                              </div>
+                              <span className={`text-[8px] mt-1.5 text-center leading-tight ${isCurrent ? 'text-blue-400 font-semibold' : isPast ? 'text-slate-400' : 'text-slate-600'}`}>{label}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* ===== INFO TAB ===== */}
               {leadDetailTab === 'info' && (
                 <div className="space-y-4">
@@ -9747,26 +9994,99 @@ function App() {
                       if (filtered.length === 0) return <p className="text-slate-400 text-sm text-center py-4">Sin registros</p>
                       const timeAgo = (ts: string) => { const diff = Date.now() - new Date(ts).getTime(); const mins = Math.floor(diff / 60000); if (mins < 1) return 'ahora'; if (mins < 60) return `hace ${mins}m`; const hrs = Math.floor(mins / 60); if (hrs < 24) return `hace ${hrs}h`; const days = Math.floor(hrs / 24); if (days < 30) return `hace ${days}d`; return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) }
                       const dotStyle = (e: typeof entries[0]) => { if (e.type === 'message') { if (e.data.role === 'user') return 'bg-blue-500'; if (e.data.role === 'vendedor') return 'bg-orange-500'; return 'bg-green-500'; } if (e.type === 'activity') return 'bg-purple-500'; if (e.type === 'appointment') return 'bg-cyan-500'; if (e.type === 'note') return 'bg-yellow-500'; return 'bg-slate-500'; }
+                      // Hot signals & objections as timeline entries
+                      const hotSignals: Array<{type:string,timestamp:string,data:any}> = []
+                      const slNotes = selectedLead.notes || {} as any
+                      if (slNotes.historial_señales_calientes?.length) {
+                        slNotes.historial_señales_calientes.forEach((s: any) => {
+                          hotSignals.push({ type: 'hot_signal', timestamp: s.timestamp || s.fecha || selectedLead.created_at, data: { text: s.señal || s.signal || s.texto || JSON.stringify(s), type: 'hot' } })
+                        })
+                      }
+                      if (slNotes.historial_objeciones?.length) {
+                        slNotes.historial_objeciones.forEach((o: any) => {
+                          hotSignals.push({ type: 'objection', timestamp: o.timestamp || o.fecha || selectedLead.created_at, data: { text: o.objecion || o.objection || o.texto || JSON.stringify(o), type: 'objection' } })
+                        })
+                      }
+                      const allEntries = [...filtered, ...hotSignals].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                       return (
-                        <div className="timeline-line space-y-3">
-                          {filtered.map((entry, i) => (
-                            <div key={i} className="flex gap-3 items-start pl-0">
-                              <div className={`timeline-dot ${dotStyle(entry)} mt-0.5`} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-[11px] text-slate-400">{timeAgo(entry.timestamp)}</span>
-                                  {entry.type === 'message' && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${entry.data.role === 'user' ? 'bg-blue-500/20 text-blue-300' : entry.data.role === 'vendedor' ? 'bg-orange-500/20 text-orange-300' : 'bg-green-500/20 text-green-300'}`}>{entry.data.role === 'user' ? 'Cliente' : entry.data.role === 'vendedor' ? (entry.data.vendedor_name || 'Vendedor') : 'SARA'}</span>}
-                                  {entry.type === 'activity' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">{({call:'Llamada',visit:'Visita',whatsapp:'WhatsApp',email:'Email',quote:'Cotizacion'} as Record<string,string>)[entry.data.activity_type] || entry.data.activity_type}</span>}
-                                  {entry.type === 'appointment' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cita</span>}
-                                  {entry.type === 'note' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">Nota</span>}
+                        <div className="space-y-2">
+                          {allEntries.map((entry, i) => {
+                            // Chat bubble for messages
+                            if (entry.type === 'message') {
+                              const isUser = entry.data.role === 'user'
+                              const isBridge = entry.data.via_bridge
+                              const content = entry.data.content || ''
+                              const isLong = content.length > 200
+                              const isExpanded = expandedMsgIndex === i
+                              const displayContent = isLong && !isExpanded ? content.slice(0, 200) + '...' : content
+                              return (
+                                <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`max-w-[80%] px-4 py-2.5 ${isBridge ? 'chat-bubble-bridge' : isUser ? 'chat-bubble-user' : 'chat-bubble-sara'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-[10px] font-semibold ${isUser ? 'text-blue-300' : isBridge ? 'text-orange-300' : 'text-green-300'}`}>
+                                        {isUser ? 'Cliente' : isBridge ? (entry.data.vendedor_name || 'Bridge') : 'SARA'}
+                                      </span>
+                                      {isBridge && <span className="text-[9px] text-orange-400/60 bg-orange-500/10 px-1.5 rounded">bridge</span>}
+                                    </div>
+                                    <p className="text-sm text-slate-200 break-words leading-relaxed whitespace-pre-wrap">{displayContent}</p>
+                                    {isLong && (
+                                      <button onClick={() => setExpandedMsgIndex(isExpanded ? null : i)} className="text-[11px] text-blue-400 hover:text-blue-300 mt-1">
+                                        {isExpanded ? 'ver menos' : 'ver mas...'}
+                                      </button>
+                                    )}
+                                    <p className="text-[10px] text-slate-500 mt-1">{timeAgo(entry.timestamp)}</p>
+                                  </div>
                                 </div>
-                                {entry.type === 'message' && <p className="text-sm text-slate-300 break-words leading-relaxed">{entry.data.content}{entry.data.via_bridge && <span className="text-[10px] text-slate-500 ml-1">(bridge)</span>}</p>}
-                                {entry.type === 'activity' && <div><p className="text-sm text-slate-300">{entry.data.notes || 'Sin detalle'}</p><p className="text-[11px] text-slate-500">Por: {entry.data.team_member}</p></div>}
-                                {entry.type === 'appointment' && <p className="text-sm text-slate-300">{entry.data.date} {entry.data.time && `a las ${entry.data.time}`}{entry.data.property && ` - ${entry.data.property}`}<span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${entry.data.status === 'completed' ? 'bg-green-600/30 text-green-300' : entry.data.status === 'cancelled' ? 'bg-red-600/30 text-red-300' : entry.data.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' : 'bg-blue-600/30 text-blue-300'}`}>{entry.data.status}</span></p>}
-                                {entry.type === 'note' && <div><p className="text-sm text-slate-300 break-words">{entry.data.text}</p>{entry.data.author && <p className="text-[11px] text-slate-500">Por: {entry.data.author}</p>}</div>}
+                              )
+                            }
+                            // Hot signal entry
+                            if (entry.type === 'hot_signal') {
+                              return (
+                                <div key={i} className="flex gap-3 items-start px-2 py-2 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                                  <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span className="text-sm">🔥</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-semibold text-orange-400 uppercase tracking-wider">Senal caliente</span>
+                                    <p className="text-sm text-orange-200/80 break-words mt-0.5">{entry.data.text}</p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(entry.timestamp)}</p>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            // Objection entry
+                            if (entry.type === 'objection') {
+                              return (
+                                <div key={i} className="flex gap-3 items-start px-2 py-2 bg-yellow-500/5 border border-yellow-500/20 rounded-xl">
+                                  <div className="w-7 h-7 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <AlertTriangle size={14} className="text-yellow-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wider">Objecion</span>
+                                    <p className="text-sm text-yellow-200/80 break-words mt-0.5">{entry.data.text}</p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(entry.timestamp)}</p>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            // Non-message entries (activity, appointment, note)
+                            return (
+                              <div key={i} className="flex gap-3 items-start pl-0">
+                                <div className={`timeline-dot ${dotStyle(entry)} mt-0.5`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-[11px] text-slate-400">{timeAgo(entry.timestamp)}</span>
+                                    {entry.type === 'activity' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">{({call:'Llamada',visit:'Visita',whatsapp:'WhatsApp',email:'Email',quote:'Cotizacion'} as Record<string,string>)[entry.data.activity_type] || entry.data.activity_type}</span>}
+                                    {entry.type === 'appointment' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cita</span>}
+                                    {entry.type === 'note' && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">Nota</span>}
+                                  </div>
+                                  {entry.type === 'activity' && <div><p className="text-sm text-slate-300">{entry.data.notes || 'Sin detalle'}</p><p className="text-[11px] text-slate-500">Por: {entry.data.team_member}</p></div>}
+                                  {entry.type === 'appointment' && <p className="text-sm text-slate-300">{entry.data.date} {entry.data.time && `a las ${entry.data.time}`}{entry.data.property && ` - ${entry.data.property}`}<span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${entry.data.status === 'completed' ? 'bg-green-600/30 text-green-300' : entry.data.status === 'cancelled' ? 'bg-red-600/30 text-red-300' : entry.data.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' : 'bg-blue-600/30 text-blue-300'}`}>{entry.data.status}</span></p>}
+                                  {entry.type === 'note' && <div><p className="text-sm text-slate-300 break-words">{entry.data.text}</p>{entry.data.author && <p className="text-[11px] text-slate-500">Por: {entry.data.author}</p>}</div>}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       )
                     })()}
@@ -9883,6 +10203,41 @@ function App() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* ===== QUICK ACTIONS BAR (Round 7) ===== */}
+            <div className="px-6 py-3 border-t border-slate-700/50 flex items-center gap-2 bg-slate-800/95">
+              <a href={`https://wa.me/${selectedLead.phone?.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer"
+                className="quick-action-btn flex items-center gap-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-sm font-medium border border-green-600/30">
+                <Phone size={15} /> WhatsApp
+              </a>
+              <button onClick={() => {
+                const sl = selectedLead
+                setSelectedLead(null)
+                setNewAppointment({ lead_id: sl.id, lead_name: sl.name || '', lead_phone: sl.phone || '', property_name: sl.property_interest || '', scheduled_date: '', scheduled_time: '' })
+                setShowNewAppointment(true)
+              }} className="quick-action-btn flex items-center gap-2 px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 rounded-lg text-sm font-medium border border-cyan-600/30">
+                <Calendar size={15} /> Agendar Cita
+              </button>
+              <button onClick={() => setLeadDetailTab('notas')}
+                className="quick-action-btn flex items-center gap-2 px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 rounded-lg text-sm font-medium border border-yellow-600/30">
+                <MessageSquare size={15} /> Nota
+              </button>
+              <button onClick={async () => {
+                const FUNNEL = ['new','contacted','qualified','scheduled','visited','negotiation','reserved','closed','delivered']
+                const curStatus = selectedLead.status === 'visit_scheduled' ? 'scheduled' : selectedLead.status === 'negotiating' ? 'negotiation' : selectedLead.status === 'sold' ? 'closed' : selectedLead.status
+                const idx = FUNNEL.indexOf(curStatus)
+                if (idx < 0 || idx >= FUNNEL.length - 1) { showToast('Lead ya esta en el ultimo status', 'info'); return }
+                const nextStatus = FUNNEL[idx + 1]
+                const { error } = await supabase.from('leads').update({ status: nextStatus, status_changed_at: new Date().toISOString() }).eq('id', selectedLead.id)
+                if (error) { showToast('Error al mover lead', 'error'); return }
+                const updated = { ...selectedLead, status: nextStatus, status_changed_at: new Date().toISOString() }
+                setSelectedLead(updated)
+                setLeads(leads.map(l => l.id === selectedLead.id ? updated : l))
+                showToast(`Lead movido a ${(STATUS_LABELS as any)[nextStatus] || nextStatus}`, 'success')
+              }} className="quick-action-btn flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg text-sm font-medium border border-blue-600/30">
+                <ArrowRight size={15} /> Avanzar Funnel
+              </button>
             </div>
           </div>
         </div>

@@ -455,3 +455,80 @@ body {
 .health-pulse {
   animation: healthPulse 2s ease-in-out infinite;
 }
+
+/* ═══ ROUND 7 STYLES ═══ */
+
+/* Score donut */
+.score-ring { transition: stroke-dashoffset 0.6s ease; }
+
+/* Score factor bars */
+.score-factor-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(51, 65, 85, 0.5);
+  overflow: hidden;
+}
+.score-factor-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+
+/* Journey progress */
+.journey-dot { transition: all 0.3s ease; }
+.journey-dot-active { box-shadow: 0 0 8px currentColor; }
+@keyframes journeyPulse {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50% { box-shadow: 0 0 12px currentColor; }
+}
+.journey-dot-current { animation: journeyPulse 2s ease-in-out infinite; }
+
+/* Chat bubbles */
+.chat-bubble-user {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 16px 16px 4px 16px;
+}
+.chat-bubble-sara {
+  background: rgba(51, 65, 85, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 16px 16px 16px 4px;
+}
+.chat-bubble-bridge {
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 16px 16px 16px 4px;
+}
+
+/* Notification drawer */
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.notif-drawer {
+  animation: drawerSlideIn 0.25s ease-out;
+}
+.notif-drawer-item {
+  transition: background 0.15s ease;
+}
+.notif-drawer-item:hover {
+  background: rgba(51, 65, 85, 0.5);
+}
+.notif-drawer-item-unread {
+  border-left: 2px solid rgb(59, 130, 246);
+}
+
+/* Quick actions bar */
+.quick-action-btn {
+  transition: all 0.15s ease;
+}
+.quick-action-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+}
+
+/* Next action card */
+.next-action-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
