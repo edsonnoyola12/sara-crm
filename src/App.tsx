@@ -9930,7 +9930,7 @@ function App() {
                             return (
                               <tr key={r.id} className="border-b border-slate-700/30">
                                 <td className="py-2 pr-3 text-slate-400 whitespace-nowrap">{ago}</td>
-                                <td className="py-2 pr-3 text-slate-300 font-mono text-xs">{(r.phone || '').slice(-10)}</td>
+                                <td className="py-2 pr-3 text-slate-300 font-mono text-xs">{(r.recipient_phone || '').slice(-10)}</td>
                                 <td className="py-2 pr-3 text-slate-300">{r.message_type || 'text'}</td>
                                 <td className="py-2 pr-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>{r.status}</span></td>
                                 <td className="py-2 pr-3 text-right text-slate-400">{r.attempts || 0}/{r.max_attempts || 3}</td>
