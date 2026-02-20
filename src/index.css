@@ -103,3 +103,92 @@ body {
 .badge-pulse {
   animation: badgePulse 2s ease-in-out infinite;
 }
+
+/* Section transition */
+.section-enter {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Empty state styling */
+.empty-state {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Funnel bar animation (horizontal) */
+@keyframes growWidth {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.funnel-bar {
+  transform-origin: left;
+  animation: growWidth 0.6s ease-out forwards;
+}
+
+/* Funnel bar animation (vertical) */
+@keyframes growHeight {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.funnel-bar-vertical {
+  transform-origin: bottom;
+  animation: growHeight 0.6s ease-out forwards;
+}
+
+/* Gold shine for #1 ranking */
+@keyframes shine {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; filter: brightness(1.2); }
+}
+.medal-gold {
+  animation: shine 2s ease-in-out infinite;
+}
+
+/* Team card hover */
+.team-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.team-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.1);
+}
+
+/* Property card image zoom */
+.property-image-container {
+  overflow: hidden;
+}
+.property-image-container img {
+  transition: transform 0.3s ease;
+}
+.property-image-container:hover img {
+  transform: scale(1.05);
+}
+
+/* Mobile sidebar backdrop */
+.sidebar-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* Leads table row */
+.lead-row {
+  transition: all 0.15s ease;
+  border-left: 2px solid transparent;
+}
+.lead-row:hover {
+  border-left-color: rgb(96, 165, 250);
+  background: rgba(51, 65, 85, 0.4);
+}
+
+/* Score badge glow for HOT */
+.score-hot {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+/* Online indicator pulse */
+@keyframes onlinePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.online-indicator {
+  animation: onlinePulse 2s ease-in-out infinite;
+}

@@ -1693,15 +1693,15 @@ function App() {
   const topDevByRevenue = [...developmentPerformance].sort((a, b) => b.revenue - a.revenue)[0]
 
   const getScoreColor = (score: number) => {
-    if (score >= 70) return 'bg-red-500'    // HOT
-    if (score >= 40) return 'bg-orange-500' // WARM
-    return 'bg-blue-500'                    // COLD
+    if (score >= 70) return 'bg-red-500 badge-pulse score-hot'  // HOT - pulsating + glow
+    if (score >= 40) return 'bg-amber-500'                      // WARM
+    return 'bg-slate-500'                                       // COLD
   }
 
   const getScoreLabel = (score: number) => {
-    if (score >= 70) return 'HOT'
-    if (score >= 40) return 'WARM'
-    return 'COLD'
+    if (score >= 70) return 'Caliente'
+    if (score >= 40) return 'Tibio'
+    return 'Frio'
   }
 
   const mortgageStatuses = [
@@ -1938,7 +1938,7 @@ function App() {
       {/* Overlay para móvil */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 sidebar-backdrop z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -2130,6 +2130,7 @@ function App() {
       </div>
 
       <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
+        <div key={view} className="section-enter">
         {view === 'dashboard' && (
           <div className="space-y-4">
             {/* HEADER - Saludo y fecha */}
@@ -2555,7 +2556,7 @@ function App() {
                           { label: 'Cerrado', count: funnel.closed, color: 'bg-green-500' }
                         ].map((s, i) => (
                           <div key={i} className="flex-1 text-center">
-                            <div className={`${s.color} rounded py-1 text-sm font-bold`}>{s.count}</div>
+                            <div className={`${s.color} funnel-bar rounded py-1 text-sm font-bold`} style={{ animationDelay: `${i * 0.08}s` }}>{s.count}</div>
                             <p className="text-[10px] mt-0.5 text-slate-400">{s.label}</p>
                           </div>
                         ))}
@@ -2568,9 +2569,14 @@ function App() {
                     <h3 className="font-semibold mb-3">🏆 Ranking Vendedores</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                       {vendedoresRanking.slice(0, 6).map((v, i) => (
-                        <div key={v.id} className={`flex items-center gap-3 p-3 rounded-lg ${i === 0 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-slate-700/50'}`}>
-                          <span className="text-xl">
-                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                        <div key={v.id} className={`flex items-center gap-3 p-3 rounded-lg ${
+                          i === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/10 border-l-2 border-yellow-400' :
+                          i === 1 ? 'bg-gradient-to-r from-slate-400/10 to-slate-300/5 border-l-2 border-slate-400' :
+                          i === 2 ? 'bg-gradient-to-r from-orange-600/10 to-orange-500/5 border-l-2 border-orange-400' :
+                          'bg-slate-700/50'
+                        }`}>
+                          <span className={i < 3 ? 'text-2xl' : 'text-xl text-slate-500'}>
+                            {i === 0 ? <span className="medal-gold inline-block">🥇</span> : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{v.name}</p>
@@ -2915,7 +2921,7 @@ function App() {
                         { label: 'Reservado', count: miFunnel.reserved, color: 'bg-green-500' }
                       ].map((stage, i) => (
                         <div key={i} className="text-center">
-                          <div className={`${stage.color} rounded-lg py-3 text-xl font-bold`}>{stage.count}</div>
+                          <div className={`${stage.color} funnel-bar-vertical rounded-lg py-3 text-xl font-bold`} style={{ animationDelay: `${i * 0.08}s` }}>{stage.count}</div>
                           <p className="text-xs mt-1 text-slate-400">{stage.label}</p>
                         </div>
                       ))}
@@ -4826,7 +4832,7 @@ function App() {
                     const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
                     return leadSort.asc ? cmp : -cmp
                   }).map(lead => (
-                    <tr key={lead.id} onClick={() => selectLead(lead)} className="border-t border-slate-700 hover:bg-slate-700 cursor-pointer">
+                    <tr key={lead.id} onClick={() => selectLead(lead)} className="lead-row border-b border-slate-700/50 cursor-pointer">
                       <td className="p-4">{lead.name || 'Sin nombre'}</td>
                       <td className="p-4 hidden sm:table-cell"><Phone size={16} className="inline mr-1" />{lead.phone}</td>
                       <td className="p-4 hidden md:table-cell">{lead.property_interest || 'Sin definir'}</td>
@@ -4840,7 +4846,13 @@ function App() {
                     </tr>
                   ))}
                   {filteredLeads.length === 0 && (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-400">No se encontraron leads con los filtros actuales</td></tr>
+                    <tr><td colSpan={6} className="p-12 text-center empty-state">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
+                        <span className="text-4xl">🔍</span>
+                      </div>
+                      <p className="text-slate-400">No se encontraron leads con los filtros actuales</p>
+                      <p className="text-slate-500 text-sm mt-1">Intenta cambiar los filtros de busqueda</p>
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -4961,9 +4973,12 @@ function App() {
               )}
             </div>
             {properties.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🏠</div>
-                <p className="text-slate-400 text-xl mb-4">No hay propiedades</p>
+              <div className="empty-state text-center py-16">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-700/50 mb-4">
+                  <span className="text-5xl">🏠</span>
+                </div>
+                <p className="text-slate-300 text-xl mb-2">No hay propiedades</p>
+                <p className="text-slate-500 text-sm mb-4">Agrega tu primer desarrollo para empezar</p>
                 {permisos.puedeEditarPropiedades() && (
                   <button onClick={() => setShowNewProperty(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold">
                     Agregar Primera Propiedad
@@ -4973,8 +4988,8 @@ function App() {
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {properties.map(prop => (
-                <div key={prop.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden group relative">
-                  <div className="h-40 bg-slate-700 flex items-center justify-center">
+                <div key={prop.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden group relative hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-200">
+                  <div className="property-image-container h-40 bg-slate-700 flex items-center justify-center">
                     {prop.photo_url ? (
                       <img src={prop.photo_url} alt={prop.name} className="w-full h-full object-cover" />
                     ) : prop.youtube_link ? (
@@ -5040,14 +5055,18 @@ function App() {
                 <h3 className="text-xl font-semibold mb-4">Vendedores</h3>
                 <div className="space-y-3">
                   {team.filter(t => t.role === 'vendedor').map(member => (
-                    <div key={member.id} className="flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
+                    <div key={member.id} className="team-card flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center">
-                          <Users size={24} />
+                        <div className="relative w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center">
+                          <Users size={24} className="text-blue-400" />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-700 ${member.active ? 'bg-green-400 online-indicator' : 'bg-slate-500'}`} />
                         </div>
                         <div>
                           <p className="font-semibold">{member.name}</p>
-                          <p className="text-slate-400 text-sm">{member.phone}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-medium">Vendedor</span>
+                            <span className="text-slate-500 text-xs">{member.phone}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -5067,7 +5086,12 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'vendedor').length === 0 && <p className="text-slate-400 text-center py-4">Sin vendedores</p>}
+                  {team.filter(t => t.role === 'vendedor').length === 0 && (
+                    <div className="empty-state text-center py-6">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-600/50 mb-2"><span className="text-2xl">👔</span></div>
+                      <p className="text-slate-400 text-sm">Sin vendedores registrados</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -5075,14 +5099,18 @@ function App() {
                 <h3 className="text-xl font-semibold mb-4">Asesores Hipotecarios</h3>
                 <div className="space-y-3">
                   {team.filter(t => t.role === 'asesor').map(member => (
-                    <div key={member.id} className="flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
+                    <div key={member.id} className="team-card flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center">
-                          <Users size={24} />
+                        <div className="relative w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center">
+                          <Users size={24} className="text-purple-400" />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-700 ${member.active ? 'bg-green-400 online-indicator' : 'bg-slate-500'}`} />
                         </div>
                         <div>
                           <p className="font-semibold">{member.name}</p>
-                          <p className="text-slate-400 text-sm">{member.phone}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-medium">Asesor</span>
+                            <span className="text-slate-500 text-xs">{member.phone}</span>
+                          </div>
                         </div>
                       </div>
                       {permisos.puedeEditarEquipo() && (
@@ -5092,7 +5120,12 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'asesor').length === 0 && <p className="text-slate-400 text-center py-4">Sin asesores</p>}
+                  {team.filter(t => t.role === 'asesor').length === 0 && (
+                    <div className="empty-state text-center py-6">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-600/50 mb-2"><span className="text-2xl">🏦</span></div>
+                      <p className="text-slate-400 text-sm">Sin asesores hipotecarios</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -5101,14 +5134,18 @@ function App() {
                 <h3 className="text-xl font-semibold mb-4">Coordinadoras</h3>
                 <div className="space-y-3">
                   {team.filter(t => t.role === "coordinador").map(member => (
-                    <div key={member.id} className="flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
+                    <div key={member.id} className="team-card flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center">
-                          <Users size={24} />
+                        <div className="relative w-12 h-12 rounded-full bg-green-600/20 flex items-center justify-center">
+                          <Users size={24} className="text-green-400" />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-700 ${member.active ? 'bg-green-400 online-indicator' : 'bg-slate-500'}`} />
                         </div>
                         <div>
                           <p className="font-semibold">{member.name}</p>
-                          <p className="text-slate-400 text-sm">{member.phone}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">Coordinador</span>
+                            <span className="text-slate-500 text-xs">{member.phone}</span>
+                          </div>
                         </div>
                       </div>
                       {permisos.puedeEditarEquipo() && (
@@ -5118,21 +5155,30 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === "coordinador").length === 0 && <p className="text-slate-400 text-center py-4">Sin coordinadoras</p>}
+                  {team.filter(t => t.role === "coordinador").length === 0 && (
+                    <div className="empty-state text-center py-6">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-600/50 mb-2"><span className="text-2xl">📋</span></div>
+                      <p className="text-slate-400 text-sm">Sin coordinadoras</p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <h3 className="text-xl font-semibold mb-4">Marketing / Agencia</h3>
                 <div className="space-y-3">
                   {team.filter(t => t.role === 'agencia').map(member => (
-                    <div key={member.id} className="flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
+                    <div key={member.id} className="team-card flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center">
-                          <Megaphone size={24} />
+                        <div className="relative w-12 h-12 rounded-full bg-orange-600/20 flex items-center justify-center">
+                          <Megaphone size={24} className="text-orange-400" />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-700 ${member.active ? 'bg-green-400 online-indicator' : 'bg-slate-500'}`} />
                         </div>
                         <div>
                           <p className="font-semibold">{member.name}</p>
-                          <p className="text-slate-400 text-sm">{member.phone}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">Marketing</span>
+                            <span className="text-slate-500 text-xs">{member.phone}</span>
+                          </div>
                         </div>
                       </div>
                       {permisos.puedeEditarEquipo() && (
@@ -5142,7 +5188,12 @@ function App() {
                       )}
                     </div>
                   ))}
-                  {team.filter(t => t.role === 'agencia').length === 0 && <p className="text-slate-400 text-center py-4">Sin personal de marketing</p>}
+                  {team.filter(t => t.role === 'agencia').length === 0 && (
+                    <div className="empty-state text-center py-6">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-600/50 mb-2"><span className="text-2xl">📢</span></div>
+                      <p className="text-slate-400 text-sm">Sin personal de marketing</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -5338,11 +5389,14 @@ function App() {
               </table>
               </div>
               {campaigns.length === 0 && (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4">📢</div>
-                  <p className="text-slate-400 text-xl mb-4">No hay campañas</p>
+                <div className="empty-state text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-700/50 mb-4">
+                    <span className="text-5xl">📢</span>
+                  </div>
+                  <p className="text-slate-300 text-xl mb-2">No hay campanas activas</p>
+                  <p className="text-slate-500 text-sm mb-4">Crea tu primera campana para empezar a generar leads</p>
                   <button onClick={() => setShowNewCampaign(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold">
-                    Crear Primera Campaña
+                    Crear Primera Campana
                   </button>
                 </div>
               )}
@@ -5687,11 +5741,14 @@ function App() {
                 </tbody>
               </table>
               {promotions.length === 0 && (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4">🎯</div>
-                  <p className="text-slate-400 text-xl mb-4">No hay promociones</p>
+                <div className="empty-state text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-700/50 mb-4">
+                    <span className="text-5xl">🎯</span>
+                  </div>
+                  <p className="text-slate-300 text-xl mb-2">No hay promociones activas</p>
+                  <p className="text-slate-500 text-sm mb-4">Crea descuentos y ofertas especiales para tus desarrollos</p>
                   <button onClick={() => setShowNewPromotion(true)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold">
-                    Crear Primera Promoción
+                    Crear Primera Promocion
                   </button>
                 </div>
               )}
@@ -7820,6 +7877,7 @@ function App() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
 
