@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from './lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
-import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search } from 'lucide-react'
+import { Users, Calendar as CalendarIcon, Calendar, Settings, TrendingUp, Phone, DollarSign, Target, Award, Building, UserCheck, Flame, X, Save, Plus, Edit, Trash2, CreditCard, AlertTriangle, Clock, CheckCircle, XCircle, ArrowRight, Megaphone, BarChart3, Eye, MousePointer, Lightbulb, TrendingDown, AlertCircle, Copy, Upload, Download, Link, Facebook, Pause, Play, Send, MapPin, Tag, Star, MessageSquare, Filter, ChevronLeft, ChevronRight, RefreshCw, Gift, LogOut, Search, Bell, GripVertical } from 'lucide-react'
 
 const API_BASE = 'https://sara-backend.edson-633.workers.dev'
 
@@ -49,6 +49,7 @@ interface Lead {
   // Campos de segmentación
   temperature?: string
   needs_mortgage?: boolean
+  last_message_at?: string
   // Campos de referidos
   referred_by?: string
   referred_by_name?: string
@@ -435,6 +436,22 @@ function App() {
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null)
 
+  // Kanban drag state
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+  const [showOtherStages, setShowOtherStages] = useState(false)
+
+  // Activity Timeline filter
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'messages' | 'activities' | 'appointments' | 'notes'>('all')
+
+  // Notifications
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('sara-crm-read-notifs')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch { return new Set() }
+  })
+
   // Promociónes y Eventos
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [crmEvents, setCrmEvents] = useState<CRMEvent[]>([])
@@ -470,6 +487,52 @@ function App() {
     setTimeout(() => setToast(null), 4000)
   }
 
+  // Notification generation
+  const notifications = useMemo(() => {
+    const notifs: Array<{id: string, type: string, title: string, description: string, timestamp: string, leadId?: string}> = []
+    const now = Date.now()
+
+    leads.forEach((l: any) => {
+      // New leads in last 2 hours
+      if (l.created_at && (now - new Date(l.created_at).getTime()) < 2 * 3600000) {
+        notifs.push({ id: `new-${l.id}`, type: 'new_lead', title: 'Nuevo lead', description: l.name || l.phone, timestamp: l.created_at, leadId: l.id })
+      }
+      // HOT leads without recent activity (>24h)
+      if (l.score >= 70 && l.last_message_at && (now - new Date(l.last_message_at).getTime()) > 24 * 3600000) {
+        notifs.push({ id: `hot-${l.id}`, type: 'hot_inactive', title: 'Lead HOT sin seguimiento', description: l.name || l.phone, timestamp: l.last_message_at, leadId: l.id })
+      }
+      // Leads without follow-up (new + >48h)
+      if (l.status === 'new' && l.created_at && (now - new Date(l.created_at).getTime()) > 48 * 3600000) {
+        notifs.push({ id: `nofu-${l.id}`, type: 'no_followup', title: 'Lead sin contactar', description: l.name || l.phone, timestamp: l.created_at, leadId: l.id })
+      }
+      // Status changes in last 4 hours
+      if (l.status_changed_at && (now - new Date(l.status_changed_at).getTime()) < 4 * 3600000) {
+        notifs.push({ id: `status-${l.id}-${l.status}`, type: 'status_change', title: `${l.name || 'Lead'} movido a ${l.status}`, description: '', timestamp: l.status_changed_at, leadId: l.id })
+      }
+    })
+
+    // Appointments today
+    const today = new Date().toISOString().split('T')[0]
+    appointments.forEach((a: any) => {
+      if (a.scheduled_date === today && a.status !== 'cancelled') {
+        const leadName = leads.find((l: any) => l.id === a.lead_id)?.name || 'Lead'
+        notifs.push({ id: `apt-${a.id}`, type: 'appointment_today', title: `Cita hoy: ${leadName}`, description: `${a.scheduled_time || ''}${a.property_name ? ' - ' + a.property_name : ''}`, timestamp: a.created_at || `${a.scheduled_date}T08:00`, leadId: a.lead_id })
+      }
+    })
+
+    notifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return notifs.slice(0, 20)
+  }, [leads, appointments])
+
+  const unreadNotifCount = notifications.filter(n => !readNotificationIds.has(n.id)).length
+
+  // Persist read notification IDs
+  useEffect(() => {
+    if (readNotificationIds.size > 0) {
+      localStorage.setItem('sara-crm-read-notifs', JSON.stringify([...readNotificationIds]))
+    }
+  }, [readNotificationIds])
+
   // Esc cierra modales
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -480,6 +543,7 @@ function App() {
         setEditingProperty(null)
         setEditingMember(null)
         setEditingMortgage(null)
+        setShowNotifications(false)
         setEditingCampaign(null)
         setEditingPromotion(null)
         setEditingCrmEvent(null)
@@ -2329,22 +2393,111 @@ function App() {
       </div>
 
       <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
-        {/* Search button — fixed top-right */}
-        <button
-          onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
-          className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 text-sm hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm"
-        >
-          <Search size={14} />
-          <span>Buscar...</span>
-          <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-slate-700 rounded border border-slate-600">⌘K</kbd>
-        </button>
-        {/* Mobile search button */}
-        <button
-          onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
-          className="fixed top-4 right-4 z-30 lg:hidden p-2 bg-slate-800 rounded-lg"
-        >
-          <Search size={16} className="text-slate-400" />
-        </button>
+        {/* Search + Notifications — fixed top-right */}
+        <div className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2">
+          <button
+            onClick={() => { setShowNotifications(!showNotifications) }}
+            className="relative p-2 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm"
+          >
+            <Bell size={15} />
+            {unreadNotifCount > 0 && (
+              <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 text-sm hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm"
+          >
+            <Search size={14} />
+            <span>Buscar...</span>
+            <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-slate-700 rounded border border-slate-600">⌘K</kbd>
+          </button>
+        </div>
+        {/* Mobile: bell + search */}
+        <div className="fixed top-4 right-4 z-30 lg:hidden flex items-center gap-2">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 bg-slate-800 rounded-lg"
+          >
+            <Bell size={16} className="text-slate-400" />
+            {unreadNotifCount > 0 && (
+              <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setShowGlobalSearch(true); setGlobalSearch('') }}
+            className="p-2 bg-slate-800 rounded-lg"
+          >
+            <Search size={16} className="text-slate-400" />
+          </button>
+        </div>
+
+        {/* Notification Panel */}
+        {showNotifications && (
+          <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
+          <div className="fixed top-14 right-4 z-40 w-80 max-h-[28rem] bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/60">
+              <h3 className="font-semibold text-sm">Notificaciones</h3>
+              {unreadNotifCount > 0 && (
+                <button onClick={() => { setReadNotificationIds(new Set(notifications.map(n => n.id))) }}
+                  className="text-[11px] text-blue-400 hover:text-blue-300">
+                  Marcar todo leido
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto max-h-[24rem]">
+              {notifications.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-8">Sin notificaciones</p>
+              ) : notifications.map(n => {
+                const isUnread = !readNotificationIds.has(n.id)
+                const timeAgo = (() => {
+                  const diff = Date.now() - new Date(n.timestamp).getTime()
+                  const mins = Math.floor(diff / 60000)
+                  if (mins < 1) return 'ahora'
+                  if (mins < 60) return `${mins}m`
+                  const hrs = Math.floor(mins / 60)
+                  if (hrs < 24) return `${hrs}h`
+                  return `${Math.floor(hrs / 24)}d`
+                })()
+                return (
+                  <button key={n.id}
+                    onClick={() => {
+                      setReadNotificationIds(prev => new Set([...prev, n.id]))
+                      if (n.leadId) {
+                        const lead = leads.find((l: any) => l.id === n.leadId)
+                        if (lead) { setSelectedLead(lead); setShowNotifications(false) }
+                      }
+                    }}
+                    className={`w-full text-left px-4 py-3 border-b border-slate-700/40 hover:bg-slate-700/50 transition-colors ${isUnread ? 'bg-slate-700/20' : ''}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                        n.type === 'new_lead' ? 'bg-green-400' :
+                        n.type === 'hot_inactive' ? 'bg-red-400' :
+                        n.type === 'appointment_today' ? 'bg-cyan-400' :
+                        n.type === 'no_followup' ? 'bg-yellow-400' :
+                        n.type === 'status_change' ? 'bg-blue-400' :
+                        'bg-slate-400'
+                      } ${isUnread ? '' : 'opacity-30'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${isUnread ? 'font-medium text-slate-200' : 'text-slate-400'}`}>{n.title}</p>
+                        {n.description && <p className="text-[11px] text-slate-500 truncate">{n.description}</p>}
+                      </div>
+                      <span className="text-[10px] text-slate-500 flex-shrink-0">{timeAgo}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          </>
+        )}
 
         {/* ═══ GLOBAL SEARCH OVERLAY ═══ */}
         {showGlobalSearch && (
@@ -5072,75 +5225,117 @@ function App() {
             </div>
 
             {leadViewMode === 'funnel' ? (
-              <div className="grid grid-cols-4 lg:grid-cols-9 gap-2">
-                {[
-                  { key: 'new', label: 'Nuevo', color: 'bg-slate-600' },
-                  { key: 'contacted', label: 'Contactado', color: 'bg-blue-600' },
-                  { key: 'scheduled', label: 'Cita', color: 'bg-cyan-600' },
-                  { key: 'visited', label: 'Visitó', color: 'bg-purple-600' },
-                  { key: 'negotiation', label: 'Negociación', color: 'bg-yellow-600' },
-                  { key: 'reserved', label: 'Reservado', color: 'bg-orange-600' },
-                  { key: 'closed', label: 'Cerrado', color: 'bg-green-600' },
-                  { key: 'delivered', label: 'Entregado', color: 'bg-emerald-500' },
-                  { key: 'fallen', label: 'Caídos', color: 'bg-red-600' }
-                ].map(stage => {
-                  const stageLeads = filteredLeads.filter(l => l.status === stage.key)
-                  return (
-                    <div 
-                      key={stage.key} 
-                      className="bg-slate-800/50 rounded-xl p-2 min-h-[200px] border-2 border-dashed border-slate-600"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={async (e) => {
-                        e.preventDefault()
-                        if (draggedLead && draggedLead.status !== stage.key && permisos.puedeCambiarStatusLead(draggedLead)) {
-                          await supabase.from('leads').update({ status: stage.key, status_changed_at: new Date().toISOString() }).eq('id', draggedLead.id)
-                          setLeads(leads.map(l => l.id === draggedLead.id ? {...l, status: stage.key} : l))
-                        }
-                        setDraggedLead(null)
-                      }}
-                    >
-                      <div className="bg-slate-600 text-center py-2 rounded-lg mb-2">
-                        <p className="font-semibold text-xs">{stage.label}</p>
-                        <p className="text-xl font-bold">{stageLeads.length}</p>
-                      </div>
-                      <div className="space-y-1">
-                        {stageLeads.map(lead => (
-                          <div 
-                            key={lead.id} 
-                            className="bg-slate-700 p-2 rounded hover:bg-slate-600"
-                          >
-                            <p onClick={() => selectLead(lead)} className="font-semibold text-xs truncate cursor-pointer" title={lead.name || 'Sin nombre'}>{lead.name || 'Sin nombre'}</p>
-                            <p className="text-xs text-slate-400">...{lead.phone?.slice(-4)}</p>
-                            <select
-                              value={lead.status}
-                              disabled={!permisos.puedeCambiarStatusLead(lead)}
-                              onChange={(e) => {
-                                if (e.target.value !== lead.status && permisos.puedeCambiarStatusLead(lead)) {
-                                  setStatusChange({lead, newStatus: e.target.value})
-                                  setStatusNote('')
-                                }
-                              }}
-                              className={`w-full mt-1 p-1 text-xs bg-slate-600 rounded border-none ${!permisos.puedeCambiarStatusLead(lead) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                              <option value="new">Nuevo</option>
-                              <option value="contacted">Contactado</option>
-                              <option value="scheduled">Cita</option>
-                              <option value="visited">Visitó</option>
-                              <option value="negotiation">Negociación</option>
-                              <option value="reserved">Reservado</option>
-                              <option value="closed">Cerrado</option>
-                              <option value="delivered">Entregado</option>
-                              <option value="fallen">Caído</option>
-                            </select>
-                            {stage.key === 'fallen' && lead.fallen_reason && (
-                              <p className="text-xs text-red-300 mt-1 truncate" title={lead.fallen_reason}>📌 {lead.fallen_reason}</p>
+              <div className="space-y-4">
+                {/* Kanban Board */}
+                <div className="overflow-x-auto kanban-scroll pb-4">
+                  <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
+                    {[
+                      { key: 'new', label: 'Nuevo', color: 'bg-slate-500', accent: 'border-slate-400' },
+                      { key: 'contacted', label: 'Contactado', color: 'bg-blue-600', accent: 'border-blue-400' },
+                      { key: 'scheduled', label: 'Cita', color: 'bg-cyan-600', accent: 'border-cyan-400' },
+                      { key: 'visited', label: 'Visitó', color: 'bg-purple-600', accent: 'border-purple-400' },
+                      { key: 'negotiation', label: 'Negociación', color: 'bg-yellow-600', accent: 'border-yellow-400' },
+                      { key: 'reserved', label: 'Reservado', color: 'bg-orange-600', accent: 'border-orange-400' },
+                      { key: 'closed', label: 'Cerrado', color: 'bg-green-600', accent: 'border-green-400' }
+                    ].map(stage => {
+                      const stageLeads = filteredLeads.filter(l => l.status === stage.key)
+                      const isOver = dragOverColumn === stage.key
+                      return (
+                        <div
+                          key={stage.key}
+                          className={`w-[240px] flex-shrink-0 bg-slate-800/60 rounded-xl border-2 border-dashed transition-all ${isOver ? 'kanban-column-highlight' : 'border-slate-700/50'}`}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverColumn(stage.key) }}
+                          onDragLeave={() => setDragOverColumn(null)}
+                          onDrop={async (e) => {
+                            e.preventDefault()
+                            setDragOverColumn(null)
+                            if (draggedLead && draggedLead.status !== stage.key && permisos.puedeCambiarStatusLead(draggedLead)) {
+                              await supabase.from('leads').update({ status: stage.key, status_changed_at: new Date().toISOString() }).eq('id', draggedLead.id)
+                              setLeads(leads.map(l => l.id === draggedLead.id ? {...l, status: stage.key} : l))
+                            }
+                            setDraggedLead(null)
+                          }}
+                        >
+                          {/* Column Header */}
+                          <div className={`${stage.color} px-3 py-2.5 rounded-t-lg flex items-center justify-between`}>
+                            <span className="font-semibold text-sm">{stage.label}</span>
+                            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{stageLeads.length}</span>
+                          </div>
+                          {/* Cards */}
+                          <div className="p-2 space-y-2 min-h-[120px] max-h-[60vh] overflow-y-auto">
+                            {stageLeads.map(lead => {
+                              const daysSince = lead.last_message_at
+                                ? Math.floor((Date.now() - new Date(lead.last_message_at).getTime()) / (1000 * 60 * 60 * 24))
+                                : lead.created_at ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
+                              return (
+                                <div
+                                  key={lead.id}
+                                  draggable={permisos.puedeCambiarStatusLead(lead)}
+                                  onDragStart={() => setDraggedLead(lead)}
+                                  onDragEnd={() => { setDraggedLead(null); setDragOverColumn(null) }}
+                                  className={`kanban-card bg-slate-700/80 rounded-xl p-3 cursor-pointer border border-slate-600/50 ${draggedLead?.id === lead.id ? 'dragging' : ''} ${permisos.puedeCambiarStatusLead(lead) ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                  onClick={() => selectLead(lead)}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="font-semibold text-sm truncate flex-1" title={lead.name || 'Sin nombre'}>{lead.name || 'Sin nombre'}</p>
+                                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${lead.score >= 70 ? 'bg-red-500 score-hot' : lead.score >= 40 ? 'bg-orange-400' : 'bg-blue-400'}`} title={`Score: ${lead.score}`} />
+                                  </div>
+                                  {lead.property_interest && (
+                                    <p className="text-xs text-slate-400 mt-1 truncate">{lead.property_interest}</p>
+                                  )}
+                                  <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                                    <span>...{lead.phone?.slice(-4)}</span>
+                                    <span>{daysSince === 0 ? 'Hoy' : daysSince === 1 ? 'Ayer' : `Hace ${daysSince}d`}</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            {stageLeads.length === 0 && (
+                              <div className="text-center text-slate-500 text-xs py-6 opacity-60">
+                                Arrastra leads aqui
+                              </div>
                             )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                {/* Collapsed Other Stages */}
+                {(() => {
+                  const deliveredLeads = filteredLeads.filter(l => l.status === 'delivered')
+                  const fallenLeads = filteredLeads.filter(l => l.status === 'fallen' || l.status === 'lost' || l.status === 'inactive' || l.status === 'paused')
+                  if (deliveredLeads.length === 0 && fallenLeads.length === 0) return null
+                  return (
+                    <div className="bg-slate-800/40 rounded-xl border border-slate-700/50">
+                      <button
+                        onClick={() => setShowOtherStages(!showOtherStages)}
+                        className="w-full px-4 py-2.5 flex items-center justify-between text-sm text-slate-400 hover:text-white transition-colors"
+                      >
+                        <span>
+                          {deliveredLeads.length > 0 && <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded-full text-xs mr-2">Entregados {deliveredLeads.length}</span>}
+                          {fallenLeads.length > 0 && <span className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-full text-xs">Caidos/Otros {fallenLeads.length}</span>}
+                        </span>
+                        <ChevronRight size={16} className={`transition-transform ${showOtherStages ? 'rotate-90' : ''}`} />
+                      </button>
+                      {showOtherStages && (
+                        <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {[...deliveredLeads, ...fallenLeads].map(lead => (
+                            <div key={lead.id} onClick={() => selectLead(lead)} className="bg-slate-700/60 rounded-lg p-2 cursor-pointer hover:bg-slate-600/60 transition-colors">
+                              <p className="text-xs font-semibold truncate">{lead.name || 'Sin nombre'}</p>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-[10px] text-slate-400">...{lead.phone?.slice(-4)}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${lead.status === 'delivered' ? 'bg-emerald-600/30 text-emerald-300' : 'bg-red-600/30 text-red-300'}`}>
+                                  {STATUS_LABELS[lead.status] || lead.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
-                })}
+                })()}
               </div>
             ) : (
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
@@ -8543,9 +8738,9 @@ function App() {
 
       {selectedLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedLead(null)}>
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-3xl max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Conversación con {selectedLead.name || 'Lead'}</h3>
+              <h3 className="text-xl font-bold">{selectedLead.name || 'Lead'}</h3>
               <div className="flex items-center gap-2">
                 <button onClick={() => { setEditingLead(selectedLead); setSelectedLead(null); }} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Edit size={18} /> Editar</button>
                 <button onClick={() => setSelectedLead(null)} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
@@ -8638,76 +8833,181 @@ function App() {
                 </div>
               )}
 
+              {/* Unified Activity Timeline */}
               <div className="mt-4">
-                <h4 className="font-semibold mb-2">Historial de conversación:</h4>
-                <div className="bg-slate-700 p-4 rounded-xl max-h-96 overflow-y-auto">
-                  {selectedLead.conversation_history && selectedLead.conversation_history.length > 0 ? (
-                    selectedLead.conversation_history.map((msg: any, i: number) => {
-                      // Determinar color y etiqueta según el rol
-                      let colorClass = 'text-green-400';
-                      let label = 'SARA';
-
-                      if (msg.role === 'user') {
-                        colorClass = 'text-blue-400';
-                        label = 'Cliente';
-                      } else if (msg.role === 'vendedor') {
-                        colorClass = 'text-orange-400';
-                        label = msg.vendedor_name ? `Vendedor (${msg.vendedor_name})` : 'Vendedor';
-                      }
-
-                      return (
-                        <div key={i} className={`mb-3 ${colorClass} break-words`}>
-                          <span className="font-semibold">{label}:</span> {msg.content}
-                          {msg.via_bridge && <span className="text-xs text-slate-400 ml-2">(chat directo)</span>}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-slate-400">Sin historial de conversación</p>
-                  )}
+                {/* Filter tabs */}
+                <div className="flex gap-1 mb-3 flex-wrap">
+                  {([['all','Todo'],['messages','Mensajes'],['activities','Actividades'],['appointments','Citas'],['notes','Notas']] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setTimelineFilter(key)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        timelineFilter === key ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-slate-200'
+                      }`}>{label}</button>
+                  ))}
                 </div>
-              </div>
-              
-              {/* Sección de Actividades del Vendedor */}
-              <div className="mt-4">
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> Actividades del vendedor:
-                </h4>
-                <div className="bg-slate-700 p-4 rounded-xl max-h-48 overflow-y-auto">
-                  {loadingActivities ? (
-                    <p className="text-slate-400">Cargando actividades...</p>
-                  ) : leadActivities.length > 0 ? (
-                    leadActivities.map((activity: LeadActivity) => (
-                      <div key={activity.id} className="mb-3 pb-2 border-b border-slate-600 last:border-0">
-                        <div className="flex justify-between items-start">
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            activity.activity_type === 'call' ? 'bg-blue-600' :
-                            activity.activity_type === 'visit' ? 'bg-green-600' :
-                            activity.activity_type === 'whatsapp' ? 'bg-emerald-600' :
-                            activity.activity_type === 'email' ? 'bg-purple-600' :
-                            activity.activity_type === 'quote' ? 'bg-yellow-600' :
-                            'bg-slate-600'
-                          }`}>
-                            {activity.activity_type === 'call' ? '📞 Llamada' :
-                             activity.activity_type === 'visit' ? '🏠 Visita' :
-                             activity.activity_type === 'whatsapp' ? '💬 WhatsApp' :
-                             activity.activity_type === 'email' ? '📧 Email' :
-                             activity.activity_type === 'quote' ? '💰 Cotización' :
-                             activity.activity_type}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {new Date(activity.created_at).toLocaleDateString('es-MX', { 
-                              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                            })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-300 mt-1">Por: {activity.team_member_name}</p>
-                        {activity.notes && <p className="text-sm text-slate-400 mt-1">{activity.notes}</p>}
+
+                <div className="bg-slate-700/50 rounded-xl max-h-[28rem] overflow-y-auto p-4">
+                  {(() => {
+                    // Build unified timeline entries
+                    const entries: Array<{type: string, timestamp: string, data: any}> = []
+
+                    // Messages from conversation_history
+                    if (selectedLead.conversation_history?.length) {
+                      selectedLead.conversation_history.forEach((msg: any) => {
+                        entries.push({
+                          type: 'message',
+                          timestamp: msg.timestamp || selectedLead.created_at,
+                          data: { role: msg.role, content: msg.content, via_bridge: msg.via_bridge, vendedor_name: msg.vendedor_name }
+                        })
+                      })
+                    }
+
+                    // Activities from leadActivities
+                    if (leadActivities?.length) {
+                      leadActivities.forEach((act: LeadActivity) => {
+                        entries.push({
+                          type: 'activity',
+                          timestamp: act.created_at,
+                          data: { activity_type: act.activity_type, notes: act.notes, team_member: act.team_member_name }
+                        })
+                      })
+                    }
+
+                    // Appointments for this lead
+                    const leadAppts = appointments.filter((a: any) => a.lead_id === selectedLead.id)
+                    leadAppts.forEach((apt: any) => {
+                      entries.push({
+                        type: 'appointment',
+                        timestamp: apt.created_at || `${apt.scheduled_date}T${apt.scheduled_time || '00:00'}`,
+                        data: { date: apt.scheduled_date, time: apt.scheduled_time, property: apt.property_name, status: apt.status }
+                      })
+                    })
+
+                    // Manual notes
+                    if (selectedLead.notes?.manual && Array.isArray(selectedLead.notes.manual)) {
+                      selectedLead.notes.manual.forEach((note: any) => {
+                        entries.push({
+                          type: 'note',
+                          timestamp: note.timestamp || note.created_at || selectedLead.created_at,
+                          data: { text: note.text || note.content, author: note.author }
+                        })
+                      })
+                    }
+
+                    // Sort DESC (newest first)
+                    entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+                    // Apply filter
+                    const filtered = entries.filter(e => {
+                      if (timelineFilter === 'all') return true
+                      if (timelineFilter === 'messages') return e.type === 'message'
+                      if (timelineFilter === 'activities') return e.type === 'activity'
+                      if (timelineFilter === 'appointments') return e.type === 'appointment'
+                      if (timelineFilter === 'notes') return e.type === 'note'
+                      return true
+                    })
+
+                    if (filtered.length === 0) {
+                      return <p className="text-slate-400 text-sm text-center py-4">Sin registros</p>
+                    }
+
+                    // Time ago helper
+                    const timeAgo = (ts: string) => {
+                      const diff = Date.now() - new Date(ts).getTime()
+                      const mins = Math.floor(diff / 60000)
+                      if (mins < 1) return 'ahora'
+                      if (mins < 60) return `hace ${mins}m`
+                      const hrs = Math.floor(mins / 60)
+                      if (hrs < 24) return `hace ${hrs}h`
+                      const days = Math.floor(hrs / 24)
+                      if (days < 30) return `hace ${days}d`
+                      return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+                    }
+
+                    // Dot color + icon by type
+                    const dotStyle = (e: typeof entries[0]) => {
+                      if (e.type === 'message') {
+                        if (e.data.role === 'user') return 'bg-blue-500'
+                        if (e.data.role === 'vendedor') return 'bg-orange-500'
+                        return 'bg-green-500'
+                      }
+                      if (e.type === 'activity') return 'bg-purple-500'
+                      if (e.type === 'appointment') return 'bg-cyan-500'
+                      if (e.type === 'note') return 'bg-yellow-500'
+                      return 'bg-slate-500'
+                    }
+
+                    return (
+                      <div className="timeline-line space-y-3">
+                        {filtered.map((entry, i) => (
+                          <div key={i} className="flex gap-3 items-start pl-0">
+                            <div className={`timeline-dot ${dotStyle(entry)} mt-0.5`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-[11px] text-slate-400">{timeAgo(entry.timestamp)}</span>
+                                {entry.type === 'message' && (
+                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                    entry.data.role === 'user' ? 'bg-blue-500/20 text-blue-300' :
+                                    entry.data.role === 'vendedor' ? 'bg-orange-500/20 text-orange-300' :
+                                    'bg-green-500/20 text-green-300'
+                                  }`}>
+                                    {entry.data.role === 'user' ? 'Cliente' :
+                                     entry.data.role === 'vendedor' ? (entry.data.vendedor_name || 'Vendedor') : 'SARA'}
+                                  </span>
+                                )}
+                                {entry.type === 'activity' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                                    {entry.data.activity_type === 'call' ? 'Llamada' :
+                                     entry.data.activity_type === 'visit' ? 'Visita' :
+                                     entry.data.activity_type === 'whatsapp' ? 'WhatsApp' :
+                                     entry.data.activity_type === 'email' ? 'Email' :
+                                     entry.data.activity_type === 'quote' ? 'Cotización' :
+                                     entry.data.activity_type}
+                                  </span>
+                                )}
+                                {entry.type === 'appointment' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Cita</span>
+                                )}
+                                {entry.type === 'note' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">Nota</span>
+                                )}
+                              </div>
+
+                              {entry.type === 'message' && (
+                                <p className="text-sm text-slate-300 break-words leading-relaxed">
+                                  {entry.data.content}
+                                  {entry.data.via_bridge && <span className="text-[10px] text-slate-500 ml-1">(bridge)</span>}
+                                </p>
+                              )}
+                              {entry.type === 'activity' && (
+                                <div>
+                                  <p className="text-sm text-slate-300">{entry.data.notes || 'Sin detalle'}</p>
+                                  <p className="text-[11px] text-slate-500">Por: {entry.data.team_member}</p>
+                                </div>
+                              )}
+                              {entry.type === 'appointment' && (
+                                <p className="text-sm text-slate-300">
+                                  {entry.data.date} {entry.data.time && `a las ${entry.data.time}`}
+                                  {entry.data.property && ` - ${entry.data.property}`}
+                                  <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${
+                                    entry.data.status === 'completed' ? 'bg-green-600/30 text-green-300' :
+                                    entry.data.status === 'cancelled' ? 'bg-red-600/30 text-red-300' :
+                                    entry.data.status === 'no_show' ? 'bg-orange-600/30 text-orange-300' :
+                                    'bg-blue-600/30 text-blue-300'
+                                  }`}>{entry.data.status}</span>
+                                </p>
+                              )}
+                              {entry.type === 'note' && (
+                                <div>
+                                  <p className="text-sm text-slate-300 break-words">{entry.data.text}</p>
+                                  {entry.data.author && <p className="text-[11px] text-slate-500">Por: {entry.data.author}</p>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-slate-400">Sin actividades registradas</p>
-                  )}
+                    )
+                  })()}
                 </div>
               </div>
             </div>

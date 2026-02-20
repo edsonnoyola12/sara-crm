@@ -193,6 +193,69 @@ body {
   animation: onlinePulse 2s ease-in-out infinite;
 }
 
+/* Kanban board */
+.kanban-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
+.kanban-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+.kanban-card {
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.kanban-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.kanban-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+.kanban-column-highlight {
+  border-color: rgb(59, 130, 246) !important;
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Activity timeline */
+.timeline-line {
+  position: relative;
+}
+.timeline-line::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgb(51, 65, 85);
+}
+.timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgb(30, 41, 59);
+}
+
+/* Notification badge bounce */
+@keyframes notifBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+.notif-badge {
+  animation: notifBounce 0.3s ease-out;
+}
+
 /* Loading skeleton shimmer */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
