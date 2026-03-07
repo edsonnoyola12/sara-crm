@@ -17,6 +17,29 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: 'Entregado', sold: 'Vendido', lost: 'Perdido', fallen: 'Caído', inactive: 'Inactivo', paused: 'Pausado'
 }
 
+// Appointment type colors — used across month/week/list calendar views
+const APPT_TYPES: Record<string, { bg: string; dot: string; badge: string; label: string; icon: string }> = {
+  visita:                  { bg: 'bg-blue-500/80',   dot: 'bg-blue-400',   badge: 'bg-blue-600',   label: 'Visita',     icon: '🏠' },
+  visit:                   { bg: 'bg-blue-500/80',   dot: 'bg-blue-400',   badge: 'bg-blue-600',   label: 'Visita',     icon: '🏠' },
+  mortgage_consultation:   { bg: 'bg-purple-500/80', dot: 'bg-purple-400', badge: 'bg-purple-600', label: 'Credito',    icon: '🏦' },
+  asesoria_credito:        { bg: 'bg-purple-500/80', dot: 'bg-purple-400', badge: 'bg-purple-600', label: 'Credito',    icon: '🏦' },
+  follow_up:               { bg: 'bg-green-500/80',  dot: 'bg-green-400',  badge: 'bg-green-600',  label: 'Seguimiento',icon: '📋' },
+  seguimiento:             { bg: 'bg-green-500/80',  dot: 'bg-green-400',  badge: 'bg-green-600',  label: 'Seguimiento',icon: '📋' },
+  llamada:                 { bg: 'bg-amber-500/80',  dot: 'bg-amber-400',  badge: 'bg-amber-600',  label: 'Llamada',    icon: '📞' },
+  entrega:                 { bg: 'bg-emerald-500/80',dot: 'bg-emerald-400',badge: 'bg-emerald-600',label: 'Entrega',    icon: '🔑' },
+  firma:                   { bg: 'bg-rose-500/80',   dot: 'bg-rose-400',   badge: 'bg-rose-600',   label: 'Firma',      icon: '✍️' },
+}
+const APPT_DEFAULT = { bg: 'bg-blue-500/80', dot: 'bg-blue-400', badge: 'bg-blue-600', label: 'Cita', icon: '📅' }
+function getApptStyle(type?: string) { return APPT_TYPES[type || 'visit'] || APPT_DEFAULT }
+const APPT_LEGEND = [
+  { key: 'visita', ...APPT_TYPES.visita },
+  { key: 'mortgage_consultation', ...APPT_TYPES.mortgage_consultation },
+  { key: 'follow_up', ...APPT_TYPES.follow_up },
+  { key: 'llamada', ...APPT_TYPES.llamada },
+  { key: 'entrega', ...APPT_TYPES.entrega },
+  { key: 'firma', ...APPT_TYPES.firma },
+]
+
 type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla'
 
 interface Lead {
@@ -7473,6 +7496,13 @@ function App() {
               </div>
             </div>
 
+            {/* Color legend — shared across views */}
+            <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+              {APPT_LEGEND.map(t => (
+                <span key={t.key} className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded ${t.bg}`} /> {t.icon} {t.label}</span>
+              ))}
+            </div>
+
             {/* ═══ MONTH GRID VIEW ═══ */}
             {calendarViewMode === 'month' && (
               <div className="space-y-4">
@@ -7533,7 +7563,7 @@ function App() {
                         <div className="mt-1 space-y-0.5">
                           {scheduledAppts.slice(0, 2).map((a, i) => (
                             <div key={i} className="flex items-center gap-1 text-[10px] leading-tight">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getApptStyle(a.appointment_type).dot}`} />
                               <span className="text-slate-300 truncate">{a.scheduled_time?.slice(0,5)} {(a.property_name || a.lead_name || '').slice(0, 10)}</span>
                             </div>
                           ))}
@@ -7569,11 +7599,14 @@ function App() {
                         {(appointmentsByDay.get(selectedCalendarDay) || []).filter(a => a.status === 'scheduled').map(appt => {
                           const vendedorNombre = appt.vendedor_name || team.find(t => t.id === appt.vendedor_id)?.name || 'Sin asignar'
                           return (
-                            <div key={appt.id} className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex items-center justify-between gap-4">
+                            <div key={appt.id} className={`bg-slate-800 border-l-4 border-slate-700 p-4 rounded-xl flex items-center justify-between gap-4`} style={{ borderLeftColor: `var(--appt-${appt.appointment_type || 'visit'})` }}>
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="text-2xl">🏠</div>
+                                <div className="text-2xl">{getApptStyle(appt.appointment_type).icon}</div>
                                 <div className="min-w-0">
-                                  <p className="font-semibold truncate">{appt.property_name || 'Visita'}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold truncate">{appt.property_name || 'Visita'}</p>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-medium ${getApptStyle(appt.appointment_type).badge}`}>{getApptStyle(appt.appointment_type).label}</span>
+                                  </div>
                                   <p className="text-sm text-slate-400">👤 {appt.lead_name || appt.lead_phone} · 🕐 {appt.scheduled_time?.slice(0,5)} · 🏢 {vendedorNombre}</p>
                                 </div>
                               </div>
@@ -7608,7 +7641,7 @@ function App() {
                 if (calendarTeamFilter && a.vendedor_id !== calendarTeamFilter) return false
                 return true
               })
-              const typeColors: Record<string, string> = { visit: 'bg-blue-500/80', mortgage_consultation: 'bg-purple-500/80', follow_up: 'bg-green-500/80' }
+              // typeColors now handled by global getApptStyle()
 
               return (
               <div className="space-y-4">
@@ -7659,7 +7692,7 @@ function App() {
                               <div
                                 key={a.id}
                                 onClick={() => setEditingAppointment({...a, mode: 'edit', notificar: true})}
-                                className={`week-appt-block ${typeColors[a.appointment_type || 'visit'] || 'bg-blue-500/80'}`}
+                                className={`week-appt-block ${getApptStyle(a.appointment_type).bg}`}
                                 style={{ top: '2px', height: 'calc(100% - 4px)' }}
                                 title={`${a.scheduled_time?.slice(0,5)} - ${a.lead_name || ''} - ${a.property_name || ''}`}
                               >
@@ -7674,12 +7707,7 @@ function App() {
                   ))}
                 </div>
 
-                {/* Color legend */}
-                <div className="flex gap-4 text-xs text-slate-400">
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500/80" /> Visita</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-500/80" /> Crédito</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/80" /> Seguimiento</span>
-                </div>
+                {/* Legend is shown globally above views */}
               </div>
               )
             })()}
@@ -7695,11 +7723,11 @@ function App() {
                     <div className="flex items-start justify-between gap-4">
                       {/* Info de la cita */}
                       <div className="flex items-start gap-4 flex-1">
-                        <div className="text-4xl">🏠</div>
+                        <div className="text-4xl">{getApptStyle(appt.appointment_type).icon}</div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <p className="font-bold text-xl">{appt.property_name || 'Visita'}</p>
-                            <span className="px-2 py-1 bg-blue-600 rounded text-xs uppercase">{appt.appointment_type || 'visita'}</span>
+                            <span className={`px-2 py-1 rounded text-xs uppercase font-medium ${getApptStyle(appt.appointment_type).badge}`}>{getApptStyle(appt.appointment_type).label}</span>
                             {appt.confirmation_sent && (
                               <span className={`px-2 py-1 rounded text-xs ${appt.client_responded ? 'bg-green-600' : 'bg-yellow-600'}`}>
                                 {appt.client_responded ? '✅ Confirmado' : '⏳ Enviado'}
