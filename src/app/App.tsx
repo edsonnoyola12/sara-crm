@@ -12,11 +12,13 @@
 
 import LegacyApp from '../App'
 import { CrmProvider } from '../context/CrmContext'
+import InstallPrompt from '../components/InstallPrompt'
 
 export default function App() {
   return (
     <CrmProvider>
       <LegacyApp />
+      <InstallPrompt />
     </CrmProvider>
   )
 }

@@ -1,6 +1,6 @@
 // All interfaces matching the monolith's actual data shapes
 
-export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast'
+export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder'
 
 export interface Lead {
   id: string
@@ -307,6 +307,45 @@ export interface AuditEntry {
   user_name: string
   timestamp: string
 }
+
+export interface Task {
+  id: string
+  title: string
+  description?: string
+  due_date?: string
+  due_time?: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  category: 'llamada' | 'tramite' | 'documento' | 'seguimiento' | 'notaria' | 'avaluo' | 'otro'
+  assigned_to: string
+  assigned_to_name: string
+  lead_id?: string
+  lead_name?: string
+  property_id?: string
+  property_name?: string
+  created_by: string
+  created_by_name: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export const TASK_CATEGORIES = [
+  { key: 'llamada', label: 'Llamada', color: 'bg-amber-500' },
+  { key: 'tramite', label: 'Tramite', color: 'bg-blue-500' },
+  { key: 'documento', label: 'Documento', color: 'bg-purple-500' },
+  { key: 'seguimiento', label: 'Seguimiento', color: 'bg-green-500' },
+  { key: 'notaria', label: 'Notaria', color: 'bg-rose-500' },
+  { key: 'avaluo', label: 'Avaluo', color: 'bg-cyan-500' },
+  { key: 'otro', label: 'Otro', color: 'bg-slate-500' },
+] as const
+
+export const TASK_PRIORITIES = [
+  { key: 'low', label: 'Baja', color: 'bg-slate-400', dot: 'bg-slate-400' },
+  { key: 'medium', label: 'Media', color: 'bg-yellow-500', dot: 'bg-yellow-500' },
+  { key: 'high', label: 'Alta', color: 'bg-orange-500', dot: 'bg-orange-500' },
+  { key: 'urgent', label: 'Urgente', color: 'bg-red-500', dot: 'bg-red-500' },
+] as const
 
 export const STATUS_LABELS: Record<string, string> = {
   new: 'Nuevo', contacted: 'Contactado', qualified: 'Calificado', scheduled: 'Cita',

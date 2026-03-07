@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users } from 'lucide-react'
+import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users } from 'lucide-react'
 import type { View } from '../types/crm'
 import type { Lead, MortgageApplication, Promotion, CRMEvent, TeamMember } from '../types/crm'
 
@@ -123,11 +123,12 @@ export default function Sidebar({
         {permisos.puedeVerSeccion('properties') && <NavItem viewKey="properties" icon={Building} label="Propiedades" />}
 
         {/* Ventas */}
-        <SectionHeader sectionKey="ventas" label="Ventas" activeViews={['coordinator','calendar','followups','mortgage','promotions','events']} />
+        <SectionHeader sectionKey="ventas" label="Ventas" activeViews={['coordinator','calendar','followups','tasks','mortgage','promotions','events']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['ventas'] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('coordinator') && <NavItem viewKey="coordinator" icon={Phone} label="Coordinador" />}
           {permisos.puedeVerSeccion('calendar') && <NavItem viewKey="calendar" icon={CalendarIcon} label="Calendario" />}
           {permisos.puedeVerSeccion('followups') && <NavItem viewKey="followups" icon={Clock} label="Seguimientos" />}
+          {permisos.puedeVerSeccion('tasks') && <NavItem viewKey="tasks" icon={CheckSquare} label="Tareas" />}
           {permisos.puedeVerSeccion('mortgage') && (
             <button onClick={() => nav('mortgage')} className={`sidebar-item ${view === 'mortgage' ? 'sidebar-item-active' : 'text-slate-400'}`}>
               <CreditCard size={16} /> Hipotecas
@@ -179,10 +180,11 @@ export default function Sidebar({
         </div>
 
         {/* Inteligencia */}
-        <SectionHeader sectionKey="inteligencia" label="Inteligencia" activeViews={['reportes','bi','marketing','sara-ai','forecast']} />
+        <SectionHeader sectionKey="inteligencia" label="Inteligencia" activeViews={['reportes','bi','marketing','sara-ai','forecast','report-builder']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['inteligencia'] ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('reportes') && <NavItem viewKey="reportes" icon={BarChart3} label="Reportes CEO" />}
           {permisos.puedeVerSeccion('forecast') && <NavItem viewKey="forecast" icon={TrendingUp} label="Forecast" />}
+          {permisos.puedeVerSeccion('report-builder') && <NavItem viewKey="report-builder" icon={BarChart3} label="Report Builder" />}
           {permisos.puedeVerSeccion('bi') && <NavItem viewKey="bi" icon={Lightbulb} label="Inteligencia Comercial" />}
           {permisos.puedeVerSeccion('marketing') && <NavItem viewKey="marketing" icon={Megaphone} label="Marketing" />}
           {permisos.puedeVerSeccion('sistema') && <NavItem viewKey="sara-ai" icon={Lightbulb} label="SARA IA" />}

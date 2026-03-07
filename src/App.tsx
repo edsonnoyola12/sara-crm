@@ -35,6 +35,8 @@ const ConfigView = lazy(() => import('./views/ConfigView'))
 const SaraAiView = lazy(() => import('./views/SaraAiView'))
 const WhatsAppInboxView = lazy(() => import('./views/WhatsAppInboxView'))
 const ForecastView = lazy(() => import('./views/ForecastView'))
+const TasksView = lazy(() => import('./views/TasksView'))
+const ReportBuilderView = lazy(() => import('./views/ReportBuilderView'))
 const LeadDrawer = lazy(() => import('./components/LeadDrawer'))
 
 export default function App() {
@@ -96,7 +98,7 @@ export default function App() {
   // Auto-expand sidebar section
   useEffect(() => {
     const sectionMap: Record<string, string[]> = {
-      ventas: ['coordinator','calendar','followups','mortgage','promotions','events'],
+      ventas: ['coordinator','calendar','followups','tasks','mortgage','promotions','events'],
       comunicacion: ['mensajes','encuestas','referrals'],
       inteligencia: ['reportes','bi','marketing','sara-ai'],
       monitoreo: ['alertas','sla'],
@@ -287,6 +289,8 @@ export default function App() {
           {view === 'config' && <Suspense fallback={<SkeletonGeneric />}><ConfigView /></Suspense>}
           {view === 'inbox' && <Suspense fallback={<SkeletonGeneric />}><WhatsAppInboxView /></Suspense>}
           {view === 'forecast' && <Suspense fallback={<SkeletonGeneric />}><ForecastView /></Suspense>}
+          {view === 'tasks' && <Suspense fallback={<SkeletonGeneric />}><TasksView /></Suspense>}
+          {view === 'report-builder' && <Suspense fallback={<SkeletonGeneric />}><ReportBuilderView /></Suspense>}
         </div>
       </div>
 

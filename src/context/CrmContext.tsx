@@ -56,6 +56,7 @@ function buildPermisos(currentUser: TeamMember | null) {
         promotions: ['admin', 'coordinador', 'agencia'],
         events: ['admin', 'coordinador'],
         followups: ['admin', 'vendedor', 'coordinador'],
+        tasks: ['admin', 'vendedor', 'coordinador'],
         reportes: ['admin'],
         encuestas: ['admin', 'coordinador'],
         referrals: ['admin', 'coordinador', 'vendedor'],
@@ -68,6 +69,7 @@ function buildPermisos(currentUser: TeamMember | null) {
         alertas: ['admin', 'coordinador'],
         sla: ['admin', 'coordinador'],
         forecast: ['admin', 'coordinador'],
+        'report-builder': ['admin', 'coordinador'],
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -203,7 +205,7 @@ const VALID_VIEWS: View[] = [
   'dashboard', 'leads', 'properties', 'team', 'mortgage', 'marketing',
   'calendar', 'promotions', 'events', 'goals', 'followups', 'reportes',
   'bi', 'mensajes', 'encuestas', 'referrals', 'coordinator', 'sistema',
-  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast'
+  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder'
 ]
 
 function pathToView(pathname: string): View {
