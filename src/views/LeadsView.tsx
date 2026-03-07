@@ -75,13 +75,25 @@ const KANBAN_DIMMED_COLUMNS = [
   { key: 'fallen', colorHeader: 'bg-red-800/50', colorBorder: 'border-red-700/30', colorText: 'text-red-400', colorBadge: 'bg-red-600/30 text-red-400' },
 ]
 
+type SavedFilter = {
+  id: string
+  name: string
+  filters: {
+    status?: string[]
+    scoreRange?: 'all' | 'hot' | 'warm' | 'cold'
+    vendedor?: string
+    desarrollo?: string
+    dateRange?: 'all' | 'today' | 'week' | 'month'
+  }
+}
+
 interface LeadsViewProps {
   onSelectLead: (lead: Lead) => void
 }
 
 export default function LeadsView({ onSelectLead }: LeadsViewProps) {
   const {
-    leads, setLeads, team, currentUser, permisos, showToast, supabase, filteredLeads, loading,
+    leads, setLeads, team, currentUser, permisos, showToast, supabase, filteredLeads, loading, saveLead,
   } = useCrm()
 
   // ---- Local UI state ----
@@ -93,10 +105,13 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
     desarrollo: string
     dateRange: 'all' | 'today' | 'week' | 'month'
   }>({ status: [], scoreRange: 'all', vendedor: '', desarrollo: '', dateRange: 'all' })
-  const [savedViews, setSavedViews] = useState<{ name: string; filters: typeof leadFilters }[]>(() => {
-    try { return JSON.parse(localStorage.getItem('sara-crm-saved-views') || '[]') } catch { return [] }
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
+    try {
+      const saved = localStorage.getItem('sara-saved-filters')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
   })
-  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set())
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set())
   const [showBulkAssign, setShowBulkAssign] = useState(false)
   const [showBulkStatus, setShowBulkStatus] = useState(false)
   const [leadSort, setLeadSort] = useState<{ col: string; asc: boolean }>({ col: 'created_at', asc: false })
@@ -111,7 +126,14 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
   const [showImportExport, setShowImportExport] = useState(false)
   const [importExportTab, setImportExportTab] = useState<'import' | 'export'>('export')
 
+  // Persist saved filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('sara-saved-filters', JSON.stringify(savedFilters))
+  }, [savedFilters])
+
   // ---- Computed ----
+  const isAnyFilterActive = leadFilters.status.length > 0 || leadFilters.scoreRange !== 'all' || leadFilters.vendedor !== '' || leadFilters.desarrollo !== '' || leadFilters.dateRange !== 'all'
+
   const hotLeads = filteredLeads.filter(l => l.score >= 70).length
   const warmLeads = filteredLeads.filter(l => l.score >= 40 && l.score < 70).length
   const coldLeads = filteredLeads.filter(l => l.score < 40).length
@@ -312,25 +334,47 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
             </button>
           )}
 
-          {/* Saved views */}
-          <div className="ml-auto flex gap-1">
-            {savedViews.map((sv, i) => (
-              <button key={i} onClick={() => setLeadFilters(sv.filters)}
-                className="text-xs bg-slate-700 px-2 py-1 rounded-lg hover:bg-slate-600 text-slate-300">
-                {sv.name}
-              </button>
+          {/* Saved filter presets */}
+          <div className="ml-auto flex flex-wrap gap-1.5 items-center">
+            {savedFilters.map(sf => (
+              <span key={sf.id} className="inline-flex items-center gap-1 bg-slate-800 border border-slate-700/50 rounded-full px-3 py-1 text-xs text-slate-300 hover:border-slate-500 transition-colors group">
+                <button onClick={() => setLeadFilters({
+                  status: sf.filters.status || [],
+                  scoreRange: sf.filters.scoreRange || 'all',
+                  vendedor: sf.filters.vendedor || '',
+                  desarrollo: sf.filters.desarrollo || '',
+                  dateRange: sf.filters.dateRange || 'all',
+                })} className="hover:text-white">
+                  {sf.name}
+                </button>
+                <button onClick={(e) => {
+                  e.stopPropagation()
+                  setSavedFilters(prev => prev.filter(f => f.id !== sf.id))
+                }} className="text-slate-500 hover:text-red-400 transition-colors ml-0.5" title="Eliminar filtro">
+                  <X size={12} />
+                </button>
+              </span>
             ))}
-            {(leadFilters.status.length > 0 || leadFilters.scoreRange !== 'all' || leadFilters.vendedor) && savedViews.length < 5 && (
+            {isAnyFilterActive && (
               <button onClick={() => {
-                const name = prompt('Nombre para esta vista:')
-                if (name) {
-                  const newViews = [...savedViews, { name, filters: { ...leadFilters } }]
-                  setSavedViews(newViews)
-                  localStorage.setItem('sara-crm-saved-views', JSON.stringify(newViews))
-                  showToast(`Vista "${name}" guardada`, 'success')
+                const name = prompt('Nombre para este filtro:')
+                if (name?.trim()) {
+                  const newFilter: SavedFilter = {
+                    id: crypto.randomUUID(),
+                    name: name.trim(),
+                    filters: {
+                      status: leadFilters.status.length > 0 ? [...leadFilters.status] : undefined,
+                      scoreRange: leadFilters.scoreRange !== 'all' ? leadFilters.scoreRange : undefined,
+                      vendedor: leadFilters.vendedor || undefined,
+                      desarrollo: leadFilters.desarrollo || undefined,
+                      dateRange: leadFilters.dateRange !== 'all' ? leadFilters.dateRange : undefined,
+                    },
+                  }
+                  setSavedFilters(prev => [...prev, newFilter])
+                  showToast(`Filtro "${name.trim()}" guardado`, 'success')
                 }
-              }} className="text-xs bg-slate-600 px-2 py-1 rounded-lg hover:bg-slate-500 text-slate-200">
-                <Save size={12} className="inline mr-1" />Guardar
+              }} className="bg-slate-800 border border-slate-700/50 rounded-full px-3 py-1 text-xs text-slate-300 hover:border-blue-500/50 hover:text-blue-300 transition-colors flex items-center gap-1">
+                <Save size={12} />Guardar filtro
               </button>
             )}
           </div>
@@ -338,26 +382,25 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
       </div>
 
       {/* Bulk Action Bar */}
-      {selectedLeadIds.size > 0 && (
-        <div className="bulk-bar fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-blue-500/50 rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
+      {selectedLeads.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
           <span className="text-sm font-semibold text-blue-400">
-            <CheckSquare size={16} className="inline mr-1" />{selectedLeadIds.size} seleccionados
+            <CheckSquare size={16} className="inline mr-1" />{selectedLeads.size} seleccionados
           </span>
           <div className="w-px h-6 bg-slate-600" />
           <div className="relative">
-            <button onClick={() => setShowBulkAssign(!showBulkAssign)} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
-              Asignar a... <ChevronDown size={14} className="inline ml-1" />
+            <button onClick={() => { setShowBulkAssign(!showBulkAssign); setShowBulkStatus(false) }} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
+              Asignar vendedor <ChevronDown size={14} className="inline ml-1" />
             </button>
             {showBulkAssign && (
               <div className="absolute bottom-full mb-2 left-0 bg-slate-700 border border-slate-600 rounded-xl shadow-xl p-2 min-w-[180px]">
                 {team.filter(t => t.role === 'vendedor' && t.active).map(t => (
                   <button key={t.id} onClick={async () => {
-                    const ids = Array.from(selectedLeadIds)
+                    const ids = Array.from(selectedLeads)
                     for (const id of ids) {
-                      await supabase.from('leads').update({ assigned_to: t.id }).eq('id', id)
+                      await saveLead({ id, assigned_to: t.id })
                     }
-                    setLeads(leads.map(l => selectedLeadIds.has(l.id) ? { ...l, assigned_to: t.id } : l))
-                    setSelectedLeadIds(new Set())
+                    setSelectedLeads(new Set())
                     setShowBulkAssign(false)
                     showToast(`${ids.length} leads asignados a ${t.name}`, 'success')
                   }} className="w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-slate-600 truncate">
@@ -368,19 +411,18 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
             )}
           </div>
           <div className="relative">
-            <button onClick={() => setShowBulkStatus(!showBulkStatus)} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
-              Cambiar status... <ChevronDown size={14} className="inline ml-1" />
+            <button onClick={() => { setShowBulkStatus(!showBulkStatus); setShowBulkAssign(false) }} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
+              Cambiar status <ChevronDown size={14} className="inline ml-1" />
             </button>
             {showBulkStatus && (
               <div className="absolute bottom-full mb-2 left-0 bg-slate-700 border border-slate-600 rounded-xl shadow-xl p-2 min-w-[180px]">
                 {['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved', 'closed'].map(s => (
                   <button key={s} onClick={async () => {
-                    const ids = Array.from(selectedLeadIds)
+                    const ids = Array.from(selectedLeads)
                     for (const id of ids) {
-                      await supabase.from('leads').update({ status: s, status_changed_at: new Date().toISOString() }).eq('id', id)
+                      await saveLead({ id, status: s })
                     }
-                    setLeads(leads.map(l => selectedLeadIds.has(l.id) ? { ...l, status: s } : l))
-                    setSelectedLeadIds(new Set())
+                    setSelectedLeads(new Set())
                     setShowBulkStatus(false)
                     showToast(`${ids.length} leads movidos a ${STATUS_LABELS[s]}`, 'success')
                   }} className="w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-slate-600">
@@ -391,7 +433,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
             )}
           </div>
           <button onClick={() => {
-            const selected = displayLeads.filter(l => selectedLeadIds.has(l.id))
+            const selected = displayLeads.filter(l => selectedLeads.has(l.id))
             const headers = ['Nombre', 'Telefono', 'Interes', 'Score', 'Estado', 'Vendedor', 'Fecha']
             const rows = selected.map(l => [
               l.name || '', l.phone || '', l.property_interest || '', l.score, STATUS_LABELS[l.status] || l.status,
@@ -405,10 +447,10 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
             a.click(); URL.revokeObjectURL(url)
             showToast(`${selected.length} leads exportados`, 'success')
           }} className="text-sm bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-600">
-            <FileSpreadsheet size={14} className="inline mr-1" />Exportar
+            <FileSpreadsheet size={14} className="inline mr-1" />Exportar seleccion
           </button>
-          <button onClick={() => setSelectedLeadIds(new Set())} className="text-sm text-slate-400 hover:text-white px-2 py-1.5">
-            <X size={14} className="inline" />
+          <button onClick={() => setSelectedLeads(new Set())} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-700">
+            <X size={14} className="inline mr-1" />Deseleccionar
           </button>
         </div>
       )}
@@ -582,10 +624,10 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
           <div className="flex items-center">
             <div className="p-4 w-10 flex-shrink-0">
               <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
-                checked={displayLeads.length > 0 && displayLeads.every(l => selectedLeadIds.has(l.id))}
+                checked={displayLeads.length > 0 && displayLeads.every(l => selectedLeads.has(l.id))}
                 onChange={(e) => {
-                  if (e.target.checked) setSelectedLeadIds(new Set(displayLeads.map(l => l.id)))
-                  else setSelectedLeadIds(new Set())
+                  if (e.target.checked) setSelectedLeads(new Set(displayLeads.map(l => l.id)))
+                  else setSelectedLeads(new Set())
                 }}
               />
             </div>
@@ -621,8 +663,8 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
                 <div key={lead.id} onClick={() => onSelectLead(lead)} className="lead-row border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/30 flex items-center" style={{ position: 'absolute', top: offsetTop, left: 0, right: 0, height: ROW_HEIGHT }}>
                   <div className="p-4 w-10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
-                      checked={selectedLeadIds.has(lead.id)}
-                      onChange={() => setSelectedLeadIds(prev => {
+                      checked={selectedLeads.has(lead.id)}
+                      onChange={() => setSelectedLeads(prev => {
                         const next = new Set(prev)
                         if (next.has(lead.id)) next.delete(lead.id)
                         else next.add(lead.id)
