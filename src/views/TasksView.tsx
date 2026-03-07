@@ -8,6 +8,7 @@ import {
   GripVertical, ArrowUpDown, Phone, FileText, Users, Gavel, MapPin, MoreHorizontal, Edit3
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
+import PageHeader from '../components/PageHeader'
 
 const CATEGORY_MAP = Object.fromEntries(TASK_CATEGORIES.map(c => [c.key, c]))
 const PRIORITY_MAP = Object.fromEntries(TASK_PRIORITIES.map(p => [p.key, p]))
@@ -639,20 +640,19 @@ export default function TasksView() {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CheckSquare className="text-blue-400" size={24} /> Tareas
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">{tasks.length} tareas totales</p>
-        </div>
-        <button
-          onClick={() => setModalTask('new')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors shrink-0"
-        >
-          <Plus size={16} /> Nueva Tarea
-        </button>
-      </div>
+      <PageHeader
+        icon={CheckSquare}
+        title="Tareas"
+        badge={tasks.length}
+        actions={
+          <button
+            onClick={() => setModalTask('new')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors shrink-0"
+          >
+            <Plus size={16} /> Nueva Tarea
+          </button>
+        }
+      />
 
       {tasks.length === 0 ? (
         <EmptyState

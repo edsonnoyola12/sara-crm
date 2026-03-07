@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, X, Building, Edit, Trash2, Save } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import { useCrm } from '../context/CrmContext'
 import type { Property } from '../types/crm'
@@ -158,16 +159,20 @@ export default function PropertiesView() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">Propiedades ({properties.length})</h2>
-          {permisos.puedeEditarPropiedades() ? (
-            <button onClick={() => setShowNewProperty(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
-              <Plus size={20} /> Agregar Propiedad
-            </button>
-          ) : (
-            <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
-          )}
-        </div>
+        <PageHeader
+          icon={Building}
+          title="Propiedades"
+          badge={properties.length}
+          actions={
+            permisos.puedeEditarPropiedades() ? (
+              <button onClick={() => setShowNewProperty(true)} className="bg-blue-600 px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2">
+                <Plus size={20} /> Agregar Propiedad
+              </button>
+            ) : (
+              <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
+            )
+          }
+        />
         {properties.length > 0 && (() => {
           const zones = [...new Set(properties.map(p => p.development).filter(Boolean))] as string[]
           const beds = [...new Set(properties.map(p => p.bedrooms).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0)) as number[]

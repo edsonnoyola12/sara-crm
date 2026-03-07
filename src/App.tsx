@@ -7,6 +7,7 @@ import { PropertyModal, LeadModal, MemberModal, MortgageModal, CampaignModal, Pr
 import Sidebar from './components/Sidebar'
 import NotificationDrawer from './components/NotificationDrawer'
 import GlobalSearch from './components/GlobalSearch'
+const CommandPalette = lazy(() => import('./components/CommandPalette'))
 import LoginScreen, { getSession, clearSession, getSessionTimeRemaining, extendSession, createSession } from './components/LoginScreen'
 import SecuritySettings from './components/SecuritySettings'
 import { SkeletonDashboard, SkeletonTable, SkeletonCards, SkeletonCalendar, SkeletonGeneric } from './components/Skeletons'
@@ -286,6 +287,8 @@ export default function App() {
         <GlobalSearch show={showGlobalSearch} onClose={() => setShowGlobalSearch(false)}
           leads={leads} properties={properties} team={team} appointments={appointments}
           onSelectLead={lead => setSelectedLead(lead)} setView={setView} />
+
+        <Suspense fallback={null}><CommandPalette /></Suspense>
 
         {/* Views */}
         <div key={view} className="section-enter">

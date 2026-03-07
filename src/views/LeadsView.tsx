@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3, Upload, Download, Users } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 import ImportExportModal from '../components/ImportExportModal'
 import EmptyState from '../components/EmptyState'
 import { useCrm } from '../context/CrmContext'
@@ -207,38 +208,43 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Leads ({displayLeads.length})</h2>
-        <div className="flex gap-4 items-center">
-          <div className="flex gap-0.5 bg-slate-700/50 rounded-lg p-0.5">
-            <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'list' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
-              <LayoutList size={14} /> Lista
+      <PageHeader
+        icon={Users}
+        title="Leads"
+        subtitle="Gestion de prospectos"
+        badge={displayLeads.length}
+        actions={
+          <div className="flex gap-4 items-center">
+            <div className="flex gap-0.5 bg-slate-700/50 rounded-lg p-0.5">
+              <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'list' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
+                <LayoutList size={14} /> Lista
+              </button>
+              <button onClick={() => setLeadViewMode('kanban')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'kanban' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
+                <Columns3 size={14} /> Kanban
+              </button>
+            </div>
+            <button onClick={() => { setImportExportTab('import'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Importar CSV">
+              <Upload size={16} /> Importar
             </button>
-            <button onClick={() => setLeadViewMode('kanban')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'kanban' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
-              <Columns3 size={14} /> Kanban
+            <button onClick={() => { setImportExportTab('export'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
+              <Download size={16} /> Exportar
             </button>
+            {permisos.puedeCrearLead() && (
+              <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
+                <Plus size={20} /> Agregar Lead
+              </button>
+            )}
+            {permisos.puedeVerLeadsReadOnly() && (
+              <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
+            )}
+            <div className="flex gap-2">
+              <span className="bg-red-500 px-3 py-1 rounded-full text-sm">HOT ({hotLeads})</span>
+              <span className="bg-orange-500 px-3 py-1 rounded-full text-sm">WARM ({warmLeads})</span>
+              <span className="bg-blue-500 px-3 py-1 rounded-full text-sm">COLD ({coldLeads})</span>
+            </div>
           </div>
-          <button onClick={() => { setImportExportTab('import'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Importar CSV">
-            <Upload size={16} /> Importar
-          </button>
-          <button onClick={() => { setImportExportTab('export'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
-            <Download size={16} /> Exportar
-          </button>
-          {permisos.puedeCrearLead() && (
-            <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
-              <Plus size={20} /> Agregar Lead
-            </button>
-          )}
-          {permisos.puedeVerLeadsReadOnly() && (
-            <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <span className="bg-red-500 px-3 py-1 rounded-full text-sm">HOT ({hotLeads})</span>
-          <span className="bg-orange-500 px-3 py-1 rounded-full text-sm">WARM ({warmLeads})</span>
-          <span className="bg-blue-500 px-3 py-1 rounded-full text-sm">COLD ({coldLeads})</span>
-        </div>
-      </div>
+        }
+      />
 
       {/* Advanced Filter Bar */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3">

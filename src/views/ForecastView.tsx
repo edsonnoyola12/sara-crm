@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, DollarSign, Users, Target, Clock, BarChart3, RefreshCw } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -270,9 +271,7 @@ export default function ForecastView() {
   if (leads.length === 0) {
     return (
       <div className="space-y-6 section-enter">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
-          Pipeline Forecast
-        </h2>
+        <PageHeader icon={TrendingUp} title="Forecast" subtitle="Proyeccion de ventas" />
         <EmptyState
           icon={TrendingUp}
           title="Sin datos de forecast"
@@ -285,14 +284,16 @@ export default function ForecastView() {
   return (
     <div className="space-y-6 section-enter">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
-          Pipeline Forecast
-        </h2>
-        <div className="text-sm text-slate-400">
-          {pipelineLeads.length} leads activos en pipeline
-        </div>
-      </div>
+      <PageHeader
+        icon={TrendingUp}
+        title="Forecast"
+        subtitle="Proyeccion de ventas"
+        actions={
+          <div className="text-sm text-slate-400">
+            {pipelineLeads.length} leads activos en pipeline
+          </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
