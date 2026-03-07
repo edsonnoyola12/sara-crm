@@ -1,4 +1,5 @@
-import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, ChevronRight, Clock, CreditCard, Gift, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users } from 'lucide-react'
 import type { View } from '../types/crm'
 import type { Lead, MortgageApplication, Promotion, CRMEvent, TeamMember } from '../types/crm'
 
@@ -28,13 +29,19 @@ export default function Sidebar({
   permisos, mortgages, getDaysInStatus,
   promotions, crmEvents, leads
 }: SidebarProps) {
+  const routerNavigate = useNavigate()
+
   const toggleSection = (key: string) => {
     const next = { ...collapsedSections, [key]: !collapsedSections[key] }
     setCollapsedSections(next)
     localStorage.setItem('sidebar_collapsed', JSON.stringify(next))
   }
 
-  const nav = (v: View) => { setView(v); setSidebarOpen(false) }
+  const nav = (v: View) => {
+    // Navigate via router (CrmContext syncs view state from URL automatically)
+    routerNavigate(v === 'dashboard' ? '/' : '/' + v)
+    setSidebarOpen(false)
+  }
 
   const SectionHeader = ({ sectionKey, label, activeViews }: { sectionKey: string; label: string; activeViews: string[] }) => {
     const isOpen = !collapsedSections[sectionKey]
@@ -86,9 +93,9 @@ export default function Sidebar({
                   onChange={(e) => {
                     const newRole = e.target.value as any
                     setCurrentUser({ ...currentUser, role: newRole })
-                    if (newRole === 'agencia') setView('marketing')
-                    else if (newRole === 'asesor') setView('mortgage')
-                    else setView('dashboard')
+                    if (newRole === 'agencia') routerNavigate('/marketing')
+                    else if (newRole === 'asesor') routerNavigate('/mortgage')
+                    else routerNavigate('/')
                   }}
                   className="text-[11px] px-1.5 py-0.5 bg-blue-500/15 text-blue-400 border border-blue-500/20 rounded-md cursor-pointer font-medium"
                   title="Cambiar rol para testing"
@@ -154,8 +161,9 @@ export default function Sidebar({
         </div>
 
         {/* Comunicacion */}
-        <SectionHeader sectionKey="comunicacion" label="Comunicacion" activeViews={['mensajes','encuestas','referrals']} />
+        <SectionHeader sectionKey="comunicacion" label="Comunicacion" activeViews={['mensajes','encuestas','referrals','inbox']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['comunicacion'] ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          {permisos.puedeVerSeccion('inbox') && <NavItem viewKey="inbox" icon={Inbox} label="WhatsApp Inbox" />}
           {permisos.puedeVerSeccion('mensajes') && <NavItem viewKey="mensajes" icon={MessageSquare} label="Mensajes" />}
           {permisos.puedeVerSeccion('encuestas') && <NavItem viewKey="encuestas" icon={Star} label="Encuestas" />}
           {permisos.puedeVerSeccion('referrals') && (

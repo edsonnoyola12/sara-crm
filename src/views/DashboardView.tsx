@@ -18,6 +18,78 @@ export default function DashboardView() {
   const [dashboardRespuesta, setDashboardRespuesta] = useState('')
   const [dashboardCargando, setDashboardCargando] = useState(false)
 
+  // Dashboard filters
+  type DateRange = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'ano' | 'todo'
+  const [dateRange, setDateRange] = useState<DateRange>('mes')
+  const [vendorFilter, setVendorFilter] = useState<string>('todos')
+  const [developmentFilter, setDevelopmentFilter] = useState<string>('todos')
+
+  // Compute date boundaries
+  const dateRangeBounds = useMemo(() => {
+    const now = new Date()
+    let start: Date
+    switch (dateRange) {
+      case 'hoy':
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        break
+      case 'semana': {
+        const day = now.getDay()
+        const diff = day === 0 ? 6 : day - 1 // Monday as start
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff)
+        break
+      }
+      case 'mes':
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        break
+      case 'trimestre':
+        start = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+        break
+      case 'ano':
+        start = new Date(now.getFullYear(), 0, 1)
+        break
+      case 'todo':
+      default:
+        start = new Date(2000, 0, 1)
+        break
+    }
+    return { start, end: now }
+  }, [dateRange])
+
+  // Filtered leads for dashboard
+  const dashFilteredLeads = useMemo(() => {
+    let result = leads
+    // Date filter
+    if (dateRange !== 'todo') {
+      result = result.filter(l => {
+        const d = new Date(l.created_at)
+        return d >= dateRangeBounds.start && d <= dateRangeBounds.end
+      })
+    }
+    // Vendor filter
+    if (vendorFilter !== 'todos') {
+      result = result.filter(l => l.assigned_to === vendorFilter)
+    }
+    // Development filter
+    if (developmentFilter !== 'todos') {
+      result = result.filter(l => l.property_interest === developmentFilter)
+    }
+    return result
+  }, [leads, dateRange, dateRangeBounds, vendorFilter, developmentFilter])
+
+  // Unique developments from leads
+  const uniqueDevelopments = useMemo(() => {
+    const devs = new Set<string>()
+    leads.forEach(l => {
+      if (l.property_interest) devs.add(l.property_interest)
+    })
+    return Array.from(devs).sort()
+  }, [leads])
+
+  // Vendedores for filter
+  const vendedoresList = useMemo(() => {
+    return team.filter(t => t.role === 'vendedor')
+  }, [team])
+
   // Goals state (loaded locally)
   const [monthlyGoals, setMonthlyGoals] = useState<{month: string, company_goal: number}>({ month: '', company_goal: 0 })
   const [vendorGoals, setVendorGoals] = useState<{vendor_id: string, goal: number, name: string}[]>([])
@@ -702,12 +774,83 @@ const metaAnalysis = (() => {
     </div>
   </div>
 
+  {/* ═══════════════ FILTER BAR ═══════════════ */}
+  {currentUser?.role === 'admin' && (
+  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      {/* Date range pills */}
+      <div className="flex flex-wrap gap-1.5">
+        {([
+          { key: 'hoy', label: 'Hoy' },
+          { key: 'semana', label: 'Esta semana' },
+          { key: 'mes', label: 'Este mes' },
+          { key: 'trimestre', label: 'Ultimo trimestre' },
+          { key: 'ano', label: 'Este año' },
+          { key: 'todo', label: 'Todo' },
+        ] as { key: DateRange; label: string }[]).map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => setDateRange(opt.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              dateRange === opt.key
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600/60 hover:text-slate-300'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Vendor dropdown */}
+      <select
+        value={vendorFilter}
+        onChange={e => setVendorFilter(e.target.value)}
+        className="bg-slate-700/60 border border-slate-600/50 text-slate-300 text-xs rounded-lg px-3 py-1.5 focus:border-blue-500 focus:outline-none"
+      >
+        <option value="todos">Todos los vendedores</option>
+        {vendedoresList.map(v => (
+          <option key={v.id} value={v.id}>{v.name}</option>
+        ))}
+      </select>
+
+      {/* Development dropdown */}
+      <select
+        value={developmentFilter}
+        onChange={e => setDevelopmentFilter(e.target.value)}
+        className="bg-slate-700/60 border border-slate-600/50 text-slate-300 text-xs rounded-lg px-3 py-1.5 focus:border-blue-500 focus:outline-none"
+      >
+        <option value="todos">Todos los desarrollos</option>
+        {uniqueDevelopments.map(d => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </select>
+
+      {/* Active filter count */}
+      {(dateRange !== 'mes' || vendorFilter !== 'todos' || developmentFilter !== 'todos') && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">
+            {dashFilteredLeads.length} leads
+          </span>
+          <button
+            onClick={() => { setDateRange('mes'); setVendorFilter('todos'); setDevelopmentFilter('todos') }}
+            className="text-xs text-red-400 hover:text-red-300 underline"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+  )}
+
   {/* ═══════════════════════════════════════════════════════════ */}
   {/* DASHBOARD PERSONALIZADO POR ROL */}
   {/* ═══════════════════════════════════════════════════════════ */}
 
   {/* ══════ DASHBOARD ADMIN ══════ */}
   {currentUser?.role === 'admin' && (() => {
+    const dfl = dashFilteredLeads
     const now = new Date()
     const currentMonth = now.toISOString().slice(0, 7)
     const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
@@ -716,11 +859,11 @@ const metaAnalysis = (() => {
     const diasRestantes = diasEnMes - diasTranscurridos
 
     // Ventas del mes
-    const ventasDelMes = leads.filter(l =>
+    const ventasDelMes = dfl.filter(l =>
       ['closed', 'delivered', 'sold'].includes(l.status) &&
       l.status_changed_at?.startsWith(currentMonth)
     )
-    const ventasMesAnterior = leads.filter(l =>
+    const ventasMesAnterior = dfl.filter(l =>
       ['closed', 'delivered', 'sold'].includes(l.status) &&
       l.status_changed_at?.startsWith(prevMonth)
     ).length
@@ -731,12 +874,12 @@ const metaAnalysis = (() => {
       : 0
 
     // Pipeline y revenue
-    const leadsActivos = leads.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status))
+    const leadsActivos = dfl.filter(l => !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status))
     const pipelineValue = leadsActivos.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
     const revenueDelMes = ventasDelMes.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
 
     // Leads HOT (negociación + reservado)
-    const leadsHot = leads.filter(l => ['negotiation', 'reserved'].includes(l.status))
+    const leadsHot = dfl.filter(l => ['negotiation', 'reserved'].includes(l.status))
     const valorLeadsHot = leadsHot.reduce((sum, l) => sum + (Number(l.budget) || 0), 0)
 
     // Proyección
@@ -744,39 +887,39 @@ const metaAnalysis = (() => {
     const revenueProyectado = diasTranscurridos > 0 ? Math.round((revenueDelMes / diasTranscurridos) * diasEnMes) : 0
 
     // Leads del mes
-    const leadsDelMes = leads.filter(l => l.created_at?.startsWith(currentMonth)).length
-    const leadsNuevosSinContactar = leads.filter(l => l.status === 'new').length
+    const leadsDelMes = dfl.filter(l => l.created_at?.startsWith(currentMonth)).length
+    const leadsNuevosSinContactar = dfl.filter(l => l.status === 'new').length
 
     // Leads estancados (+5 días)
-    const leadsEstancados = leads.filter(l => {
+    const leadsEstancados = dfl.filter(l => {
       if (['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)) return false
       const dias = l.status_changed_at ? Math.floor((now.getTime() - new Date(l.status_changed_at).getTime()) / 86400000) : 999
       return dias > 5
     })
 
     // Conversión general
-    const totalLeads = leads.length
-    const totalVentas = leads.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
+    const totalLeads = dfl.length
+    const totalVentas = dfl.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
     const tasaConversion = totalLeads > 0 ? ((totalVentas / totalLeads) * 100).toFixed(1) : '0'
 
     // Ranking vendedores
     const vendedoresRanking = team
       .filter(t => t.role === 'vendedor')
       .map(v => {
-        const ventasV = leads.filter(l =>
+        const ventasV = dfl.filter(l =>
           l.assigned_to === v.id &&
           ['closed', 'delivered', 'sold'].includes(l.status) &&
           l.status_changed_at?.startsWith(currentMonth)
         ).length
         const metaV = vendorGoals.find(g => g.vendor_id === v.id)?.goal || 0
-        const leadsV = leads.filter(l => l.assigned_to === v.id && !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)).length
+        const leadsV = dfl.filter(l => l.assigned_to === v.id && !['closed', 'delivered', 'sold', 'lost', 'inactive'].includes(l.status)).length
         return { ...v, ventas: ventasV, meta: metaV, leads: leadsV, pct: metaV > 0 ? Math.round((ventasV / metaV) * 100) : 0 }
       })
       .sort((a, b) => b.ventas - a.ventas)
 
     // Por fuente
     const porFuente: Record<string, { leads: number, ventas: number }> = {}
-    leads.filter(l => l.created_at?.startsWith(currentMonth)).forEach(l => {
+    dfl.filter(l => l.created_at?.startsWith(currentMonth)).forEach(l => {
       const src = l.source || 'Directo'
       if (!porFuente[src]) porFuente[src] = { leads: 0, ventas: 0 }
       porFuente[src].leads++
@@ -788,7 +931,7 @@ const metaAnalysis = (() => {
 
     // Por desarrollo
     const porDesarrollo: Record<string, { leads: number, ventas: number, revenue: number }> = {}
-    leads.forEach(l => {
+    dfl.forEach(l => {
       const dev = l.property_interest || 'Sin especificar'
       if (!porDesarrollo[dev]) porDesarrollo[dev] = { leads: 0, ventas: 0, revenue: 0 }
       porDesarrollo[dev].leads++
@@ -807,13 +950,13 @@ const metaAnalysis = (() => {
 
     // Funnel general
     const funnel = {
-      new: leads.filter(l => l.status === 'new').length,
-      contacted: leads.filter(l => l.status === 'contacted').length,
-      scheduled: leads.filter(l => l.status === 'scheduled').length,
-      visited: leads.filter(l => l.status === 'visited').length,
-      negotiation: leads.filter(l => l.status === 'negotiation').length,
-      reserved: leads.filter(l => l.status === 'reserved').length,
-      closed: leads.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
+      new: dfl.filter(l => l.status === 'new').length,
+      contacted: dfl.filter(l => l.status === 'contacted').length,
+      scheduled: dfl.filter(l => l.status === 'scheduled').length,
+      visited: dfl.filter(l => l.status === 'visited').length,
+      negotiation: dfl.filter(l => l.status === 'negotiation').length,
+      reserved: dfl.filter(l => l.status === 'reserved').length,
+      closed: dfl.filter(l => ['closed', 'delivered', 'sold'].includes(l.status)).length
     }
 
     // Marketing CPL
@@ -922,10 +1065,10 @@ const metaAnalysis = (() => {
           </div>
 
           {/* Llamadas Retell */}
-          <div className={`kpi-card rounded-xl p-4 border ${leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
+          <div className={`kpi-card rounded-xl p-4 border ${dfl.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length > 0 ? 'bg-orange-900/20 border-orange-500/40' : 'bg-slate-800/50 border-slate-600/30'}`}>
             <p className="text-[11px] font-medium text-slate-400 mb-1">LLAMADAS 📞</p>
-            <p className="text-3xl font-bold text-orange-400">{leads.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
-            <p className="text-xs text-slate-400 mt-2">{leads.filter(l => l.source === 'phone_inbound').length} total</p>
+            <p className="text-3xl font-bold text-orange-400">{dfl.filter(l => l.source === 'phone_inbound' && l.created_at?.startsWith(currentMonth)).length}</p>
+            <p className="text-xs text-slate-400 mt-2">{dfl.filter(l => l.source === 'phone_inbound').length} total</p>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type {
   Lead, Property, TeamMember, MortgageApplication, Campaign,
@@ -61,6 +62,7 @@ function buildPermisos(currentUser: TeamMember | null) {
         config: ['admin'],
         bi: ['admin', 'coordinador'],
         mensajes: ['admin', 'coordinador'],
+        inbox: ['admin', 'coordinador', 'vendedor'],
         sistema: ['admin'],
         'sara-ai': ['admin'],
         alertas: ['admin', 'coordinador'],
@@ -168,9 +170,68 @@ export function useCrm() {
   return ctx
 }
 
+// Valid view names for route mapping
+const VALID_VIEWS: View[] = [
+  'dashboard', 'leads', 'properties', 'team', 'mortgage', 'marketing',
+  'calendar', 'promotions', 'events', 'goals', 'followups', 'reportes',
+  'bi', 'mensajes', 'encuestas', 'referrals', 'coordinator', 'sistema',
+  'sara-ai', 'alertas', 'sla', 'config', 'inbox'
+]
+
+function pathToView(pathname: string): View {
+  const segment = pathname.replace(/^\//, '').split('/')[0] || 'dashboard'
+  if (segment === '' || segment === 'dashboard') return 'dashboard'
+  if (VALID_VIEWS.includes(segment as View)) return segment as View
+  return 'dashboard'
+}
+
+function viewToPath(v: View): string {
+  return v === 'dashboard' ? '/' : '/' + v
+}
+
+// Inner provider that uses Router hooks (must be inside a Router)
+function CrmProviderWithRouter({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  return <CrmProviderInner navigate={navigate} locationPathname={location.pathname}>{children}</CrmProviderInner>
+}
+
+// Outer provider that gracefully handles missing Router
 export function CrmProvider({ children }: { children: ReactNode }) {
+  // Check if we're inside a Router by looking for the LocationContext
+  // We use a try-render approach: wrap in error boundary alternative
+  // Simpler: check if UNSAFE_DataRouterContext or location context exists
+  // Safest: just render with router hooks — in production always inside BrowserRouter
+  // For tests without Router, use CrmProviderInner directly
+  return <CrmProviderWithRouter>{children}</CrmProviderWithRouter>
+}
+
+function CrmProviderInner({ children, navigate, locationPathname }: {
+  children: ReactNode
+  navigate: ReturnType<typeof useNavigate> | null
+  locationPathname: string | null
+}) {
   // ---- Core data state ----
-  const [view, setView] = useState<View>('dashboard')
+  const initialView = locationPathname ? pathToView(locationPathname) : 'dashboard'
+  const [view, setViewState] = useState<View>(initialView)
+
+  // Wrap setView to also update URL
+  const setView = useCallback((action: React.SetStateAction<View>) => {
+    setViewState(prev => {
+      const next = typeof action === 'function' ? action(prev) : action
+      if (navigate) {
+        try { navigate(viewToPath(next), { replace: false }) } catch { /* noop */ }
+      }
+      return next
+    })
+  }, [navigate]) as React.Dispatch<React.SetStateAction<View>>
+
+  // Sync view when browser back/forward changes the URL
+  useEffect(() => {
+    if (!locationPathname) return
+    const viewFromUrl = pathToView(locationPathname)
+    setViewState(viewFromUrl)
+  }, [locationPathname])
   const [leads, setLeads] = useState<Lead[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])

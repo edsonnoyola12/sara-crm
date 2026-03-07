@@ -600,3 +600,90 @@ body {
 .sparkline-container:hover {
   opacity: 1;
 }
+
+/* ═══ MOBILE POLISH ═══ */
+
+/* Safe area for notched devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .min-h-screen { min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+
+/* Prevent text selection on interactive elements */
+button, .sidebar-item, .filter-chip, .kanban-card {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Larger touch targets on mobile */
+@media (max-width: 1023px) {
+  .sidebar-item { min-height: 44px; padding: 0.75rem 1rem; }
+  .filter-chip { min-height: 36px; }
+  .lead-row { min-height: 48px; }
+
+  /* Bottom safe area for toast */
+  .fixed.bottom-6 { bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)); }
+
+  /* Full-width modals on mobile */
+  .fixed.inset-0 > .max-w-lg,
+  .fixed.inset-0 > .max-w-md,
+  .fixed.inset-0 > .max-w-sm { max-width: calc(100% - 2rem); }
+
+  /* Notification drawer full width on small screens */
+  .notif-drawer { width: 100% !important; }
+
+  /* Pull-to-feel: smooth scroll */
+  .overflow-auto, .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* KPI cards stack 2-up on small screens */
+  .grid-cols-2.lg\:grid-cols-4 { gap: 0.75rem; }
+
+  /* Tables scroll horizontally on mobile */
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+  thead, tbody, tr { display: table; width: 100%; table-layout: auto; }
+}
+
+/* Smooth transitions for view changes */
+@media (prefers-reduced-motion: no-preference) {
+  .section-enter { animation: fadeInUp 0.25s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .section-enter, .animate-fade-in-up, .notif-drawer,
+  .toast-enter, .kanban-card, .kpi-card { animation: none !important; }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/* WhatsApp inbox styles */
+.chat-message-lead {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px 16px 16px 4px;
+}
+.chat-message-bot {
+  background: rgba(51, 65, 85, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  border-radius: 16px 16px 4px 16px;
+}
+.chat-message-vendor {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 16px 16px 4px 16px;
+}
+
+/* Conversation list item */
+.conversation-item {
+  transition: background 0.15s ease;
+  border-left: 3px solid transparent;
+}
+.conversation-item:hover {
+  background: rgba(51, 65, 85, 0.4);
+}
+.conversation-item-active {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: rgb(96, 165, 250);
+}
+.conversation-item-unread {
+  background: rgba(59, 130, 246, 0.05);
+}
