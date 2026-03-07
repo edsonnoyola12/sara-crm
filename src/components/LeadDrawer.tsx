@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react'
-import { Phone, Edit, X, Calendar, MessageSquare, ArrowRight, DollarSign, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Phone, Edit, X, Calendar, MessageSquare, ArrowRight, DollarSign, AlertTriangle, FileText, Check, ExternalLink, History } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Lead, STATUS_LABELS, getScoreColor, getScoreLabel } from '../types/crm'
+import type { CustomField } from '../types/crm'
+import DocumentManager, { useDocumentCount } from './DocumentManager'
+import AuditLog from './AuditLog'
+import ActivityTimeline from './ActivityTimeline'
 
 interface LeadActivity {
   id: string
@@ -28,7 +32,8 @@ interface LeadDrawerProps {
 }
 
 export default function LeadDrawer({ lead, team, leads, appointments, currentUser, onClose, onEdit, setLeads, setSelectedLead, showToast, onScheduleAppointment }: LeadDrawerProps) {
-  const [leadDetailTab, setLeadDetailTab] = useState<'resumen' | 'info' | 'timeline' | 'citas' | 'notas' | 'credito'>('resumen')
+  const [leadDetailTab, setLeadDetailTab] = useState<'resumen' | 'info' | 'timeline' | 'actividad' | 'citas' | 'notas' | 'credito' | 'documentos' | 'historial'>('resumen')
+  const docCount = useDocumentCount('lead', lead.id)
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'messages' | 'activities' | 'appointments' | 'notes'>('all')
   const [expandedMsgIndex, setExpandedMsgIndex] = useState<number | null>(null)
   const [leadActivities, setLeadActivities] = useState<LeadActivity[]>([])
@@ -91,11 +96,16 @@ export default function LeadDrawer({ lead, team, leads, appointments, currentUse
           </div>
           {/* Tab bar */}
           <div className="flex gap-1 overflow-x-auto">
-            {([['resumen','Resumen'],['info','Info'],['timeline','Timeline'],['citas','Citas'],['notas','Notas'],['credito','Credito']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
+            {([['resumen','Resumen'],['info','Info'],['timeline','Timeline'],['actividad','Actividad'],['citas','Citas'],['notas','Notas'],['credito','Credito'],['documentos','Documentos'],['historial','Historial']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
               <button key={key} onClick={() => setLeadDetailTab(key)}
-                className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                   leadDetailTab === key ? 'tab-indicator-active text-blue-400 bg-slate-700/50' : 'text-slate-400 hover:text-slate-200'
-                }`}>{label}</button>
+                }`}>
+                {label}
+                {key === 'documentos' && docCount > 0 && (
+                  <span className="bg-blue-600/30 text-blue-300 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">{docCount}</span>
+                )}
+              </button>
             ))}
           </div>
         </div>
@@ -310,6 +320,8 @@ export default function LeadDrawer({ lead, team, leads, appointments, currentUse
                   )}
                 </div>
               </div>
+              {/* Custom Fields for Lead */}
+              <CustomFieldsSection lead={selectedLead} setLeads={setLeads} leads={leads} showToast={showToast} />
             </div>
           )}
 
@@ -446,6 +458,19 @@ export default function LeadDrawer({ lead, team, leads, appointments, currentUse
             </div>
           )}
 
+          {/* ===== ACTIVIDAD TAB ===== */}
+          {leadDetailTab === 'actividad' && (
+            <ActivityTimeline
+              leadId={selectedLead.id}
+              lead={selectedLead}
+              team={team}
+              appointments={appointments}
+              currentUser={currentUser}
+              showToast={showToast}
+              onActivityAdded={() => loadLeadActivities(selectedLead.id)}
+            />
+          )}
+
           {/* ===== CITAS TAB ===== */}
           {leadDetailTab === 'citas' && (
             <div className="space-y-3">
@@ -555,6 +580,19 @@ export default function LeadDrawer({ lead, team, leads, appointments, currentUse
               )}
             </div>
           )}
+
+          {/* ===== DOCUMENTOS TAB ===== */}
+          {leadDetailTab === 'documentos' && (
+            <DocumentManager
+              entityType="lead"
+              entityId={selectedLead.id}
+              currentUser={currentUser ? { id: currentUser.id, name: currentUser.name } : undefined}
+            />
+          )}
+
+          {leadDetailTab === 'historial' && (
+            <AuditLog entityType="lead" entityId={selectedLead.id} />
+          )}
         </div>
 
         {/* ===== QUICK ACTIONS BAR ===== */}
@@ -588,6 +626,179 @@ export default function LeadDrawer({ lead, team, leads, appointments, currentUse
             <ArrowRight size={15} /> Avanzar Funnel
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== Custom Fields Section for Lead Info Tab =====
+function CustomFieldsSection({ lead, setLeads, leads, showToast }: {
+  lead: Lead
+  setLeads: (leads: Lead[]) => void
+  leads: Lead[]
+  showToast: (msg: string, type: string) => void
+}) {
+  const [customFields, setCustomFields] = useState<CustomField[]>([])
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<any>('')
+
+  useEffect(() => {
+    supabase
+      .from('custom_fields')
+      .select('*')
+      .eq('entity_type', 'lead')
+      .eq('visible', true)
+      .order('order', { ascending: true })
+      .then(({ data }) => setCustomFields(data || []))
+  }, [])
+
+  const customData = lead.custom_data || {}
+
+  const saveFieldValue = useCallback(async (fieldName: string, value: any) => {
+    const newCustomData = { ...customData, [fieldName]: value }
+    const { error } = await supabase
+      .from('leads')
+      .update({ custom_data: newCustomData })
+      .eq('id', lead.id)
+    if (error) {
+      showToast('Error al guardar campo', 'error')
+      return
+    }
+    setLeads(leads.map(l => l.id === lead.id ? { ...l, custom_data: newCustomData } : l))
+    setEditingField(null)
+  }, [customData, lead.id, leads, setLeads, showToast])
+
+  const startEdit = (field: CustomField) => {
+    setEditingField(field.field_name)
+    const current = customData[field.field_name]
+    setEditValue(current !== undefined && current !== null ? current : (field.field_type === 'boolean' ? false : ''))
+  }
+
+  const formatValue = (field: CustomField, val: any): string => {
+    if (val === undefined || val === null || val === '') return '--'
+    switch (field.field_type) {
+      case 'date':
+        try { return new Date(val + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) }
+        catch { return String(val) }
+      case 'number':
+        return Number(val).toLocaleString('es-MX')
+      case 'boolean':
+        return val ? 'Si' : 'No'
+      default:
+        return String(val)
+    }
+  }
+
+  if (customFields.length === 0) return null
+
+  return (
+    <div className="bg-slate-700/40 rounded-xl p-4 mt-4">
+      <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Campos Personalizados</h4>
+      <div className="space-y-2 text-sm">
+        {customFields.map(field => {
+          const val = customData[field.field_name]
+          const isEditing = editingField === field.field_name
+
+          return (
+            <div key={field.id} className="flex items-center justify-between min-h-[32px] group">
+              <span className="text-slate-400 shrink-0 mr-3">{field.field_label}</span>
+
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  {field.field_type === 'text' && (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveFieldValue(field.field_name, editValue)}
+                      className="bg-slate-600 rounded px-2 py-1 text-sm w-48"
+                      autoFocus
+                    />
+                  )}
+                  {field.field_type === 'number' && (
+                    <input
+                      type="number"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveFieldValue(field.field_name, Number(editValue))}
+                      className="bg-slate-600 rounded px-2 py-1 text-sm w-36"
+                      autoFocus
+                    />
+                  )}
+                  {field.field_type === 'date' && (
+                    <input
+                      type="date"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      className="bg-slate-600 rounded px-2 py-1 text-sm"
+                      autoFocus
+                    />
+                  )}
+                  {field.field_type === 'url' && (
+                    <input
+                      type="url"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveFieldValue(field.field_name, editValue)}
+                      placeholder="https://..."
+                      className="bg-slate-600 rounded px-2 py-1 text-sm w-48"
+                      autoFocus
+                    />
+                  )}
+                  {field.field_type === 'select' && (
+                    <select
+                      value={editValue}
+                      onChange={e => { setEditValue(e.target.value); saveFieldValue(field.field_name, e.target.value) }}
+                      className="bg-slate-600 rounded px-2 py-1 text-sm"
+                      autoFocus
+                    >
+                      <option value="">-- Seleccionar --</option>
+                      {(field.options || []).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  )}
+                  {field.field_type === 'boolean' && (
+                    <button
+                      onClick={() => saveFieldValue(field.field_name, !editValue)}
+                      className={`px-3 py-1 rounded text-xs font-medium ${editValue ? 'bg-green-600/30 text-green-400' : 'bg-slate-600 text-slate-400'}`}
+                    >
+                      {editValue ? 'Si' : 'No'}
+                    </button>
+                  )}
+                  {field.field_type !== 'select' && field.field_type !== 'boolean' && (
+                    <>
+                      <button onClick={() => saveFieldValue(field.field_name, field.field_type === 'number' ? Number(editValue) : editValue)} className="text-green-400 hover:text-green-300">
+                        <Check size={14} />
+                      </button>
+                      <button onClick={() => setEditingField(null)} className="text-slate-500 hover:text-slate-300">
+                        <X size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <span
+                  className="font-medium cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1.5"
+                  onClick={() => startEdit(field)}
+                >
+                  {field.field_type === 'url' && val ? (
+                    <a href={val} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {String(val).length > 30 ? String(val).slice(0, 30) + '...' : val}
+                      <ExternalLink size={12} />
+                    </a>
+                  ) : field.field_type === 'boolean' ? (
+                    <span className={`px-2 py-0.5 rounded text-xs ${val ? 'bg-green-600/30 text-green-400' : 'bg-slate-600/50 text-slate-500'}`}>
+                      {val ? 'Si' : 'No'}
+                    </span>
+                  ) : (
+                    formatValue(field, val)
+                  )}
+                </span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -34,6 +34,7 @@ const ReferralsView = lazy(() => import('./views/ReferralsView'))
 const ConfigView = lazy(() => import('./views/ConfigView'))
 const SaraAiView = lazy(() => import('./views/SaraAiView'))
 const WhatsAppInboxView = lazy(() => import('./views/WhatsAppInboxView'))
+const ForecastView = lazy(() => import('./views/ForecastView'))
 const LeadDrawer = lazy(() => import('./components/LeadDrawer'))
 
 export default function App() {
@@ -285,6 +286,7 @@ export default function App() {
           {view === 'sla' && <Suspense fallback={<SkeletonGeneric />}><SlaView /></Suspense>}
           {view === 'config' && <Suspense fallback={<SkeletonGeneric />}><ConfigView /></Suspense>}
           {view === 'inbox' && <Suspense fallback={<SkeletonGeneric />}><WhatsAppInboxView /></Suspense>}
+          {view === 'forecast' && <Suspense fallback={<SkeletonGeneric />}><ForecastView /></Suspense>}
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 // All interfaces matching the monolith's actual data shapes
 
-export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox'
+export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast'
 
 export interface Lead {
   id: string
@@ -34,6 +34,20 @@ export interface Lead {
   referred_by?: string
   referred_by_name?: string
   referral_date?: string
+  custom_data?: Record<string, any>
+}
+
+export interface CustomField {
+  id: string
+  entity_type: 'lead' | 'property' | 'mortgage'
+  field_name: string
+  field_label: string
+  field_type: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'url'
+  options?: string[]
+  required: boolean
+  visible: boolean
+  order: number
+  created_at: string
 }
 
 export interface Property {
@@ -254,6 +268,44 @@ export interface EventRegistration {
   lead_name?: string
   lead_phone?: string
   attended?: boolean
+}
+
+export interface Document {
+  id: string
+  entity_type: 'lead' | 'property' | 'mortgage'
+  entity_id: string
+  name: string
+  file_url: string
+  file_type: string // 'pdf', 'image', 'doc', etc
+  file_size: number // bytes
+  category: string // 'ine', 'comprobante_domicilio', 'comprobante_ingresos', 'estado_cuenta', 'contrato', 'escritura', 'avaluo', 'otro'
+  uploaded_by: string // team_member_id
+  uploaded_by_name: string
+  notes?: string
+  created_at: string
+}
+
+export const DOCUMENT_CATEGORIES = [
+  { key: 'ine', label: 'INE' },
+  { key: 'comprobante_domicilio', label: 'Comprobante de Domicilio' },
+  { key: 'comprobante_ingresos', label: 'Comprobante de Ingresos' },
+  { key: 'estado_cuenta', label: 'Estado de Cuenta' },
+  { key: 'contrato', label: 'Contrato' },
+  { key: 'escritura', label: 'Escritura' },
+  { key: 'avaluo', label: 'Avaluo' },
+  { key: 'otro', label: 'Otro' },
+] as const
+
+export interface AuditEntry {
+  id: string
+  entity_type: 'lead' | 'property' | 'mortgage' | 'appointment' | 'team_member' | 'campaign' | 'promotion' | 'event'
+  entity_id: string
+  entity_name: string
+  action: 'create' | 'update' | 'delete' | 'status_change'
+  changes: Record<string, { old: any; new: any }>
+  user_id: string
+  user_name: string
+  timestamp: string
 }
 
 export const STATUS_LABELS: Record<string, string> = {

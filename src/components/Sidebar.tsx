@@ -179,9 +179,10 @@ export default function Sidebar({
         </div>
 
         {/* Inteligencia */}
-        <SectionHeader sectionKey="inteligencia" label="Inteligencia" activeViews={['reportes','bi','marketing','sara-ai']} />
+        <SectionHeader sectionKey="inteligencia" label="Inteligencia" activeViews={['reportes','bi','marketing','sara-ai','forecast']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['inteligencia'] ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('reportes') && <NavItem viewKey="reportes" icon={BarChart3} label="Reportes CEO" />}
+          {permisos.puedeVerSeccion('forecast') && <NavItem viewKey="forecast" icon={TrendingUp} label="Forecast" />}
           {permisos.puedeVerSeccion('bi') && <NavItem viewKey="bi" icon={Lightbulb} label="Inteligencia Comercial" />}
           {permisos.puedeVerSeccion('marketing') && <NavItem viewKey="marketing" icon={Megaphone} label="Marketing" />}
           {permisos.puedeVerSeccion('sistema') && <NavItem viewKey="sara-ai" icon={Lightbulb} label="SARA IA" />}

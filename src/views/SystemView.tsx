@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, RefreshCw, XCircle, Clock, BarChart3, CheckCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, RefreshCw, XCircle, Clock, BarChart3, CheckCircle, ChevronRight, History } from 'lucide-react'
 import { useCrm } from '../context/CrmContext'
 import { API_BASE } from '../types/crm'
+import AuditLog from '../components/AuditLog'
 
 export default function SystemView() {
   const { showToast } = useCrm()
 
+  const [activeTab, setActiveTab] = useState<'errors' | 'audit'>('errors')
   const [errorLogs, setErrorLogs] = useState<any>(null)
   const [errorLogsLoading, setErrorLogsLoading] = useState(false)
   const [errorFilters, setErrorFilters] = useState({ severity: 'all', type: 'all', resolved: 'all', days: 7 })
@@ -51,6 +53,23 @@ export default function SystemView() {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-slate-700/50 pb-0">
+        <button onClick={() => setActiveTab('errors')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'errors' ? 'text-amber-400 bg-slate-700/50 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}>
+          <AlertTriangle size={16} /> Errores
+        </button>
+        <button onClick={() => setActiveTab('audit')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'audit' ? 'text-blue-400 bg-slate-700/50 border-b-2 border-blue-400' : 'text-slate-400 hover:text-slate-200'}`}>
+          <History size={16} /> Historial de Cambios
+        </button>
+      </div>
+
+      {activeTab === 'audit' && (
+        <AuditLog />
+      )}
+
+      {activeTab === 'errors' && (<>
       {/* Health Status */}
       <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -213,6 +232,7 @@ export default function SystemView() {
           })}
         </div>
       )}
+      </>)}
     </div>
   )
 }

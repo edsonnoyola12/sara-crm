@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3 } from 'lucide-react'
+import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3, Upload, Download } from 'lucide-react'
+import ImportExportModal from '../components/ImportExportModal'
 import { useCrm } from '../context/CrmContext'
 import type { Lead } from '../types/crm'
 import { STATUS_LABELS, getScoreColor, getScoreLabel } from '../types/crm'
@@ -105,6 +106,8 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
   const [showNewLead, setShowNewLead] = useState(false)
   const [newLead, setNewLead] = useState({ name: '', phone: '', property_interest: '', budget: '', status: 'new' })
   const [saving, setSaving] = useState(false)
+  const [showImportExport, setShowImportExport] = useState(false)
+  const [importExportTab, setImportExportTab] = useState<'import' | 'export'>('export')
 
   // ---- Computed ----
   const hotLeads = filteredLeads.filter(l => l.score >= 70).length
@@ -214,8 +217,11 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
               <Columns3 size={14} /> Kanban
             </button>
           </div>
-          <button onClick={exportLeadsCSV} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
-            <FileSpreadsheet size={16} /> CSV
+          <button onClick={() => { setImportExportTab('import'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Importar CSV">
+            <Upload size={16} /> Importar
+          </button>
+          <button onClick={() => { setImportExportTab('export'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
+            <Download size={16} /> Exportar
           </button>
           {permisos.puedeCrearLead() && (
             <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
@@ -713,6 +719,13 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
           </div>
         </div>
       )}
+
+      <ImportExportModal
+        isOpen={showImportExport}
+        onClose={() => setShowImportExport(false)}
+        initialTab={importExportTab}
+        displayLeads={displayLeads}
+      />
 
       {showNewLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

@@ -139,6 +139,7 @@ export default function MortgageView() {
       </div>
 
       {/* Mortgage Detail Modal */}
+      {/* TODO: Add <DocumentManager entityType="mortgage" entityId={selectedMortgage.id} currentUser={...} /> inside the modal below to show documents per mortgage */}
       {selectedMortgage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setMortgageDetailId(null)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
