@@ -75,6 +75,17 @@ function buildPermisos(currentUser: TeamMember | null) {
 
 export type Permisos = ReturnType<typeof buildPermisos>
 
+// ---- Notification types ----
+export interface CrmNotification {
+  id: string
+  message: string
+  type: 'info' | 'success' | 'warning'
+  timestamp: string
+  read: boolean
+  leadId?: string
+  category: 'leads' | 'citas' | 'sistema'
+}
+
 // ---- Context shape ----
 interface CrmContextValue {
   // Core data
@@ -119,6 +130,14 @@ interface CrmContextValue {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[]
   setToasts: React.Dispatch<React.SetStateAction<{ id: string; message: string; type: 'success' | 'error' | 'info' }[]>>
+
+  // Notifications
+  notifications: CrmNotification[]
+  addNotification: (notif: Omit<CrmNotification, 'id' | 'timestamp' | 'read'>) => void
+  markNotificationRead: (id: string) => void
+  markAllNotificationsRead: () => void
+  clearNotifications: () => void
+  unreadNotificationCount: number
 
   // Data operations
   loadData: () => Promise<void>
@@ -262,6 +281,43 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     setToasts(prev => [...prev.slice(-2), { id, message, type }])
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
   }, [])
+
+  // ---- Notifications ----
+  const [notifications, setNotifications] = useState<CrmNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem('sara-crm-notifications')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+
+  // Persist notifications to localStorage (keep last 50)
+  useEffect(() => {
+    localStorage.setItem('sara-crm-notifications', JSON.stringify(notifications.slice(0, 50)))
+  }, [notifications])
+
+  const addNotification = useCallback((notif: Omit<CrmNotification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotif: CrmNotification = {
+      ...notif,
+      id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: new Date().toISOString(),
+      read: false,
+    }
+    setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+  }, [])
+
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }, [])
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }, [])
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([])
+  }, [])
+
+  const unreadNotificationCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications])
 
   // ---- Computed ----
   const filteredLeads = useMemo(() => {
@@ -442,19 +498,91 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
 
     const appointmentsSub = supabase
       .channel('appointments-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'appointments' }, (payload) => {
+        const apt = payload.new as any
+        const leadName = apt.lead_name || 'Lead'
+        const propName = apt.property_name || ''
+        addNotification({
+          message: `Nueva cita: ${leadName}${propName ? ' - ' + propName : ''}`,
+          type: 'info',
+          category: 'citas',
+          leadId: apt.lead_id,
+        })
+        supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }).then(({ data }) => { if (data) setAppointments(data) })
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, () => {
+        supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }).then(({ data }) => { if (data) setAppointments(data) })
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'appointments' }, () => {
         supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }).then(({ data }) => { if (data) setAppointments(data) })
       })
       .subscribe()
 
     const leadsSub = supabase
       .channel('leads-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, (payload) => {
+        const lead = payload.new as any
+        const name = lead.name || lead.phone || 'Sin nombre'
+        const interest = lead.property_interest ? ` interesado en ${lead.property_interest}` : ''
+        addNotification({
+          message: `Nuevo lead: ${name}${interest}`,
+          type: 'success',
+          category: 'leads',
+          leadId: lead.id,
+        })
+        supabase.from('leads').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setLeads(data) })
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, (payload) => {
+        const newLead = payload.new as any
+        const oldLead = payload.old as any
+        if (oldLead.status && newLead.status && oldLead.status !== newLead.status) {
+          const name = newLead.name || newLead.phone || 'Lead'
+          addNotification({
+            message: `Lead ${name} cambio a ${newLead.status}`,
+            type: 'info',
+            category: 'leads',
+            leadId: newLead.id,
+          })
+        }
+        supabase.from('leads').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setLeads(data) })
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'leads' }, () => {
         supabase.from('leads').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setLeads(data) })
       })
       .subscribe()
 
-    return () => { clearInterval(interval); appointmentsSub.unsubscribe(); leadsSub.unsubscribe() }
+    const mortgageSub = supabase
+      .channel('mortgages-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mortgage_applications' }, (payload) => {
+        const mort = payload.new as any
+        const leadName = mort.lead_name || 'Lead'
+        addNotification({
+          message: `Hipoteca de ${leadName}: ${mort.status || 'nueva solicitud'}`,
+          type: 'info',
+          category: 'sistema',
+        })
+        supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setMortgages(data) })
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mortgage_applications' }, (payload) => {
+        const newMort = payload.new as any
+        const oldMort = payload.old as any
+        if (oldMort.status && newMort.status && oldMort.status !== newMort.status) {
+          const leadName = newMort.lead_name || 'Lead'
+          const statusLabel: Record<string, string> = {
+            pending: 'pendiente', in_review: 'en revision', sent_to_bank: 'enviada al banco',
+            approved: 'aprobada', rejected: 'rechazada', cancelled: 'cancelada'
+          }
+          addNotification({
+            message: `Hipoteca de ${leadName}: ${statusLabel[newMort.status] || newMort.status}`,
+            type: newMort.status === 'approved' ? 'success' : newMort.status === 'rejected' ? 'warning' : 'info',
+            category: 'sistema',
+          })
+        }
+        supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setMortgages(data) })
+      })
+      .subscribe()
+
+    return () => { clearInterval(interval); appointmentsSub.unsubscribe(); leadsSub.unsubscribe(); mortgageSub.unsubscribe() }
   }, [])
 
   // ---- CRUD Functions ----
@@ -600,6 +728,8 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     crmEvents, setCrmEvents, eventRegistrations, setEventRegistrations,
     insights, currentUser, setCurrentUser, permisos, view, setView,
     loading, lastRefresh, showToast, toasts, setToasts,
+    notifications, addNotification, markNotificationRead, markAllNotificationsRead,
+    clearNotifications, unreadNotificationCount,
     loadData, loadDataSilent,
     saveProperty: savePropertyFn, deleteProperty: deletePropertyFn,
     saveLead: saveLeadFn, saveMember: saveMemberFn, deleteMember: deleteMemberFn,

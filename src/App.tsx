@@ -50,6 +50,7 @@ export default function App() {
     confirmModal, setConfirmModal, inputModal, setInputModal,
     getDaysInStatus, supabase,
     setLeads,
+    unreadNotificationCount,
   } = useCrm()
 
   // UI-only state (not data)
@@ -86,67 +87,10 @@ export default function App() {
 
   // Notification state
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false)
-  const [notifCategory, setNotifCategory] = useState<'all' | 'leads' | 'citas' | 'sistema'>('all')
-  const [notifTimeFilter, setNotifTimeFilter] = useState<'today' | '24h' | '7d' | 'all'>('all')
-  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem('sara-crm-read-notifs')
-      return saved ? new Set(JSON.parse(saved)) : new Set()
-    } catch { return new Set() }
-  })
 
   // Login state
   const [loginPhone, setLoginPhone] = useState('')
   const [loginError, setLoginError] = useState('')
-
-  // Notification generation (computed from context data)
-  const notifications = (() => {
-    const notifs: Array<{id: string, type: string, title: string, description: string, timestamp: string, leadId?: string}> = []
-    const now = Date.now()
-    leads.forEach((l: any) => {
-      if (l.created_at && (now - new Date(l.created_at).getTime()) < 2 * 3600000)
-        notifs.push({ id: `new-${l.id}`, type: 'new_lead', title: 'Nuevo lead', description: l.name || l.phone, timestamp: l.created_at, leadId: l.id })
-      if (l.score >= 70 && l.last_message_at && (now - new Date(l.last_message_at).getTime()) > 24 * 3600000)
-        notifs.push({ id: `hot-${l.id}`, type: 'hot_inactive', title: 'Lead HOT sin seguimiento', description: l.name || l.phone, timestamp: l.last_message_at, leadId: l.id })
-      if (l.status === 'new' && l.created_at && (now - new Date(l.created_at).getTime()) > 48 * 3600000)
-        notifs.push({ id: `nofu-${l.id}`, type: 'no_followup', title: 'Lead sin contactar', description: l.name || l.phone, timestamp: l.created_at, leadId: l.id })
-      if (l.status_changed_at && (now - new Date(l.status_changed_at).getTime()) < 4 * 3600000)
-        notifs.push({ id: `status-${l.id}-${l.status}`, type: 'status_change', title: `${l.name || 'Lead'} movido a ${l.status}`, description: '', timestamp: l.status_changed_at, leadId: l.id })
-      if (l.credit_status && l.credit_status !== 'approved' && l.credit_status !== 'rejected') {
-        const statusAge = l.status_changed_at ? (now - new Date(l.status_changed_at).getTime()) : 0
-        if (statusAge > 7 * 24 * 3600000)
-          notifs.push({ id: `mort-${l.id}`, type: 'mortgage_stalled', title: 'Hipoteca estancada', description: `${l.name || l.phone} - ${l.credit_status}`, timestamp: l.status_changed_at || l.created_at, leadId: l.id })
-      }
-      if (l.notes?.score_history?.length >= 2) {
-        const hist = l.notes.score_history
-        const prev = hist[hist.length - 2]?.score || 0
-        const curr = hist[hist.length - 1]?.score || l.score || 0
-        if (curr - prev > 20)
-          notifs.push({ id: `score-${l.id}`, type: 'score_jump', title: `Score subio +${curr - prev}`, description: `${l.name || l.phone}: ${prev} → ${curr}`, timestamp: hist[hist.length - 1]?.fecha || l.last_message_at || l.created_at, leadId: l.id })
-      }
-    })
-    const today = new Date().toISOString().split('T')[0]
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-    appointments.forEach((a: any) => {
-      if (a.scheduled_date === today && a.status !== 'cancelled') {
-        const leadName = leads.find((l: any) => l.id === a.lead_id)?.name || 'Lead'
-        notifs.push({ id: `apt-${a.id}`, type: 'appointment_today', title: `Cita hoy: ${leadName}`, description: `${a.scheduled_time || ''}${a.property_name ? ' - ' + a.property_name : ''}`, timestamp: a.created_at || `${a.scheduled_date}T08:00`, leadId: a.lead_id })
-      }
-      if (a.scheduled_date === tomorrow && a.status !== 'cancelled') {
-        const leadName = leads.find((l: any) => l.id === a.lead_id)?.name || 'Lead'
-        notifs.push({ id: `apt-tom-${a.id}`, type: 'appointment_tomorrow', title: `Cita manana: ${leadName}`, description: `${a.scheduled_time || ''}${a.property_name ? ' - ' + a.property_name : ''}`, timestamp: a.created_at || `${a.scheduled_date}T08:00`, leadId: a.lead_id })
-      }
-    })
-    notifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    return notifs.slice(0, 30)
-  })()
-
-  const unreadNotifCount = notifications.filter(n => !readNotificationIds.has(n.id)).length
-
-  // Persist read notifications
-  useEffect(() => {
-    if (readNotificationIds.size > 0) localStorage.setItem('sara-crm-read-notifs', JSON.stringify([...readNotificationIds]))
-  }, [readNotificationIds])
 
   // Auto-expand sidebar section
   useEffect(() => {
@@ -275,7 +219,7 @@ export default function App() {
         <div className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2">
           <button onClick={() => setNotifDrawerOpen(true)} className="relative p-2 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm">
             <Bell size={15} />
-            {unreadNotifCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</span>}
+            {unreadNotificationCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}
           </button>
           <button onClick={() => setShowGlobalSearch(true)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 text-sm hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm">
             <Search size={14} /><span>Buscar...</span><kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-slate-700 rounded border border-slate-600">⌘K</kbd>
@@ -285,17 +229,16 @@ export default function App() {
         <div className="fixed top-4 right-4 z-30 lg:hidden flex items-center gap-2">
           <button onClick={() => setNotifDrawerOpen(true)} className="relative p-2 bg-slate-800 rounded-lg">
             <Bell size={16} className="text-slate-400" />
-            {unreadNotifCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</span>}
+            {unreadNotificationCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}
           </button>
           <button onClick={() => setShowGlobalSearch(true)} className="p-2 bg-slate-800 rounded-lg"><Search size={16} className="text-slate-400" /></button>
         </div>
 
         <NotificationDrawer open={notifDrawerOpen} onClose={() => setNotifDrawerOpen(false)}
-          notifications={notifications} readNotificationIds={readNotificationIds}
-          setReadNotificationIds={setReadNotificationIds} unreadNotifCount={unreadNotifCount}
-          notifCategory={notifCategory} setNotifCategory={setNotifCategory}
-          notifTimeFilter={notifTimeFilter} setNotifTimeFilter={setNotifTimeFilter}
-          leads={leads} onSelectLead={selectLead} />
+          onSelectLead={(leadId) => {
+            const lead = leads.find(l => l.id === leadId)
+            if (lead) selectLead(lead)
+          }} />
 
         <GlobalSearch show={showGlobalSearch} onClose={() => setShowGlobalSearch(false)}
           leads={leads} properties={properties} team={team} appointments={appointments}

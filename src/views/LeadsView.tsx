@@ -1,8 +1,57 @@
-import { useState, useMemo } from 'react'
-import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save } from 'lucide-react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3 } from 'lucide-react'
 import { useCrm } from '../context/CrmContext'
 import type { Lead } from '../types/crm'
 import { STATUS_LABELS, getScoreColor, getScoreLabel } from '../types/crm'
+
+// ---- Lightweight virtual scroll hook ----
+function useVirtualScroll<T>({
+  items,
+  rowHeight,
+  containerRef,
+  overscan = 5,
+}: {
+  items: T[]
+  rowHeight: number
+  containerRef: React.RefObject<HTMLDivElement | null>
+  overscan?: number
+}) {
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height)
+      }
+    })
+    ro.observe(el)
+    setContainerHeight(el.clientHeight)
+    return () => ro.disconnect()
+  }, [containerRef])
+
+  const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop((e.target as HTMLDivElement).scrollTop)
+  }, [])
+
+  const totalHeight = items.length * rowHeight
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan)
+  const visibleCount = Math.ceil(containerHeight / rowHeight) + 2 * overscan
+  const endIndex = Math.min(items.length, startIndex + visibleCount)
+
+  const virtualItems = useMemo(() => {
+    const result: { index: number; offsetTop: number; item: T }[] = []
+    for (let i = startIndex; i < endIndex; i++) {
+      result.push({ index: i, offsetTop: i * rowHeight, item: items[i] })
+    }
+    return result
+  }, [items, startIndex, endIndex, rowHeight])
+
+  return { virtualItems, totalHeight, onScroll }
+}
 
 interface LeadsViewProps {
   onSelectLead: (lead: Lead) => void
@@ -14,7 +63,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
   } = useCrm()
 
   // ---- Local UI state ----
-  const [leadViewMode, setLeadViewMode] = useState<'list' | 'funnel'>('list')
+  const [leadViewMode, setLeadViewMode] = useState<'list' | 'kanban'>('list')
   const [leadFilters, setLeadFilters] = useState<{
     status: string[]
     scoreRange: 'all' | 'hot' | 'warm' | 'cold'
@@ -87,14 +136,38 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
     showToast(`${displayLeads.length} leads exportados`, 'success')
   }
 
+  // ---- Sorted leads for table (memoized) ----
+  const sortedLeads = useMemo(() => {
+    return [...displayLeads].sort((a: any, b: any) => {
+      const va = a[leadSort.col] ?? ''
+      const vb = b[leadSort.col] ?? ''
+      const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
+      return leadSort.asc ? cmp : -cmp
+    })
+  }, [displayLeads, leadSort])
+
+  // ---- Virtual scroll for table ----
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const ROW_HEIGHT = 56
+  const { virtualItems, totalHeight, onScroll: onTableScroll } = useVirtualScroll({
+    items: sortedLeads,
+    rowHeight: ROW_HEIGHT,
+    containerRef: tableContainerRef,
+    overscan: 5,
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">Leads ({displayLeads.length})</h2>
         <div className="flex gap-4 items-center">
-          <div className="flex gap-2">
-            <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'list' ? 'bg-blue-600' : 'bg-slate-700'}`}>Lista</button>
-            <button onClick={() => setLeadViewMode('funnel')} className={`px-3 py-1 rounded-lg text-sm ${leadViewMode === 'funnel' ? 'bg-blue-600' : 'bg-slate-700'}`}>Funnel</button>
+          <div className="flex gap-0.5 bg-slate-700/50 rounded-lg p-0.5">
+            <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'list' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
+              <LayoutList size={14} /> Lista
+            </button>
+            <button onClick={() => setLeadViewMode('kanban')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'kanban' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
+              <Columns3 size={14} /> Kanban
+            </button>
           </div>
           <button onClick={exportLeadsCSV} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
             <FileSpreadsheet size={16} /> CSV
@@ -282,7 +355,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
         </div>
       )}
 
-      {leadViewMode === 'funnel' ? (
+      {leadViewMode === 'kanban' ? (
         <div className="space-y-4">
           {/* Kanban Board */}
           <div className="overflow-x-auto kanban-scroll pb-4">
@@ -397,127 +470,125 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
           })()}
         </div>
       ) : (
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-700 sticky top-0 z-10">
-            <tr>
-              <th className="p-4 w-10">
-                <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
-                  checked={displayLeads.length > 0 && displayLeads.every(l => selectedLeadIds.has(l.id))}
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedLeadIds(new Set(displayLeads.map(l => l.id)))
-                    else setSelectedLeadIds(new Set())
-                  }}
-                />
-              </th>
-              {[
-                { col: 'name', label: 'Nombre', hide: '' },
-                { col: 'phone', label: 'Telefono', hide: 'hidden sm:table-cell' },
-                { col: 'property_interest', label: 'Interes', hide: 'hidden md:table-cell' },
-                { col: 'score', label: 'Score', hide: '' },
-                { col: 'status', label: 'Estado', hide: '' },
-                { col: 'assigned_to', label: 'Vendedor', hide: 'hidden lg:table-cell' },
-                { col: 'last_message_at', label: 'Contacto', hide: 'hidden md:table-cell' },
-                { col: 'created_at', label: 'Fecha', hide: 'hidden lg:table-cell' },
-              ].map(h => (
-                <th key={h.col} className={`text-left p-4 cursor-pointer select-none hover:text-blue-400 ${h.hide}`} onClick={() => setLeadSort(prev => ({ col: h.col, asc: prev.col === h.col ? !prev.asc : true }))}>
-                  {h.label} {leadSort.col === h.col ? (leadSort.asc ? '\u2191' : '\u2193') : ''}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {[...displayLeads].sort((a: any, b: any) => {
-              const va = a[leadSort.col] ?? ''
-              const vb = b[leadSort.col] ?? ''
-              const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb))
-              return leadSort.asc ? cmp : -cmp
-            }).map(lead => (
-              <tr key={lead.id} onClick={() => onSelectLead(lead)} className="lead-row border-b border-slate-700/50 cursor-pointer">
-                <td className="p-4 w-10" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
-                    checked={selectedLeadIds.has(lead.id)}
-                    onChange={() => setSelectedLeadIds(prev => {
-                      const next = new Set(prev)
-                      if (next.has(lead.id)) next.delete(lead.id)
-                      else next.add(lead.id)
-                      return next
-                    })}
-                  />
-                </td>
-                <td className="p-4">{lead.name || 'Sin nombre'}</td>
-                <td className="p-4 hidden sm:table-cell"><Phone size={16} className="inline mr-1" />{lead.phone}</td>
-                <td className="p-4 hidden md:table-cell">{lead.property_interest || 'Sin definir'}</td>
-                <td className="p-4">
-                  <span className={`${getScoreColor(lead.score)} px-2 py-1 rounded text-sm`}>
-                    {getScoreLabel(lead.score)} ({lead.score})
-                  </span>
-                </td>
-                <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={lead.status}
-                    onChange={async (e) => {
-                      const newStatus = e.target.value
-                      if (newStatus === lead.status) return
-                      const timestamp = new Date().toISOString()
-                      const historyEntry = { date: timestamp, from: lead.status, to: newStatus, note: 'Cambio rapido desde tabla' }
-                      const existingHistory = lead.notes?.status_history || []
-                      const newNotes = { ...(lead.notes || {}), status_history: [...existingHistory, historyEntry] }
-                      await supabase.from('leads').update({ status: newStatus, status_changed_at: timestamp, notes: newNotes }).eq('id', lead.id)
-                      setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus, notes: newNotes, status_changed_at: timestamp } : l))
-                      showToast(`${lead.name || 'Lead'} \u2192 ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
-                    }}
-                    className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none"
-                  >
-                    {Object.entries(STATUS_LABELS).filter(([k]) => !['sold','paused'].includes(k)).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-4 hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={lead.assigned_to || ''}
-                    onChange={async (e) => {
-                      const newVendor = e.target.value || null
-                      if (newVendor === (lead.assigned_to || '')) return
-                      await supabase.from('leads').update({ assigned_to: newVendor }).eq('id', lead.id)
-                      setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: newVendor } : l))
-                      const vendorName = team.find(t => t.id === newVendor)?.name || 'Sin asignar'
-                      showToast(`${lead.name || 'Lead'} \u2192 ${vendorName}`, 'success')
-                    }}
-                    className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none max-w-[120px]"
-                  >
-                    <option value="">Sin asignar</option>
-                    {team.filter(t => t.role === 'vendedor' || t.role === 'admin' || t.role === 'coordinador').map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-4 hidden md:table-cell">{(() => {
-                  const ref = lead.last_message_at || lead.created_at
-                  if (!ref) return <span className="text-slate-500">-</span>
-                  const mins = Math.floor((Date.now() - new Date(ref).getTime()) / 60000)
-                  if (mins < 60) return <span className="text-green-400">{mins < 2 ? 'Ahora' : `${mins}m`}</span>
-                  const hrs = Math.floor(mins / 60)
-                  if (hrs < 24) return <span className="text-blue-400">{hrs}h</span>
-                  const days = Math.floor(hrs / 24)
-                  if (days <= 2) return <span className="text-yellow-400">{days === 1 ? 'Ayer' : '2d'}</span>
-                  return <span className={days > 7 ? 'text-red-400' : 'text-slate-400'}>{days}d</span>
-                })()}</td>
-                <td className="p-4 hidden lg:table-cell">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '-'}</td>
-              </tr>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+        {/* Sticky table header */}
+        <div className="flex-shrink-0 bg-slate-700">
+          <div className="flex items-center">
+            <div className="p-4 w-10 flex-shrink-0">
+              <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
+                checked={displayLeads.length > 0 && displayLeads.every(l => selectedLeadIds.has(l.id))}
+                onChange={(e) => {
+                  if (e.target.checked) setSelectedLeadIds(new Set(displayLeads.map(l => l.id)))
+                  else setSelectedLeadIds(new Set())
+                }}
+              />
+            </div>
+            {[
+              { col: 'name', label: 'Nombre', hide: '', flex: 'flex-1 min-w-0' },
+              { col: 'phone', label: 'Telefono', hide: 'hidden sm:block', flex: 'flex-1 min-w-0' },
+              { col: 'property_interest', label: 'Interes', hide: 'hidden md:block', flex: 'flex-1 min-w-0' },
+              { col: 'score', label: 'Score', hide: '', flex: 'w-[100px] flex-shrink-0' },
+              { col: 'status', label: 'Estado', hide: '', flex: 'w-[130px] flex-shrink-0' },
+              { col: 'assigned_to', label: 'Vendedor', hide: 'hidden lg:block', flex: 'w-[130px] flex-shrink-0' },
+              { col: 'last_message_at', label: 'Contacto', hide: 'hidden md:block', flex: 'w-[80px] flex-shrink-0' },
+              { col: 'created_at', label: 'Fecha', hide: 'hidden lg:block', flex: 'w-[90px] flex-shrink-0' },
+            ].map(h => (
+              <div key={h.col} className={`p-4 cursor-pointer select-none hover:text-blue-400 font-semibold text-sm ${h.hide} ${h.flex}`} onClick={() => setLeadSort(prev => ({ col: h.col, asc: prev.col === h.col ? !prev.asc : true }))}>
+                {h.label} {leadSort.col === h.col ? (leadSort.asc ? '\u2191' : '\u2193') : ''}
+              </div>
             ))}
-            {displayLeads.length === 0 && (
-              <tr><td colSpan={9} className="p-12 text-center empty-state">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
-                  <span className="text-4xl">&#128269;</span>
+          </div>
+        </div>
+        {/* Virtualized scrollable body */}
+        <div ref={tableContainerRef} onScroll={onTableScroll} className="flex-1 overflow-y-auto">
+          {displayLeads.length === 0 ? (
+            <div className="p-12 text-center empty-state">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
+                <span className="text-4xl">&#128269;</span>
+              </div>
+              <p className="text-slate-400">No se encontraron leads con los filtros actuales</p>
+              <p className="text-slate-500 text-sm mt-1">Intenta cambiar los filtros de busqueda</p>
+            </div>
+          ) : (
+            <div style={{ height: totalHeight, position: 'relative' }}>
+              {virtualItems.map(({ index, offsetTop, item: lead }) => (
+                <div key={lead.id} onClick={() => onSelectLead(lead)} className="lead-row border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/30 flex items-center" style={{ position: 'absolute', top: offsetTop, left: 0, right: 0, height: ROW_HEIGHT }}>
+                  <div className="p-4 w-10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" className="accent-blue-500 w-4 h-4 cursor-pointer"
+                      checked={selectedLeadIds.has(lead.id)}
+                      onChange={() => setSelectedLeadIds(prev => {
+                        const next = new Set(prev)
+                        if (next.has(lead.id)) next.delete(lead.id)
+                        else next.add(lead.id)
+                        return next
+                      })}
+                    />
+                  </div>
+                  <div className="p-4 flex-1 min-w-0 truncate">{lead.name || 'Sin nombre'}</div>
+                  <div className="p-4 flex-1 min-w-0 truncate hidden sm:block"><Phone size={16} className="inline mr-1" />{lead.phone}</div>
+                  <div className="p-4 flex-1 min-w-0 truncate hidden md:block">{lead.property_interest || 'Sin definir'}</div>
+                  <div className="p-4 w-[100px] flex-shrink-0">
+                    <span className={`${getScoreColor(lead.score)} px-2 py-1 rounded text-sm`}>
+                      {getScoreLabel(lead.score)} ({lead.score})
+                    </span>
+                  </div>
+                  <div className="p-4 w-[130px] flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={lead.status}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value
+                        if (newStatus === lead.status) return
+                        const timestamp = new Date().toISOString()
+                        const historyEntry = { date: timestamp, from: lead.status, to: newStatus, note: 'Cambio rapido desde tabla' }
+                        const existingHistory = lead.notes?.status_history || []
+                        const newNotes = { ...(lead.notes || {}), status_history: [...existingHistory, historyEntry] }
+                        await supabase.from('leads').update({ status: newStatus, status_changed_at: timestamp, notes: newNotes }).eq('id', lead.id)
+                        setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus, notes: newNotes, status_changed_at: timestamp } : l))
+                        showToast(`${lead.name || 'Lead'} \u2192 ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
+                      }}
+                      className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none w-full"
+                    >
+                      {Object.entries(STATUS_LABELS).filter(([k]) => !['sold','paused'].includes(k)).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="p-4 w-[130px] flex-shrink-0 hidden lg:block" onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={lead.assigned_to || ''}
+                      onChange={async (e) => {
+                        const newVendor = e.target.value || null
+                        if (newVendor === (lead.assigned_to || '')) return
+                        await supabase.from('leads').update({ assigned_to: newVendor }).eq('id', lead.id)
+                        setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: newVendor } : l))
+                        const vendorName = team.find(t => t.id === newVendor)?.name || 'Sin asignar'
+                        showToast(`${lead.name || 'Lead'} \u2192 ${vendorName}`, 'success')
+                      }}
+                      className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none w-full"
+                    >
+                      <option value="">Sin asignar</option>
+                      {team.filter(t => t.role === 'vendedor' || t.role === 'admin' || t.role === 'coordinador').map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="p-4 w-[80px] flex-shrink-0 hidden md:block">{(() => {
+                    const ref = lead.last_message_at || lead.created_at
+                    if (!ref) return <span className="text-slate-500">-</span>
+                    const mins = Math.floor((Date.now() - new Date(ref).getTime()) / 60000)
+                    if (mins < 60) return <span className="text-green-400">{mins < 2 ? 'Ahora' : `${mins}m`}</span>
+                    const hrs = Math.floor(mins / 60)
+                    if (hrs < 24) return <span className="text-blue-400">{hrs}h</span>
+                    const days = Math.floor(hrs / 24)
+                    if (days <= 2) return <span className="text-yellow-400">{days === 1 ? 'Ayer' : '2d'}</span>
+                    return <span className={days > 7 ? 'text-red-400' : 'text-slate-400'}>{days}d</span>
+                  })()}</div>
+                  <div className="p-4 w-[90px] flex-shrink-0 hidden lg:block">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '-'}</div>
                 </div>
-                <p className="text-slate-400">No se encontraron leads con los filtros actuales</p>
-                <p className="text-slate-500 text-sm mt-1">Intenta cambiar los filtros de busqueda</p>
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       )}
 
