@@ -3522,34 +3522,40 @@ function App() {
 
                     {/* Funnel resumen — Recharts Horizontal BarChart */}
                     <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4 chart-container">
-                      <h3 className="font-semibold mb-3">📊 Funnel de Conversión</h3>
+                      <h3 className="font-semibold mb-1">📊 Funnel de Conversión</h3>
+                      <p className="text-[10px] text-slate-500 mb-2">Click en una barra para ver esos leads</p>
+                      {(() => {
+                        const funnelData = [
+                          { name: 'Nuevos', count: funnel.new, fill: '#3b82f6', status: 'new' },
+                          { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4', status: 'contacted' },
+                          { name: 'Cita', count: funnel.scheduled, fill: '#8b5cf6', status: 'scheduled' },
+                          { name: 'Visita', count: funnel.visited, fill: '#ec4899', status: 'visited' },
+                          { name: 'Negociación', count: funnel.negotiation, fill: '#f97316', status: 'negotiation' },
+                          { name: 'Reservado', count: funnel.reserved, fill: '#eab308', status: 'reserved' },
+                          { name: 'Cerrado', count: funnel.closed, fill: '#22c55e', status: 'closed' }
+                        ]
+                        return (
                       <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={[
-                          { name: 'Nuevos', count: funnel.new, fill: '#3b82f6' },
-                          { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4' },
-                          { name: 'Cita', count: funnel.scheduled, fill: '#8b5cf6' },
-                          { name: 'Visita', count: funnel.visited, fill: '#ec4899' },
-                          { name: 'Negociación', count: funnel.negotiation, fill: '#f97316' },
-                          { name: 'Reservado', count: funnel.reserved, fill: '#eab308' },
-                          { name: 'Cerrado', count: funnel.closed, fill: '#22c55e' }
-                        ]} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                        <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}
+                          onClick={(data: any) => {
+                            if (data?.activePayload?.[0]?.payload?.status) {
+                              const s = data.activePayload[0].payload.status
+                              setLeadFilters(prev => ({ ...prev, status: s === 'closed' ? ['closed','delivered','sold'] : [s] }))
+                              setView('leads')
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}>
                           <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} />
                           <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={80} axisLine={false} />
                           <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }}
                             formatter={(value: number) => [value, 'Leads']} />
                           <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={20} label={{ position: 'right', fill: '#94a3b8', fontSize: 11, formatter: (v: number) => v > 0 ? v : '' }}>
-                            {[
-                              { name: 'Nuevos', count: funnel.new, fill: '#3b82f6' },
-                              { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4' },
-                              { name: 'Cita', count: funnel.scheduled, fill: '#8b5cf6' },
-                              { name: 'Visita', count: funnel.visited, fill: '#ec4899' },
-                              { name: 'Negociación', count: funnel.negotiation, fill: '#f97316' },
-                              { name: 'Reservado', count: funnel.reserved, fill: '#eab308' },
-                              { name: 'Cerrado', count: funnel.closed, fill: '#22c55e' }
-                            ].map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                            {funnelData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -3642,6 +3648,23 @@ function App() {
                       )}
                     </div>
                   </div>
+
+                  {/* Ventas por Desarrollo — BarChart */}
+                  {desarrollos.filter(d => d.name !== 'Sin especificar').length > 0 && (
+                    <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4 chart-container">
+                      <h3 className="font-semibold mb-3">🏘️ Rendimiento por Desarrollo</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={desarrollos.filter(d => d.name !== 'Sin especificar').slice(0, 8)} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} interval={0} angle={-15} textAnchor="end" height={50} />
+                          <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }} />
+                          <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+                          <Bar dataKey="leads" name="Leads" fill="#60a5fa" radius={[4, 4, 0, 0]} barSize={18} />
+                          <Bar dataKey="ventas" name="Ventas" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={18} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
 
                   {/* Acciones rápidas */}
                   <div className="flex gap-3 flex-wrap">
