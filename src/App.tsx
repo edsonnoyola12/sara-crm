@@ -6489,7 +6489,11 @@ function App() {
                     )
                   })}
                   {scorecardsData.length === 0 && (
-                    <div className="col-span-2 text-center py-12 text-slate-400">Sin vendedores activos</div>
+                    <div className="col-span-2 text-center py-12">
+                      <Users size={32} className="mx-auto mb-3 text-slate-600" />
+                      <p className="text-slate-400">Sin vendedores activos</p>
+                      <p className="text-slate-500 text-sm mt-1">Agrega vendedores en la seccion Equipo</p>
+                    </div>
                   )}
                 </div>
               )
@@ -8733,8 +8737,10 @@ function App() {
                   <tbody className="divide-y divide-slate-700">
                     {leads.filter(l => l.source === 'referral').length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
-                          No hay leads referidos aún. Los clientes que ya compraron pueden enviar contactos por WhatsApp.
+                        <td colSpan={5} className="py-12 text-center">
+                          <Gift size={40} className="mx-auto mb-3 text-slate-600" />
+                          <p className="text-slate-300 font-medium">Sin referidos todavia</p>
+                          <p className="text-slate-500 text-sm mt-1 max-w-sm mx-auto">Cuando un cliente satisfecho envie un contacto por WhatsApp, aparecera aqui automaticamente</p>
                         </td>
                       </tr>
                     ) : (
@@ -9254,7 +9260,10 @@ function App() {
                     )
                   })}
                   {team.filter(t => t.role === 'vendedor' && t.active).length === 0 && (
-                    <p className="text-slate-400 text-center py-4">No hay vendedores activos</p>
+                    <div className="text-center py-6">
+                      <Users size={28} className="mx-auto mb-2 text-slate-600" />
+                      <p className="text-slate-400 text-sm">Sin vendedores activos</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -9456,7 +9465,11 @@ function App() {
                   in7Days.setDate(in7Days.getDate() + 7)
                   return citaDate >= today && citaDate <= in7Days && a.status === 'scheduled'
                 }).length === 0 && (
-                  <p className="text-slate-400 text-center py-8">No hay citas programadas en los próximos 7 días</p>
+                  <div className="text-center py-8">
+                    <Calendar size={28} className="mx-auto mb-2 text-slate-600" />
+                    <p className="text-slate-400 text-sm">Sin citas en los proximos 7 dias</p>
+                    <button onClick={() => setView('calendar')} className="mt-3 text-xs text-blue-400 hover:text-blue-300">Ver calendario</button>
+                  </div>
                 )}
               </div>
             </div>
@@ -14936,10 +14949,12 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
               <p className="text-slate-400">Cargando encuestas...</p>
             </div>
           ) : surveyResults.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <Star size={48} className="mx-auto mb-4 opacity-50" />
-              <p>No hay encuestas registradas</p>
-              <p className="text-sm mt-1">Envía una encuesta desde la pestaña "Enviar"</p>
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-4">
+                <Star size={32} className="text-yellow-500" />
+              </div>
+              <p className="text-slate-300 text-lg font-medium">Sin encuestas registradas</p>
+              <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">Envia una encuesta NPS desde la pestana "Enviar" para conocer la satisfaccion de tus clientes</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -15164,10 +15179,12 @@ function EncuestasEventosView({ leads, crmEvents, eventRegistrations, properties
           <div className="bg-slate-800/50 rounded-2xl p-6">
             <h3 className="text-xl font-bold mb-4">Eventos y Registros</h3>
             {crmEvents.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <CalendarIcon size={48} className="mx-auto mb-3 opacity-50" />
-                <p>No hay eventos creados</p>
-                <p className="text-sm">Ve a la seccion Eventos para crear uno</p>
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-4">
+                  <CalendarIcon size={32} className="text-blue-400" />
+                </div>
+                <p className="text-slate-300 text-lg font-medium">Sin eventos creados</p>
+                <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">Crea un evento desde la seccion Eventos para ver registros y asistencia aqui</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -15931,10 +15948,12 @@ function FollowupsView({ supabase }: { supabase: any }) {
         <div className="bg-slate-800/50 rounded-2xl p-6">
           <h3 className="text-xl font-bold mb-4">📅 Follow-ups Programados</h3>
           {pendingFollowups.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <p className="text-4xl mb-2">📭</p>
-              <p>No hay follow-ups pendientes</p>
-              <p className="text-sm mt-2">Se programarán automáticamente cuando los leads agenden citas o cambien de status</p>
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 mb-4">
+                <CheckCircle size={32} className="text-green-400" />
+              </div>
+              <p className="text-slate-300 text-lg font-medium">Todo al dia</p>
+              <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">No hay follow-ups pendientes. Se programan automaticamente cuando un lead agenda cita o cambia de status</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -15969,7 +15988,7 @@ function FollowupsView({ supabase }: { supabase: any }) {
           <div className="bg-slate-800/50 rounded-2xl p-6">
             <h3 className="text-xl font-bold mb-4 text-green-400">✅ Enviados ({sentFollowups.length})</h3>
             {sentFollowups.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">No hay follow-ups enviados aún</p>
+              <p className="text-slate-500 text-center py-6 text-sm">Los follow-ups enviados por SARA apareceran aqui</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-auto">
                 {sentFollowups.slice(0, 20).map(followup => (
