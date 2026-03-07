@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, DollarSign, Users, Target, Clock, BarChart3, RefreshCw } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, Legend, CartesianGrid, Area, AreaChart
@@ -262,6 +263,21 @@ export default function ForecastView() {
             {p.name}: {formatMoneyFull(p.value)}
           </p>
         ))}
+      </div>
+    )
+  }
+
+  if (leads.length === 0) {
+    return (
+      <div className="space-y-6 section-enter">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
+          Pipeline Forecast
+        </h2>
+        <EmptyState
+          icon={TrendingUp}
+          title="Sin datos de forecast"
+          description="Agrega leads para ver proyecciones de ventas, metricas de pipeline y forecast por vendedor."
+        />
       </div>
     )
   }

@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3, Upload, Download } from 'lucide-react'
+import { Plus, X, Phone, FileSpreadsheet, ChevronDown, ChevronRight, CheckSquare, Save, LayoutList, Columns3, Upload, Download, Users } from 'lucide-react'
 import ImportExportModal from '../components/ImportExportModal'
+import EmptyState from '../components/EmptyState'
 import { useCrm } from '../context/CrmContext'
 import type { Lead } from '../types/crm'
 import { STATUS_LABELS, getScoreColor, getScoreLabel } from '../types/crm'
@@ -406,7 +407,15 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
         </div>
       )}
 
-      {leadViewMode === 'kanban' ? (
+      {!loading && leads.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No hay leads"
+          description="Agrega tu primer lead para comenzar a gestionar tu pipeline de ventas."
+          actionLabel="Agregar Lead"
+          onAction={() => setShowNewLead(true)}
+        />
+      ) : leadViewMode === 'kanban' ? (
         <div className="space-y-3">
           {/* Kanban Pipeline Board */}
           <div className="overflow-x-auto kanban-scroll pb-4" style={{ scrollbarGutter: 'stable' }}>

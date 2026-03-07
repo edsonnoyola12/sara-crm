@@ -472,73 +472,83 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   // ---- Data Loading ----
   async function loadData() {
     setLoading(true)
-    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes, appointmentsRes, alertRes, promosRes, eventsRes, customFieldsRes, auditRes, fieldPermsRes] = await Promise.all([
-      supabase.from('leads').select('*').order('created_at', { ascending: false }),
-      supabase.from('properties').select('*'),
-      supabase.from('team_members').select('*'),
-      supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
-      supabase.from('reminder_config').select('*').order('lead_category'),
-      supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }),
-      supabase.from('alert_settings').select('*').order('category').order('stage'),
-      supabase.from('promotions').select('*').order('start_date', { ascending: false }),
-      supabase.from('events').select('*').order('event_date', { ascending: true }),
-      supabase.from('custom_fields').select('*').order('order', { ascending: true }),
-      supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500),
-      supabase.from('field_permissions').select('*')
-    ])
-    setLeads(leadsRes.data || [])
-    setProperties(propsRes.data || [])
-    setTeam(teamRes.data || [])
-    setMortgages(mortgagesRes.data || [])
-    setCampaigns(campaignsRes.data || [])
-    setAlertSettings(alertRes.data || [])
-    setReminderConfigs(remindersRes.data || [])
-    setAppointments(appointmentsRes.data || [])
-    setPromotions(promosRes.data || [])
-    setCrmEvents(eventsRes.data || [])
-    setCustomFields(customFieldsRes.data || [])
-    setAuditLog((auditRes.data || []) as AuditEntry[])
-    setFieldPermissions((fieldPermsRes.data || []) as FieldPermission[])
-    generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
-    setLoading(false)
-    setLastRefresh(new Date())
+    try {
+      const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes, appointmentsRes, alertRes, promosRes, eventsRes, customFieldsRes, auditRes, fieldPermsRes] = await Promise.all([
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+        supabase.from('properties').select('*'),
+        supabase.from('team_members').select('*'),
+        supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
+        supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
+        supabase.from('reminder_config').select('*').order('lead_category'),
+        supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }),
+        supabase.from('alert_settings').select('*').order('category').order('stage'),
+        supabase.from('promotions').select('*').order('start_date', { ascending: false }),
+        supabase.from('events').select('*').order('event_date', { ascending: true }),
+        supabase.from('custom_fields').select('*').order('order', { ascending: true }),
+        supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500),
+        supabase.from('field_permissions').select('*')
+      ])
+      setLeads(leadsRes.data || [])
+      setProperties(propsRes.data || [])
+      setTeam(teamRes.data || [])
+      setMortgages(mortgagesRes.data || [])
+      setCampaigns(campaignsRes.data || [])
+      setAlertSettings(alertRes.data || [])
+      setReminderConfigs(remindersRes.data || [])
+      setAppointments(appointmentsRes.data || [])
+      setPromotions(promosRes.data || [])
+      setCrmEvents(eventsRes.data || [])
+      setCustomFields(customFieldsRes.data || [])
+      setAuditLog((auditRes.data || []) as AuditEntry[])
+      setFieldPermissions((fieldPermsRes.data || []) as FieldPermission[])
+      generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
+      setLastRefresh(new Date())
 
-    // Restore session
-    if (!currentUser) {
-      const savedPhone = localStorage.getItem('sara_user_phone')
-      if (savedPhone) {
-        const restored = (teamRes.data || []).find((m: TeamMember) => {
-          const memberPhone = m.phone?.replace(/\D/g, '').slice(-10)
-          return memberPhone === savedPhone
-        })
-        if (restored) {
-          setCurrentUser(restored)
-          if (restored.role === 'agencia') setView('marketing')
-          else if (restored.role === 'asesor') setView('mortgage')
-          else setView('dashboard')
+      // Restore session
+      if (!currentUser) {
+        const savedPhone = localStorage.getItem('sara_user_phone')
+        if (savedPhone) {
+          const restored = (teamRes.data || []).find((m: TeamMember) => {
+            const memberPhone = m.phone?.replace(/\D/g, '').slice(-10)
+            return memberPhone === savedPhone
+          })
+          if (restored) {
+            setCurrentUser(restored)
+            if (restored.role === 'agencia') setView('marketing')
+            else if (restored.role === 'asesor') setView('mortgage')
+            else setView('dashboard')
+          }
         }
       }
+    } catch (err) {
+      console.error('Error loading data:', err)
+      showToast('Error al cargar datos', 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
   async function loadDataSilent() {
-    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, appointmentsRes] = await Promise.all([
-      supabase.from('leads').select('*').order('created_at', { ascending: false }),
-      supabase.from('properties').select('*'),
-      supabase.from('team_members').select('*'),
-      supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
-      supabase.from('appointments').select('*').order('scheduled_date', { ascending: true })
-    ])
-    setLeads(leadsRes.data || [])
-    setProperties(propsRes.data || [])
-    setTeam(teamRes.data || [])
-    setMortgages(mortgagesRes.data || [])
-    setCampaigns(campaignsRes.data || [])
-    setAppointments(appointmentsRes.data || [])
-    setLastRefresh(new Date())
-    generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
+    try {
+      const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, appointmentsRes] = await Promise.all([
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+        supabase.from('properties').select('*'),
+        supabase.from('team_members').select('*'),
+        supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
+        supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
+        supabase.from('appointments').select('*').order('scheduled_date', { ascending: true })
+      ])
+      setLeads(leadsRes.data || [])
+      setProperties(propsRes.data || [])
+      setTeam(teamRes.data || [])
+      setMortgages(mortgagesRes.data || [])
+      setCampaigns(campaignsRes.data || [])
+      setAppointments(appointmentsRes.data || [])
+      setLastRefresh(new Date())
+      generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
+    } catch (err) {
+      console.error('Error loading data (silent):', err)
+    }
   }
 
   // ---- Initial load + realtime + auto-refresh ----
@@ -668,22 +678,31 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
 
   // ---- CRUD Functions ----
   async function savePropertyFn(prop: Partial<Property>) {
-    if (prop.id) {
-      const existing = properties.find(p => p.id === prop.id)
-      await supabase.from('properties').update(prop).eq('id', prop.id)
-      if (existing) {
-        const changes = diffFields(existing, prop)
-        if (Object.keys(changes).length > 0) {
-          logAuditFn({ entity_type: 'property', entity_id: prop.id, entity_name: existing.name || prop.name || 'Propiedad', action: 'update', changes })
+    try {
+      if (prop.id) {
+        const existing = properties.find(p => p.id === prop.id)
+        const { error } = await supabase.from('properties').update(prop).eq('id', prop.id)
+        if (error) throw error
+        if (existing) {
+          const changes = diffFields(existing, prop)
+          if (Object.keys(changes).length > 0) {
+            logAuditFn({ entity_type: 'property', entity_id: prop.id, entity_name: existing.name || prop.name || 'Propiedad', action: 'update', changes })
+          }
         }
+        showToast('Propiedad actualizada', 'success')
+      } else {
+        const allFields: Record<string, { old: any; new: any }> = {}
+        for (const [k, v] of Object.entries(prop)) { if (k !== 'id') allFields[k] = { old: null, new: v } }
+        const { error } = await supabase.from('properties').insert([prop])
+        if (error) throw error
+        logAuditFn({ entity_type: 'property', entity_id: 'new', entity_name: prop.name || 'Propiedad', action: 'create', changes: allFields })
+        showToast('Propiedad creada', 'success')
       }
-    } else {
-      const allFields: Record<string, { old: any; new: any }> = {}
-      for (const [k, v] of Object.entries(prop)) { if (k !== 'id') allFields[k] = { old: null, new: v } }
-      await supabase.from('properties').insert([prop])
-      logAuditFn({ entity_type: 'property', entity_id: 'new', entity_name: prop.name || 'Propiedad', action: 'create', changes: allFields })
+      loadData()
+    } catch (err) {
+      console.error('Error saving property:', err)
+      showToast('Error al guardar propiedad', 'error')
     }
-    loadData()
   }
 
   function deletePropertyFn(id: string) {
@@ -691,28 +710,43 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     setConfirmModal({
       title: 'Eliminar propiedad', message: 'Esta accion no se puede deshacer.',
       onConfirm: async () => {
-        await supabase.from('properties').delete().eq('id', id)
-        if (existing) logAuditFn({ entity_type: 'property', entity_id: id, entity_name: existing.name || 'Propiedad', action: 'delete', changes: {} })
-        loadData(); setConfirmModal(null)
+        try {
+          const { error } = await supabase.from('properties').delete().eq('id', id)
+          if (error) throw error
+          if (existing) logAuditFn({ entity_type: 'property', entity_id: id, entity_name: existing.name || 'Propiedad', action: 'delete', changes: {} })
+          showToast('Propiedad eliminada', 'success')
+          loadData()
+        } catch (err) {
+          console.error('Error deleting property:', err)
+          showToast('Error al eliminar propiedad', 'error')
+        }
+        setConfirmModal(null)
       }
     })
   }
 
   async function saveLeadFn(lead: Partial<Lead>) {
-    if (lead.id) {
-      const existing = leads.find(l => l.id === lead.id)
-      const updatePayload: any = { name: lead.name, phone: lead.phone, property_interest: lead.property_interest, budget: lead.budget, score: lead.score, status: lead.status, source: lead.source, assigned_to: lead.assigned_to, credit_status: lead.credit_status }
-      if (lead.custom_data !== undefined) updatePayload.custom_data = lead.custom_data
-      await supabase.from('leads').update(updatePayload).eq('id', lead.id)
-      if (existing) {
-        const isStatusChange = existing.status !== lead.status
-        const changes = diffFields(existing, updatePayload)
-        if (Object.keys(changes).length > 0) {
-          logAuditFn({ entity_type: 'lead', entity_id: lead.id, entity_name: existing.name || lead.name || 'Lead', action: isStatusChange ? 'status_change' : 'update', changes })
+    try {
+      if (lead.id) {
+        const existing = leads.find(l => l.id === lead.id)
+        const updatePayload: any = { name: lead.name, phone: lead.phone, property_interest: lead.property_interest, budget: lead.budget, score: lead.score, status: lead.status, source: lead.source, assigned_to: lead.assigned_to, credit_status: lead.credit_status }
+        if (lead.custom_data !== undefined) updatePayload.custom_data = lead.custom_data
+        const { error } = await supabase.from('leads').update(updatePayload).eq('id', lead.id)
+        if (error) throw error
+        if (existing) {
+          const isStatusChange = existing.status !== lead.status
+          const changes = diffFields(existing, updatePayload)
+          if (Object.keys(changes).length > 0) {
+            logAuditFn({ entity_type: 'lead', entity_id: lead.id, entity_name: existing.name || lead.name || 'Lead', action: isStatusChange ? 'status_change' : 'update', changes })
+          }
         }
+        showToast('Lead actualizado', 'success')
       }
+      loadData()
+    } catch (err) {
+      console.error('Error saving lead:', err)
+      showToast('Error al guardar lead', 'error')
     }
-    loadData()
   }
 
   async function saveMemberFn(member: Partial<TeamMember>) {
@@ -727,11 +761,13 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
             logAuditFn({ entity_type: 'team_member', entity_id: member.id, entity_name: existing.name || member.name || 'Miembro', action: 'update', changes })
           }
         }
+        showToast('Miembro actualizado', 'success')
       } else {
         await safeFetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(member) })
         const allFields: Record<string, { old: any; new: any }> = {}
         for (const [k, v] of Object.entries(member)) { if (k !== 'id') allFields[k] = { old: null, new: v } }
         logAuditFn({ entity_type: 'team_member', entity_id: 'new', entity_name: member.name || 'Miembro', action: 'create', changes: allFields })
+        showToast('Miembro creado', 'success')
       }
       loadData()
     } catch (error) {
@@ -755,91 +791,181 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   }
 
   async function saveMortgageFn(mortgage: Partial<MortgageApplication>) {
-    const now = new Date().toISOString()
-    if (mortgage.id) {
-      const current = mortgages.find(m => m.id === mortgage.id)
-      const statusChanged = current && current.status !== mortgage.status
-      if (statusChanged) {
-        if (mortgage.status === 'in_review') mortgage.in_review_at = now
-        if (mortgage.status === 'sent_to_bank') mortgage.sent_to_bank_at = now
-        if (mortgage.status === 'approved' || mortgage.status === 'rejected') mortgage.decision_at = now
-      }
-      const payload: any = { ...mortgage }
-      if (statusChanged && currentUser) { payload.changed_by_id = currentUser.id; payload.changed_by_name = currentUser.name; payload.previous_status = current?.status }
-      await safeFetch(`${API_BASE}/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      if (current) {
-        const changes = diffFields(current, mortgage)
-        if (Object.keys(changes).length > 0) {
-          logAuditFn({ entity_type: 'mortgage', entity_id: mortgage.id, entity_name: current.lead_name || 'Hipoteca', action: statusChanged ? 'status_change' : 'update', changes })
+    try {
+      const now = new Date().toISOString()
+      if (mortgage.id) {
+        const current = mortgages.find(m => m.id === mortgage.id)
+        const statusChanged = current && current.status !== mortgage.status
+        if (statusChanged) {
+          if (mortgage.status === 'in_review') mortgage.in_review_at = now
+          if (mortgage.status === 'sent_to_bank') mortgage.sent_to_bank_at = now
+          if (mortgage.status === 'approved' || mortgage.status === 'rejected') mortgage.decision_at = now
         }
+        const payload: any = { ...mortgage }
+        if (statusChanged && currentUser) { payload.changed_by_id = currentUser.id; payload.changed_by_name = currentUser.name; payload.previous_status = current?.status }
+        await safeFetch(`${API_BASE}/api/mortgage_applications/${mortgage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        if (current) {
+          const changes = diffFields(current, mortgage)
+          if (Object.keys(changes).length > 0) {
+            logAuditFn({ entity_type: 'mortgage', entity_id: mortgage.id, entity_name: current.lead_name || 'Hipoteca', action: statusChanged ? 'status_change' : 'update', changes })
+          }
+        }
+        showToast('Hipoteca actualizada', 'success')
+      } else {
+        mortgage.pending_at = now
+        if (currentUser?.role === 'asesor') { mortgage.assigned_advisor_id = currentUser.id; mortgage.assigned_advisor_name = currentUser.name }
+        const { error } = await supabase.from('mortgage_applications').insert([mortgage])
+        if (error) throw error
+        const allFields: Record<string, { old: any; new: any }> = {}
+        for (const [k, v] of Object.entries(mortgage)) { if (k !== 'id') allFields[k] = { old: null, new: v } }
+        logAuditFn({ entity_type: 'mortgage', entity_id: 'new', entity_name: mortgage.lead_name || 'Hipoteca', action: 'create', changes: allFields })
+        showToast('Hipoteca creada', 'success')
       }
-    } else {
-      mortgage.pending_at = now
-      if (currentUser?.role === 'asesor') { mortgage.assigned_advisor_id = currentUser.id; mortgage.assigned_advisor_name = currentUser.name }
-      await supabase.from('mortgage_applications').insert([mortgage])
-      const allFields: Record<string, { old: any; new: any }> = {}
-      for (const [k, v] of Object.entries(mortgage)) { if (k !== 'id') allFields[k] = { old: null, new: v } }
-      logAuditFn({ entity_type: 'mortgage', entity_id: 'new', entity_name: mortgage.lead_name || 'Hipoteca', action: 'create', changes: allFields })
+      loadData()
+    } catch (err) {
+      console.error('Error saving mortgage:', err)
+      showToast('Error al guardar hipoteca', 'error')
     }
-    loadData()
   }
 
   async function updateMortgageStatusFn(id: string, newStatus: string) {
-    const current = mortgages.find(m => m.id === id)
-    const now = new Date().toISOString()
-    const updates: any = { status: newStatus }
-    if (newStatus === 'in_review') updates.in_review_at = now
-    if (newStatus === 'sent_to_bank') updates.sent_to_bank_at = now
-    if (newStatus === 'approved' || newStatus === 'rejected') updates.decision_at = now
-    await safeFetch(`${API_BASE}/api/mortgage_applications/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
-    if (current) {
-      logAuditFn({ entity_type: 'mortgage', entity_id: id, entity_name: current.lead_name || 'Hipoteca', action: 'status_change', changes: { status: { old: current.status, new: newStatus } } })
+    try {
+      const current = mortgages.find(m => m.id === id)
+      const now = new Date().toISOString()
+      const updates: any = { status: newStatus }
+      if (newStatus === 'in_review') updates.in_review_at = now
+      if (newStatus === 'sent_to_bank') updates.sent_to_bank_at = now
+      if (newStatus === 'approved' || newStatus === 'rejected') updates.decision_at = now
+      await safeFetch(`${API_BASE}/api/mortgage_applications/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
+      if (current) {
+        logAuditFn({ entity_type: 'mortgage', entity_id: id, entity_name: current.lead_name || 'Hipoteca', action: 'status_change', changes: { status: { old: current.status, new: newStatus } } })
+      }
+      showToast('Estado de hipoteca actualizado', 'success')
+      loadData()
+    } catch (err) {
+      console.error('Error updating mortgage status:', err)
+      showToast('Error al actualizar estado de hipoteca', 'error')
     }
-    loadData()
   }
 
   async function saveCampaignFn(campaign: Partial<Campaign>) {
-    if (campaign.id) { await supabase.from('marketing_campaigns').update(campaign).eq('id', campaign.id) }
-    else { await supabase.from('marketing_campaigns').insert([campaign]) }
-    loadData()
+    try {
+      if (campaign.id) {
+        const { error } = await supabase.from('marketing_campaigns').update(campaign).eq('id', campaign.id)
+        if (error) throw error
+        showToast('Campana actualizada', 'success')
+      } else {
+        const { error } = await supabase.from('marketing_campaigns').insert([campaign])
+        if (error) throw error
+        showToast('Campana creada', 'success')
+      }
+      loadData()
+    } catch (err) {
+      console.error('Error saving campaign:', err)
+      showToast('Error al guardar campana', 'error')
+    }
   }
 
   function deleteCampaignFn(id: string) {
     setConfirmModal({
       title: 'Eliminar campana', message: 'Esta accion no se puede deshacer.',
-      onConfirm: async () => { await supabase.from('marketing_campaigns').delete().eq('id', id); loadData(); setConfirmModal(null) }
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('marketing_campaigns').delete().eq('id', id)
+          if (error) throw error
+          showToast('Campana eliminada', 'success')
+          loadData()
+        } catch (err) {
+          console.error('Error deleting campaign:', err)
+          showToast('Error al eliminar campana', 'error')
+        }
+        setConfirmModal(null)
+      }
     })
   }
 
   async function savePromotionFn(promo: Partial<Promotion>) {
-    if (promo.id) { await supabase.from('promotions').update(promo).eq('id', promo.id) }
-    else { await supabase.from('promotions').insert([promo]) }
-    loadData()
+    try {
+      if (promo.id) {
+        const { error } = await supabase.from('promotions').update(promo).eq('id', promo.id)
+        if (error) throw error
+        showToast('Promocion actualizada', 'success')
+      } else {
+        const { error } = await supabase.from('promotions').insert([promo])
+        if (error) throw error
+        showToast('Promocion creada', 'success')
+      }
+      loadData()
+    } catch (err) {
+      console.error('Error saving promotion:', err)
+      showToast('Error al guardar promocion', 'error')
+    }
   }
 
   function deletePromotionFn(id: string) {
     setConfirmModal({
       title: 'Eliminar promocion', message: 'Esta accion no se puede deshacer.',
-      onConfirm: async () => { await supabase.from('promotions').delete().eq('id', id); loadData(); setConfirmModal(null) }
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('promotions').delete().eq('id', id)
+          if (error) throw error
+          showToast('Promocion eliminada', 'success')
+          loadData()
+        } catch (err) {
+          console.error('Error deleting promotion:', err)
+          showToast('Error al eliminar promocion', 'error')
+        }
+        setConfirmModal(null)
+      }
     })
   }
 
   async function togglePromoStatusFn(promo: Promotion) {
-    const newStatus = promo.status === 'active' ? 'paused' : 'active'
-    await supabase.from('promotions').update({ status: newStatus }).eq('id', promo.id)
-    loadData()
+    try {
+      const newStatus = promo.status === 'active' ? 'paused' : 'active'
+      const { error } = await supabase.from('promotions').update({ status: newStatus }).eq('id', promo.id)
+      if (error) throw error
+      showToast(newStatus === 'active' ? 'Promocion activada' : 'Promocion pausada', 'success')
+      loadData()
+    } catch (err) {
+      console.error('Error toggling promotion status:', err)
+      showToast('Error al cambiar estado de promocion', 'error')
+    }
   }
 
   async function saveCrmEventFn(event: Partial<CRMEvent>) {
-    if (event.id) { await supabase.from('events').update(event).eq('id', event.id) }
-    else { await supabase.from('events').insert([event]) }
-    loadData()
+    try {
+      if (event.id) {
+        const { error } = await supabase.from('events').update(event).eq('id', event.id)
+        if (error) throw error
+        showToast('Evento actualizado', 'success')
+      } else {
+        const { error } = await supabase.from('events').insert([event])
+        if (error) throw error
+        showToast('Evento creado', 'success')
+      }
+      loadData()
+    } catch (err) {
+      console.error('Error saving event:', err)
+      showToast('Error al guardar evento', 'error')
+    }
   }
 
   function deleteCrmEventFn(id: string) {
     setConfirmModal({
       title: 'Eliminar evento', message: 'Esta accion no se puede deshacer.',
-      onConfirm: async () => { await supabase.from('events').delete().eq('id', id); loadData(); setConfirmModal(null) }
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('events').delete().eq('id', id)
+          if (error) throw error
+          showToast('Evento eliminado', 'success')
+          loadData()
+        } catch (err) {
+          console.error('Error deleting event:', err)
+          showToast('Error al eliminar evento', 'error')
+        }
+        setConfirmModal(null)
+      }
     })
   }
 
@@ -857,13 +983,22 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
 
   // ---- Custom Fields CRUD ----
   async function saveCustomFieldFn(field: Partial<CustomField>) {
-    if (field.id) {
-      await supabase.from('custom_fields').update(field).eq('id', field.id)
-    } else {
-      await supabase.from('custom_fields').insert([field])
+    try {
+      if (field.id) {
+        const { error } = await supabase.from('custom_fields').update(field).eq('id', field.id)
+        if (error) throw error
+        showToast('Campo actualizado', 'success')
+      } else {
+        const { error } = await supabase.from('custom_fields').insert([field])
+        if (error) throw error
+        showToast('Campo creado', 'success')
+      }
+      const { data } = await supabase.from('custom_fields').select('*').order('order', { ascending: true })
+      setCustomFields(data || [])
+    } catch (err) {
+      console.error('Error saving custom field:', err)
+      showToast('Error al guardar campo personalizado', 'error')
     }
-    const { data } = await supabase.from('custom_fields').select('*').order('order', { ascending: true })
-    setCustomFields(data || [])
   }
 
   function deleteCustomFieldFn(id: string) {
@@ -871,9 +1006,16 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
       title: 'Eliminar campo personalizado',
       message: 'Se eliminara este campo. Los datos guardados en leads no se borran pero ya no seran visibles.',
       onConfirm: async () => {
-        await supabase.from('custom_fields').delete().eq('id', id)
-        const { data } = await supabase.from('custom_fields').select('*').order('order', { ascending: true })
-        setCustomFields(data || [])
+        try {
+          const { error } = await supabase.from('custom_fields').delete().eq('id', id)
+          if (error) throw error
+          const { data } = await supabase.from('custom_fields').select('*').order('order', { ascending: true })
+          setCustomFields(data || [])
+          showToast('Campo eliminado', 'success')
+        } catch (err) {
+          console.error('Error deleting custom field:', err)
+          showToast('Error al eliminar campo personalizado', 'error')
+        }
         setConfirmModal(null)
       }
     })

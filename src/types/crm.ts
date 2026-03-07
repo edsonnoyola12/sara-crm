@@ -412,7 +412,7 @@ export const STATUS_LABELS: Record<string, string> = {
   delivered: 'Entregado', sold: 'Vendido', lost: 'Perdido', fallen: 'Caido', inactive: 'Inactivo', paused: 'Pausado'
 }
 
-export const API_BASE = 'https://sara-backend.edson-633.workers.dev'
+export const API_BASE = import.meta.env.VITE_API_BASE || 'https://sara-backend.edson-633.workers.dev'
 
 export async function safeFetch(url: string, options?: RequestInit) {
   const res = await fetch(url, options)

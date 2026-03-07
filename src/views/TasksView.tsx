@@ -7,6 +7,7 @@ import {
   Search, List, Columns3, LayoutGrid, ChevronDown, X, Trash2,
   GripVertical, ArrowUpDown, Phone, FileText, Users, Gavel, MapPin, MoreHorizontal, Edit3
 } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
 
 const CATEGORY_MAP = Object.fromEntries(TASK_CATEGORIES.map(c => [c.key, c]))
 const PRIORITY_MAP = Object.fromEntries(TASK_PRIORITIES.map(p => [p.key, p]))
@@ -653,6 +654,15 @@ export default function TasksView() {
         </button>
       </div>
 
+      {tasks.length === 0 ? (
+        <EmptyState
+          icon={CheckSquare}
+          title="No hay tareas"
+          description="Crea tu primera tarea para organizar el seguimiento de tus leads y propiedades."
+          actionLabel="Nueva Tarea"
+          onAction={() => setModalTask('new')}
+        />
+      ) : (<>
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
@@ -1003,6 +1013,8 @@ export default function TasksView() {
           </div>
         </div>
       )}
+
+      </>)}
 
       {/* ═══════ MODALS ═══════ */}
       {modalTask && (

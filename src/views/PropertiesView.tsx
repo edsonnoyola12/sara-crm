@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, X, Building, Edit, Trash2, Save } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
 import { useCrm } from '../context/CrmContext'
 import type { Property } from '../types/crm'
 
@@ -213,18 +214,13 @@ export default function PropertiesView() {
           )
         })()}
         {properties.length === 0 ? (
-          <div className="empty-state text-center py-16">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-700/50 mb-4">
-              <span className="text-5xl">🏠</span>
-            </div>
-            <p className="text-slate-300 text-xl mb-2">No hay propiedades</p>
-            <p className="text-slate-500 text-sm mb-4">Agrega tu primer desarrollo para empezar</p>
-            {permisos.puedeEditarPropiedades() && (
-              <button onClick={() => setShowNewProperty(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold">
-                Agregar Primera Propiedad
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={Building}
+            title="No hay propiedades"
+            description="Agrega tu primer desarrollo para empezar a gestionar tu inventario."
+            actionLabel={permisos.puedeEditarPropiedades() ? "Agregar Propiedad" : undefined}
+            onAction={permisos.puedeEditarPropiedades() ? () => setShowNewProperty(true) : undefined}
+          />
         ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {properties.filter(p => {
