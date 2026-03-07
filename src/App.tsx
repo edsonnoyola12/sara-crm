@@ -2265,6 +2265,15 @@ function App() {
         (myLeadIds && myLeadIds.has(a.lead_id))
       )
 
+  // Auto-switch calendar to list view when few appointments
+  const calendarSmartDefaultApplied = useRef(false)
+  useEffect(() => {
+    if (calendarSmartDefaultApplied.current || !currentUser || appointments.length === 0) return
+    calendarSmartDefaultApplied.current = true
+    const scheduled = filteredAppointments.filter(a => a.status === 'scheduled').length
+    if (scheduled <= 5) setCalendarViewMode('list')
+  }, [filteredAppointments.length])
+
   // Pantalla de login
   if (!currentUser) {
     return (
@@ -13575,9 +13584,20 @@ function MessageMetricsView() {
     const map: Record<string, string> = {
       respuesta_sara: 'Respuesta SARA', recordatorio: 'Recordatorio', alerta: 'Alerta',
       broadcast: 'Broadcast', bridge: 'Bridge', audio_tts: 'Audio TTS',
-      notificacion: 'Notificación', recurso: 'Recurso', template: 'Template'
+      notificacion: 'Notificacion', recurso: 'Recurso', template: 'Template',
+      seguimiento: 'Seguimiento', encuesta: 'Encuesta', reporte: 'Reporte',
+      cadencia: 'Cadencia', video: 'Video', carousel: 'Carousel'
     }
     return map[c] || c
+  }
+
+  const tipoLabel = (t: string) => {
+    const map: Record<string, string> = {
+      text: 'Texto', audio: 'Audio', template: 'Plantilla', image: 'Imagen',
+      video: 'Video', document: 'Documento', sticker: 'Sticker', location: 'Ubicacion',
+      interactive: 'Interactivo', contacts: 'Contacto', reaction: 'Reaccion'
+    }
+    return map[t] || t
   }
 
   // Build chart data from por_tipo_y_categoria
@@ -13813,7 +13833,7 @@ function MessageMetricsView() {
                       msg.tipo === 'template' ? 'bg-amber-500/30 text-amber-300' :
                       'bg-slate-500/30 text-slate-300'
                     }`}>
-                      {msg.tipo}
+                      {tipoLabel(msg.tipo)}
                     </span>
                     <span className="text-xs text-slate-400 shrink-0 w-20 font-mono">{msg.destinatario || '?'}</span>
                     <span className="flex-1 text-sm text-slate-300 truncate min-w-0" title={msg.contenido || '-'}>{msg.contenido || '-'}</span>
@@ -13938,7 +13958,7 @@ function MessageMetricsView() {
                   <div key={idx} className="flex items-center gap-4 p-3 bg-slate-700/30 rounded-lg">
                     <span className="text-purple-400 shrink-0">🎤</span>
                     <span className="text-xs text-slate-400 w-20 font-mono shrink-0">{msg.destinatario || '?'}</span>
-                    <span className="flex-1 text-sm text-slate-300">{msg.tipo}</span>
+                    <span className="flex-1 text-sm text-slate-300">{tipoLabel(msg.tipo)}</span>
                     <span className={`px-2 py-1 rounded text-xs shrink-0 ${
                       msg.status === 'read' ? 'bg-amber-500/30 text-amber-300' :
                       msg.status === 'delivered' ? 'bg-green-500/30 text-green-300' :
