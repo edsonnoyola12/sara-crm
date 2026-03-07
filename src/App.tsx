@@ -2266,13 +2266,15 @@ function App() {
         (myLeadIds && myLeadIds.has(a.lead_id))
       )
 
-  // Auto-switch calendar to list view when few appointments
-  useEffect(() => {
-    if (calendarSmartDefaultApplied.current || !currentUser || appointments.length === 0) return
+  // Auto-switch calendar to list view when few appointments (one-time on data load)
+  if (!calendarSmartDefaultApplied.current && currentUser && appointments.length > 0) {
     calendarSmartDefaultApplied.current = true
     const scheduled = filteredAppointments.filter(a => a.status === 'scheduled').length
-    if (scheduled <= 5) setCalendarViewMode('list')
-  }, [filteredAppointments.length])
+    if (scheduled <= 5) {
+      // Defer to avoid setState during render
+      setTimeout(() => setCalendarViewMode('list'), 0)
+    }
+  }
 
   // Pantalla de login
   if (!currentUser) {
