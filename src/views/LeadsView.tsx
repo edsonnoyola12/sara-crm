@@ -53,6 +53,25 @@ function useVirtualScroll<T>({
   return { virtualItems, totalHeight, onScroll }
 }
 
+// ---- Kanban column definitions ----
+const KANBAN_MAIN_COLUMNS = [
+  { key: 'new', headerBg: 'bg-slate-600' },
+  { key: 'contacted', headerBg: 'bg-blue-600' },
+  { key: 'qualified', headerBg: 'bg-indigo-600' },
+  { key: 'scheduled', headerBg: 'bg-cyan-600' },
+  { key: 'visited', headerBg: 'bg-purple-600' },
+  { key: 'negotiation', headerBg: 'bg-yellow-600' },
+  { key: 'reserved', headerBg: 'bg-orange-600' },
+  { key: 'closed', headerBg: 'bg-green-600' },
+  { key: 'delivered', headerBg: 'bg-emerald-600' },
+  { key: 'sold', headerBg: 'bg-teal-600' },
+]
+
+const KANBAN_DIMMED_COLUMNS = [
+  { key: 'lost', colorHeader: 'bg-red-800/60', colorBorder: 'border-red-700/40', colorText: 'text-red-300', colorBadge: 'bg-red-600/30 text-red-300' },
+  { key: 'fallen', colorHeader: 'bg-red-800/50', colorBorder: 'border-red-700/30', colorText: 'text-red-400', colorBadge: 'bg-red-600/30 text-red-400' },
+]
+
 interface LeadsViewProps {
   onSelectLead: (lead: Lead) => void
 }
@@ -155,6 +174,32 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
     containerRef: tableContainerRef,
     overscan: 5,
   })
+
+  // ---- Kanban drag-and-drop handler ----
+  const handleKanbanDrop = async (targetStatus: string, targetLabel: string) => {
+    if (draggedLead && draggedLead.status !== targetStatus && permisos.puedeCambiarStatusLead(draggedLead)) {
+      const timestamp = new Date().toISOString()
+      const historyEntry = { date: timestamp, from: draggedLead.status, to: targetStatus, note: 'Movido desde Kanban' }
+      const existingHistory = draggedLead.notes?.status_history || []
+      const newNotes = { ...(draggedLead.notes || {}), status_history: [...existingHistory, historyEntry] }
+      await supabase.from('leads').update({ status: targetStatus, status_changed_at: timestamp, notes: newNotes }).eq('id', draggedLead.id)
+      setLeads(leads.map(l => l.id === draggedLead.id ? { ...l, status: targetStatus, status_changed_at: timestamp, notes: newNotes } : l))
+      showToast(`${draggedLead.name || 'Lead'} movido a ${targetLabel}`, 'success')
+    }
+    setDraggedLead(null)
+  }
+
+  // ---- Kanban time-since helper ----
+  const getTimeSince = (lead: Lead) => {
+    const refDate = lead.last_message_at || lead.status_changed_at || lead.created_at
+    if (!refDate) return { label: '-', daysSince: 0 }
+    const msSince = Date.now() - new Date(refDate).getTime()
+    const minsSince = Math.floor(msSince / 60000)
+    const hrsSince = Math.floor(minsSince / 60)
+    const daysSince = Math.floor(hrsSince / 24)
+    const label = minsSince < 60 ? (minsSince < 2 ? 'Ahora' : `${minsSince}m`) : hrsSince < 24 ? `${hrsSince}h` : daysSince === 1 ? 'Ayer' : `${daysSince}d`
+    return { label, daysSince }
+  }
 
   return (
     <div className="space-y-6">
@@ -356,75 +401,150 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
       )}
 
       {leadViewMode === 'kanban' ? (
-        <div className="space-y-4">
-          {/* Kanban Board */}
-          <div className="overflow-x-auto kanban-scroll pb-4">
-            <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
-              {[
-                { key: 'new', label: 'Nuevo', color: 'bg-slate-500', accent: 'border-slate-400' },
-                { key: 'contacted', label: 'Contactado', color: 'bg-blue-600', accent: 'border-blue-400' },
-                { key: 'scheduled', label: 'Cita', color: 'bg-cyan-600', accent: 'border-cyan-400' },
-                { key: 'visited', label: 'Visito', color: 'bg-purple-600', accent: 'border-purple-400' },
-                { key: 'negotiation', label: 'Negociacion', color: 'bg-yellow-600', accent: 'border-yellow-400' },
-                { key: 'reserved', label: 'Reservado', color: 'bg-orange-600', accent: 'border-orange-400' },
-                { key: 'closed', label: 'Cerrado', color: 'bg-green-600', accent: 'border-green-400' }
-              ].map(stage => {
+        <div className="space-y-3">
+          {/* Kanban Pipeline Board */}
+          <div className="overflow-x-auto kanban-scroll pb-4" style={{ scrollbarGutter: 'stable' }}>
+            <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+              {/* Main pipeline columns */}
+              {KANBAN_MAIN_COLUMNS.map(stage => {
+                const stageLabel = STATUS_LABELS[stage.key] || stage.key
                 const stageLeads = displayLeads.filter(l => l.status === stage.key)
                 const isOver = dragOverColumn === stage.key
                 return (
                   <div
                     key={stage.key}
-                    className={`w-[240px] flex-shrink-0 bg-slate-800/60 rounded-xl border-2 border-dashed transition-all ${isOver ? 'kanban-column-highlight' : 'border-slate-700/50'}`}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverColumn(stage.key) }}
-                    onDragLeave={() => setDragOverColumn(null)}
+                    className={`w-[250px] flex-shrink-0 bg-slate-800/70 rounded-xl border-2 transition-all duration-200 ${
+                      isOver ? 'border-blue-400 bg-slate-800/90 shadow-lg shadow-blue-500/10' : 'border-slate-700/50'
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverColumn(stage.key) }}
+                    onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null) }}
                     onDrop={async (e) => {
                       e.preventDefault()
                       setDragOverColumn(null)
-                      if (draggedLead && draggedLead.status !== stage.key && permisos.puedeCambiarStatusLead(draggedLead)) {
-                        await supabase.from('leads').update({ status: stage.key, status_changed_at: new Date().toISOString() }).eq('id', draggedLead.id)
-                        setLeads(leads.map(l => l.id === draggedLead.id ? {...l, status: stage.key} : l))
-                        showToast(`${draggedLead.name || 'Lead'} movido a ${stage.label}`, 'success')
-                      }
-                      setDraggedLead(null)
+                      await handleKanbanDrop(stage.key, stageLabel)
                     }}
                   >
                     {/* Column Header */}
-                    <div className={`${stage.color} px-3 py-2.5 rounded-t-lg flex items-center justify-between`}>
-                      <span className="font-semibold text-sm">{stage.label}</span>
-                      <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-bold">{stageLeads.length}</span>
+                    <div className={`${stage.headerBg} px-3 py-2.5 rounded-t-[10px] flex items-center justify-between`}>
+                      <span className="font-semibold text-sm text-white">{stageLabel}</span>
+                      <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-bold min-w-[24px] text-center">{stageLeads.length}</span>
                     </div>
                     {/* Cards */}
-                    <div className="p-2 space-y-2 min-h-[120px] max-h-[60vh] overflow-y-auto">
+                    <div className="p-2 space-y-2 min-h-[100px] max-h-[65vh] overflow-y-auto">
                       {stageLeads.map(lead => {
-                        const daysSince = lead.last_message_at
-                          ? Math.floor((Date.now() - new Date(lead.last_message_at).getTime()) / (1000 * 60 * 60 * 24))
-                          : lead.created_at ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
+                        const { label: timeLabel, daysSince } = getTimeSince(lead)
+                        const scoreColorClass = lead.score >= 70 ? 'bg-red-500 text-white' : lead.score >= 40 ? 'bg-amber-500 text-white' : 'bg-slate-600 text-slate-300'
+                        const scoreTemp = lead.score >= 70 ? 'HOT' : lead.score >= 40 ? 'WARM' : 'COLD'
                         return (
                           <div
                             key={lead.id}
                             draggable={permisos.puedeCambiarStatusLead(lead)}
-                            onDragStart={() => setDraggedLead(lead)}
+                            onDragStart={(e) => { setDraggedLead(lead); e.dataTransfer.effectAllowed = 'move' }}
                             onDragEnd={() => { setDraggedLead(null); setDragOverColumn(null) }}
-                            className={`kanban-card bg-slate-700/80 rounded-xl p-3 cursor-pointer border border-slate-600/50 ${draggedLead?.id === lead.id ? 'dragging' : ''} ${permisos.puedeCambiarStatusLead(lead) ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                            className={`bg-slate-900/60 rounded-lg p-3 cursor-pointer border border-slate-700/60 hover:border-slate-500/80 hover:bg-slate-800/80 transition-all duration-150 ${
+                              draggedLead?.id === lead.id ? 'opacity-40 scale-95' : ''
+                            } ${permisos.puedeCambiarStatusLead(lead) ? 'cursor-grab active:cursor-grabbing' : ''}`}
                             onClick={() => onSelectLead(lead)}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-semibold text-sm truncate flex-1" title={lead.name || 'Sin nombre'}>{lead.name || 'Sin nombre'}</p>
-                              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1 ${lead.score >= 70 ? 'bg-red-500 score-hot' : lead.score >= 40 ? 'bg-orange-400' : 'bg-blue-400'}`} title={`Score: ${lead.score}`} />
+                            {/* Name + Score badge */}
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <p className="font-semibold text-sm text-white truncate flex-1" title={lead.name || 'Sin nombre'}>{lead.name || 'Sin nombre'}</p>
+                              <span className={`${scoreColorClass} px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 leading-tight`} title={`Score: ${lead.score}`}>
+                                {scoreTemp} {lead.score}
+                              </span>
                             </div>
+                            {/* Phone */}
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
+                              <Phone size={10} className="flex-shrink-0" />
+                              {lead.phone ? `...${lead.phone.slice(-4)}` : 'Sin tel'}
+                            </p>
+                            {/* Property interest */}
                             {lead.property_interest && (
-                              <p className="text-xs text-slate-400 mt-1 truncate">{lead.property_interest}</p>
+                              <p className="text-xs text-slate-500 mt-1 truncate" title={lead.property_interest}>{lead.property_interest}</p>
                             )}
-                            <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
-                              <span>...{lead.phone?.slice(-4)}</span>
-                              <span>{daysSince === 0 ? 'Hoy' : daysSince === 1 ? 'Ayer' : `Hace ${daysSince}d`}</span>
+                            {/* Time since update + assigned vendedor */}
+                            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-700/40">
+                              <span className={`text-[10px] ${daysSince > 7 ? 'text-red-400' : daysSince > 2 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                                {timeLabel}
+                              </span>
+                              {lead.assigned_to && (
+                                <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={team.find(t => t.id === lead.assigned_to)?.name}>
+                                  {team.find(t => t.id === lead.assigned_to)?.name?.split(' ')[0] || ''}
+                                </span>
+                              )}
                             </div>
                           </div>
                         )
                       })}
                       {stageLeads.length === 0 && (
-                        <div className="text-center text-slate-500 text-xs py-6 opacity-60">
-                          Arrastra leads aqui
+                        <div className={`text-center text-xs py-8 rounded-lg border-2 border-dashed transition-colors ${
+                          isOver ? 'border-blue-400/50 text-blue-300/70 bg-blue-500/5' : 'border-slate-700/30 text-slate-600'
+                        }`}>
+                          {isOver ? 'Soltar aqui' : 'Sin leads'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Collapsed/dimmed: Lost & Fallen columns */}
+              {KANBAN_DIMMED_COLUMNS.map(col => {
+                const colLabel = STATUS_LABELS[col.key] || col.key
+                const colLeads = displayLeads.filter(l => l.status === col.key)
+                const isOver = dragOverColumn === col.key
+                return (
+                  <div
+                    key={col.key}
+                    className={`w-[180px] flex-shrink-0 rounded-xl border-2 transition-all duration-200 opacity-50 hover:opacity-85 bg-slate-900/40 ${
+                      isOver ? 'border-red-400 opacity-85' : col.colorBorder
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverColumn(col.key) }}
+                    onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null) }}
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      setDragOverColumn(null)
+                      await handleKanbanDrop(col.key, colLabel)
+                    }}
+                  >
+                    {/* Collapsed Column Header */}
+                    <div className={`${col.colorHeader} px-3 py-2.5 rounded-t-[10px] flex items-center justify-between`}>
+                      <span className={`font-semibold text-sm ${col.colorText}`}>{colLabel}</span>
+                      <span className={`${col.colorBadge} px-2 py-0.5 rounded-full text-xs font-bold min-w-[24px] text-center`}>{colLeads.length}</span>
+                    </div>
+                    {/* Collapsed Cards - compact with expand toggle */}
+                    <div className="p-1.5 space-y-1 max-h-[65vh] overflow-y-auto">
+                      {showOtherStages ? (
+                        <>
+                          {colLeads.map(lead => (
+                            <div
+                              key={lead.id}
+                              onClick={() => onSelectLead(lead)}
+                              className="bg-slate-900/40 rounded-md px-2 py-1.5 cursor-pointer hover:bg-slate-800/60 transition-colors border border-slate-700/30"
+                            >
+                              <p className="text-xs font-medium text-slate-300 truncate">{lead.name || 'Sin nombre'}</p>
+                              <span className="text-[10px] text-slate-500">...{lead.phone?.slice(-4)}</span>
+                            </div>
+                          ))}
+                          {colLeads.length > 0 && (
+                            <button
+                              onClick={() => setShowOtherStages(false)}
+                              className="w-full text-center text-[10px] text-slate-500 hover:text-slate-300 py-1"
+                            >
+                              Colapsar
+                            </button>
+                          )}
+                        </>
+                      ) : colLeads.length > 0 ? (
+                        <button
+                          onClick={() => setShowOtherStages(true)}
+                          className={`w-full text-center text-xs py-3 ${col.colorText} hover:underline`}
+                        >
+                          Ver {colLeads.length} lead{colLeads.length !== 1 ? 's' : ''}
+                        </button>
+                      ) : (
+                        <div className={`text-center text-xs py-4 ${isOver ? 'text-red-300/70' : 'text-slate-600'}`}>
+                          {isOver ? 'Soltar aqui' : '-'}
                         </div>
                       )}
                     </div>
@@ -433,41 +553,6 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
               })}
             </div>
           </div>
-          {/* Collapsed Other Stages */}
-          {(() => {
-            const deliveredLeads = displayLeads.filter(l => l.status === 'delivered')
-            const fallenLeads = displayLeads.filter(l => l.status === 'fallen' || l.status === 'lost' || l.status === 'inactive' || l.status === 'paused')
-            if (deliveredLeads.length === 0 && fallenLeads.length === 0) return null
-            return (
-              <div className="bg-slate-800/40 rounded-xl border border-slate-700/50">
-                <button
-                  onClick={() => setShowOtherStages(!showOtherStages)}
-                  className="w-full px-4 py-2.5 flex items-center justify-between text-sm text-slate-400 hover:text-white transition-colors"
-                >
-                  <span>
-                    {deliveredLeads.length > 0 && <span className="bg-emerald-600/30 text-emerald-300 px-2 py-0.5 rounded-full text-xs mr-2">Entregados {deliveredLeads.length}</span>}
-                    {fallenLeads.length > 0 && <span className="bg-red-600/30 text-red-300 px-2 py-0.5 rounded-full text-xs">Caidos/Otros {fallenLeads.length}</span>}
-                  </span>
-                  <ChevronRight size={16} className={`transition-transform ${showOtherStages ? 'rotate-90' : ''}`} />
-                </button>
-                {showOtherStages && (
-                  <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {[...deliveredLeads, ...fallenLeads].map(lead => (
-                      <div key={lead.id} onClick={() => onSelectLead(lead)} className="bg-slate-700/60 rounded-lg p-2 cursor-pointer hover:bg-slate-600/60 transition-colors">
-                        <p className="text-xs font-semibold truncate">{lead.name || 'Sin nombre'}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] text-slate-400">...{lead.phone?.slice(-4)}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${lead.status === 'delivered' ? 'bg-emerald-600/30 text-emerald-300' : 'bg-red-600/30 text-red-300'}`}>
-                            {STATUS_LABELS[lead.status] || lead.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
         </div>
       ) : (
       <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 280px)' }}>
