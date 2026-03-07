@@ -11,7 +11,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import LegacyApp from '../App'
+import { CrmProvider } from '../context/CrmContext'
 
 export default function App() {
-  return <LegacyApp />
+  return (
+    <CrmProvider>
+      <LegacyApp />
+    </CrmProvider>
+  )
 }
