@@ -70,6 +70,7 @@ function buildPermisos(currentUser: TeamMember | null) {
         sla: ['admin', 'coordinador'],
         forecast: ['admin', 'coordinador'],
         'report-builder': ['admin', 'coordinador'],
+        workflows: ['admin', 'coordinador'],
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -205,7 +206,7 @@ const VALID_VIEWS: View[] = [
   'dashboard', 'leads', 'properties', 'team', 'mortgage', 'marketing',
   'calendar', 'promotions', 'events', 'goals', 'followups', 'reportes',
   'bi', 'mensajes', 'encuestas', 'referrals', 'coordinator', 'sistema',
-  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder'
+  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder', 'workflows'
 ]
 
 function pathToView(pathname: string): View {

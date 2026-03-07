@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users } from 'lucide-react'
+import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users, Zap } from 'lucide-react'
 import type { View } from '../types/crm'
 import type { Lead, MortgageApplication, Promotion, CRMEvent, TeamMember } from '../types/crm'
 
@@ -123,12 +123,13 @@ export default function Sidebar({
         {permisos.puedeVerSeccion('properties') && <NavItem viewKey="properties" icon={Building} label="Propiedades" />}
 
         {/* Ventas */}
-        <SectionHeader sectionKey="ventas" label="Ventas" activeViews={['coordinator','calendar','followups','tasks','mortgage','promotions','events']} />
+        <SectionHeader sectionKey="ventas" label="Ventas" activeViews={['coordinator','calendar','followups','tasks','mortgage','promotions','events','workflows']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['ventas'] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('coordinator') && <NavItem viewKey="coordinator" icon={Phone} label="Coordinador" />}
           {permisos.puedeVerSeccion('calendar') && <NavItem viewKey="calendar" icon={CalendarIcon} label="Calendario" />}
           {permisos.puedeVerSeccion('followups') && <NavItem viewKey="followups" icon={Clock} label="Seguimientos" />}
           {permisos.puedeVerSeccion('tasks') && <NavItem viewKey="tasks" icon={CheckSquare} label="Tareas" />}
+          {permisos.puedeVerSeccion('workflows') && <NavItem viewKey="workflows" icon={Zap} label="Automatizaciones" />}
           {permisos.puedeVerSeccion('mortgage') && (
             <button onClick={() => nav('mortgage')} className={`sidebar-item ${view === 'mortgage' ? 'sidebar-item-active' : 'text-slate-400'}`}>
               <CreditCard size={16} /> Hipotecas

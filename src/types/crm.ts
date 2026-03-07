@@ -1,6 +1,6 @@
 // All interfaces matching the monolith's actual data shapes
 
-export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder'
+export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder' | 'workflows'
 
 export interface Lead {
   id: string

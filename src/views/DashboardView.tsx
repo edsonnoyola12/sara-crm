@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Download } from 'lucide-react'
+import { Download, LayoutGrid, List } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import { useCrm } from '../context/CrmContext'
 import { API_BASE, safeFetch, sourceLabel } from '../types/crm'
 import type { MortgageApplication } from '../types/crm'
 import { supabase } from '../lib/supabase'
+import DashboardWidgetGrid, { loadViewPreference, saveViewPreference } from '../components/DashboardWidgets'
+import type { WidgetDataContext } from '../components/DashboardWidgets'
 
 export default function DashboardView() {
   const {
@@ -17,6 +19,9 @@ export default function DashboardView() {
   const [dashboardPregunta, setDashboardPregunta] = useState('')
   const [dashboardRespuesta, setDashboardRespuesta] = useState('')
   const [dashboardCargando, setDashboardCargando] = useState(false)
+
+  // Widget dashboard view toggle
+  const [dashboardViewMode, setDashboardViewMode] = useState<'classic' | 'custom'>(loadViewPreference)
 
   // Dashboard filters
   type DateRange = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'ano' | 'todo'
@@ -642,10 +647,27 @@ const metaAnalysis = (() => {
       </p>
     </div>
     <div className="flex items-center gap-2 sm:gap-4">
+      {/* Toggle vista clasica / personalizada */}
+      <div className="flex items-center bg-slate-800/60 rounded-lg p-0.5 border border-slate-700/40">
+        <button
+          onClick={() => { setDashboardViewMode('classic'); saveViewPreference('classic') }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${dashboardViewMode === 'classic' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+        >
+          <List size={13} />
+          <span className="hidden sm:inline">Clasica</span>
+        </button>
+        <button
+          onClick={() => { setDashboardViewMode('custom'); saveViewPreference('custom') }}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${dashboardViewMode === 'custom' ? 'bg-blue-500/80 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+        >
+          <LayoutGrid size={13} />
+          <span className="hidden sm:inline">Widgets</span>
+        </button>
+      </div>
       <div className="text-xs sm:text-sm text-slate-400">
         {new Date().toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}
       </div>
-      {/* Botón exportar resumen ejecutivo */}
+      {/* Boton exportar resumen ejecutivo */}
       <button
         onClick={() => {
           const now = new Date()
@@ -774,6 +796,7 @@ const metaAnalysis = (() => {
     </div>
   </div>
 
+  {dashboardViewMode === 'classic' ? (<>
   {/* ═══════════════ FILTER BAR ═══════════════ */}
   {currentUser?.role === 'admin' && (
   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3">
@@ -3316,7 +3339,22 @@ const metaAnalysis = (() => {
     </div>
   </div>
 
-  {/* FOOTER - Resumen rápido */}
+  </>) : (
+    <DashboardWidgetGrid data={{
+      leads,
+      filteredLeads,
+      team,
+      mortgages,
+      appointments,
+      properties,
+      campaigns,
+      monthlyGoals,
+      vendorGoals,
+      setView
+    } as WidgetDataContext} />
+  )}
+
+  {/* FOOTER - Resumen rapido */}
   <div className="bg-slate-800/30 border border-slate-700/30 p-4 rounded-xl">
     <div className="flex justify-between items-center text-sm">
       <div className="flex gap-6">
