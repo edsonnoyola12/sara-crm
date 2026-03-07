@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useCrm } from '../context/CrmContext'
 import type { ReminderConfig, CustomField } from '../types/crm'
 import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react'
+import FieldPermissionsManager from '../components/FieldPermissionsManager'
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
   text: 'Texto',
@@ -391,6 +392,9 @@ export default function ConfigView() {
             </div>
           )}
         </div>
+
+        {/* ===== PERMISOS DE CAMPO ===== */}
+        <FieldPermissionsManager />
       </div>
 
       {editingReminder && (

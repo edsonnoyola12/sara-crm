@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import type {
   Lead, Property, TeamMember, MortgageApplication, Campaign,
   Appointment, AlertSetting, ReminderConfig, Insight, Promotion,
-  CRMEvent, EventRegistration, LeadActivity, View, CustomField, AuditEntry
+  CRMEvent, EventRegistration, LeadActivity, View, CustomField, AuditEntry, FieldPermission
 } from '../types/crm'
 import { API_BASE, safeFetch } from '../types/crm'
 import { Flame, TrendingDown, TrendingUp, Award, AlertCircle, Target, Clock } from 'lucide-react'
@@ -71,6 +71,8 @@ function buildPermisos(currentUser: TeamMember | null) {
         forecast: ['admin', 'coordinador'],
         'report-builder': ['admin', 'coordinador'],
         workflows: ['admin', 'coordinador'],
+        approvals: ['admin', 'coordinador'],
+        'api-webhooks': ['admin'],
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -189,6 +191,11 @@ interface CrmContextValue {
   auditLog: AuditEntry[]
   logAudit: (entry: Omit<AuditEntry, 'id' | 'timestamp' | 'user_id' | 'user_name'>) => Promise<void>
 
+  // Field-level permissions
+  fieldPermissions: FieldPermission[]
+  canViewField: (entityType: string, fieldName: string) => boolean
+  canEditField: (entityType: string, fieldName: string) => boolean
+
   // Supabase ref
   supabase: typeof supabase
 }
@@ -206,7 +213,7 @@ const VALID_VIEWS: View[] = [
   'dashboard', 'leads', 'properties', 'team', 'mortgage', 'marketing',
   'calendar', 'promotions', 'events', 'goals', 'followups', 'reportes',
   'bi', 'mensajes', 'encuestas', 'referrals', 'coordinator', 'sistema',
-  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder', 'workflows'
+  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder', 'workflows', 'approvals', 'api-webhooks'
 ]
 
 function pathToView(pathname: string): View {
@@ -277,6 +284,7 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   const [insights, setInsights] = useState<Insight[]>([])
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([])
+  const [fieldPermissions, setFieldPermissions] = useState<FieldPermission[]>([])
 
   // ---- Auth ----
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null)
@@ -442,7 +450,7 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   // ---- Data Loading ----
   async function loadData() {
     setLoading(true)
-    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes, appointmentsRes, alertRes, promosRes, eventsRes, customFieldsRes, auditRes] = await Promise.all([
+    const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes, appointmentsRes, alertRes, promosRes, eventsRes, customFieldsRes, auditRes, fieldPermsRes] = await Promise.all([
       supabase.from('leads').select('*').order('created_at', { ascending: false }),
       supabase.from('properties').select('*'),
       supabase.from('team_members').select('*'),
@@ -454,7 +462,8 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
       supabase.from('promotions').select('*').order('start_date', { ascending: false }),
       supabase.from('events').select('*').order('event_date', { ascending: true }),
       supabase.from('custom_fields').select('*').order('order', { ascending: true }),
-      supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500)
+      supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500),
+      supabase.from('field_permissions').select('*')
     ])
     setLeads(leadsRes.data || [])
     setProperties(propsRes.data || [])
@@ -468,6 +477,7 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     setCrmEvents(eventsRes.data || [])
     setCustomFields(customFieldsRes.data || [])
     setAuditLog((auditRes.data || []) as AuditEntry[])
+    setFieldPermissions((fieldPermsRes.data || []) as FieldPermission[])
     generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
     setLoading(false)
     setLastRefresh(new Date())
@@ -847,6 +857,29 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     })
   }
 
+  // ---- Field-level permission helpers ----
+  const canViewField = useCallback((entityType: string, fieldName: string): boolean => {
+    if (!currentUser) return false
+    if (currentUser.role === 'admin') return true
+    const match = fieldPermissions.find(
+      fp => fp.entity_type === entityType && fp.field_name === fieldName && fp.role === currentUser.role
+    )
+    // If no permission entry exists: admin=all, others=view only
+    if (!match) return true
+    return match.can_view
+  }, [currentUser, fieldPermissions])
+
+  const canEditField = useCallback((entityType: string, fieldName: string): boolean => {
+    if (!currentUser) return false
+    if (currentUser.role === 'admin') return true
+    const match = fieldPermissions.find(
+      fp => fp.entity_type === entityType && fp.field_name === fieldName && fp.role === currentUser.role
+    )
+    // If no permission entry exists: admin=all, others=view only (no edit)
+    if (!match) return false
+    return match.can_edit
+  }, [currentUser, fieldPermissions])
+
   // ---- Context value ----
   const value: CrmContextValue = {
     leads, setLeads, properties, setProperties, team, setTeam,
@@ -875,6 +908,7 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     getDaysInStatus, getYoutubeThumbnail, sourceLabel: sourceLabelFn,
     supabase,
     auditLog, logAudit: logAuditFn,
+    fieldPermissions, canViewField, canEditField,
   }
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>

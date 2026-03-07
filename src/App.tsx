@@ -38,6 +38,8 @@ const ForecastView = lazy(() => import('./views/ForecastView'))
 const TasksView = lazy(() => import('./views/TasksView'))
 const ReportBuilderView = lazy(() => import('./views/ReportBuilderView'))
 const WorkflowBuilderView = lazy(() => import('./views/WorkflowBuilderView'))
+const ApprovalsView = lazy(() => import('./views/ApprovalsView'))
+const ApiWebhooksView = lazy(() => import('./views/ApiWebhooksView'))
 const LeadDrawer = lazy(() => import('./components/LeadDrawer'))
 
 export default function App() {
@@ -103,7 +105,7 @@ export default function App() {
       comunicacion: ['mensajes','encuestas','referrals'],
       inteligencia: ['reportes','bi','marketing','sara-ai'],
       monitoreo: ['alertas','sla'],
-      admin: ['team','goals','sistema','config'],
+      admin: ['team','goals','sistema','config','approvals','api-webhooks'],
     }
     for (const [section, views] of Object.entries(sectionMap)) {
       if (views.includes(view) && collapsedSections[section]) {
@@ -293,6 +295,8 @@ export default function App() {
           {view === 'tasks' && <Suspense fallback={<SkeletonGeneric />}><TasksView /></Suspense>}
           {view === 'report-builder' && <Suspense fallback={<SkeletonGeneric />}><ReportBuilderView /></Suspense>}
           {view === 'workflows' && <Suspense fallback={<SkeletonGeneric />}><WorkflowBuilderView /></Suspense>}
+          {view === 'approvals' && <Suspense fallback={<SkeletonGeneric />}><ApprovalsView /></Suspense>}
+          {view === 'api-webhooks' && <Suspense fallback={<SkeletonGeneric />}><ApiWebhooksView /></Suspense>}
         </div>
       </div>
 

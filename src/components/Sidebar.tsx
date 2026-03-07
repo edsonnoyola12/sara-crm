@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Star, Tag, Target, TrendingUp, UserCheck, Users, Zap } from 'lucide-react'
+import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Globe, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Shield, Star, Tag, Target, TrendingUp, UserCheck, Users, Zap } from 'lucide-react'
 import type { View } from '../types/crm'
 import type { Lead, MortgageApplication, Promotion, CRMEvent, TeamMember } from '../types/crm'
 
@@ -199,12 +199,14 @@ export default function Sidebar({
         </div>
 
         {/* Admin */}
-        <SectionHeader sectionKey="admin" label="Admin" activeViews={['team','goals','sistema','config']} />
-        <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['admin'] ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <SectionHeader sectionKey="admin" label="Admin" activeViews={['team','goals','sistema','config','approvals','api-webhooks']} />
+        <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['admin'] ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('team') && <NavItem viewKey="team" icon={UserCheck} label="Equipo" />}
           {permisos.puedeVerSeccion('goals') && <NavItem viewKey="goals" icon={Target} label="Metas" />}
           {permisos.puedeVerSeccion('sistema') && <NavItem viewKey="sistema" icon={AlertTriangle} label="Sistema" />}
           {permisos.puedeVerSeccion('config') && <NavItem viewKey="config" icon={Settings} label="Configuracion" />}
+          {permisos.puedeVerSeccion('approvals') && <NavItem viewKey="approvals" icon={Shield} label="Aprobaciones" />}
+          {permisos.puedeVerSeccion('api-webhooks') && <NavItem viewKey="api-webhooks" icon={Globe} label="API / Webhooks" />}
         </div>
       </nav>
     </div>

@@ -1,6 +1,33 @@
 // All interfaces matching the monolith's actual data shapes
 
-export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder' | 'workflows'
+export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder' | 'workflows' | 'approvals' | 'api-webhooks'
+
+export interface ApprovalRequest {
+  id: string
+  type: 'discount' | 'reservation' | 'cancellation' | 'price_change' | 'commission_change' | 'lead_delete' | 'refund'
+  entity_type: 'lead' | 'property' | 'mortgage' | 'appointment'
+  entity_id: string
+  entity_name: string
+  requested_by: string
+  requested_by_name: string
+  approved_by?: string
+  approved_by_name?: string
+  status: 'pending' | 'approved' | 'rejected'
+  details: Record<string, any>
+  reason: string
+  rejection_reason?: string
+  created_at: string
+  resolved_at?: string
+}
+
+export interface ApprovalRule {
+  id: string
+  type: string
+  description: string
+  requires_role: string
+  auto_approve_threshold?: number
+  active: boolean
+}
 
 export interface Lead {
   id: string
@@ -35,6 +62,16 @@ export interface Lead {
   referred_by_name?: string
   referral_date?: string
   custom_data?: Record<string, any>
+}
+
+export interface FieldPermission {
+  id: string
+  entity_type: 'lead' | 'property' | 'mortgage' | 'team_member'
+  field_name: string
+  field_label: string
+  role: string
+  can_view: boolean
+  can_edit: boolean
 }
 
 export interface CustomField {
@@ -426,4 +463,31 @@ export const channelColors: Record<string, string> = {
   'Radio': 'bg-yellow-600',
   'Espectaculares': 'bg-green-600',
   'Referidos': 'bg-cyan-500'
+}
+
+export interface ApiToken {
+  id: string
+  name: string
+  token: string
+  permissions: string[]
+  created_by: string
+  created_by_name: string
+  last_used_at?: string
+  expires_at?: string
+  active: boolean
+  created_at: string
+}
+
+export interface WebhookConfig {
+  id: string
+  name: string
+  url: string
+  events: string[]
+  secret?: string
+  active: boolean
+  last_triggered_at?: string
+  last_status_code?: number
+  failure_count: number
+  created_by: string
+  created_at: string
 }
