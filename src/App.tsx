@@ -463,6 +463,7 @@ function App() {
   const [calendarViewMode, setCalendarViewMode] = useState<'list' | 'month' | 'week'>('month')
   const [calendarMonth, setCalendarMonth] = useState(new Date())
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null)
+  const calendarSmartDefaultApplied = useRef(false)
 
   // Kanban drag state
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
@@ -2266,7 +2267,6 @@ function App() {
       )
 
   // Auto-switch calendar to list view when few appointments
-  const calendarSmartDefaultApplied = useRef(false)
   useEffect(() => {
     if (calendarSmartDefaultApplied.current || !currentUser || appointments.length === 0) return
     calendarSmartDefaultApplied.current = true
