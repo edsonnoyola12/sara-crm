@@ -3292,9 +3292,15 @@ function App() {
                     {/* Meta vs Real */}
                     <div className={`kpi-card rounded-xl p-4 border ${estadoMeta === 'good' ? 'bg-green-900/30 border-green-500/40' : estadoMeta === 'warning' ? 'bg-yellow-900/30 border-yellow-500/40' : 'bg-red-900/30 border-red-500/40'}`}>
                       <p className="text-[11px] font-medium text-slate-400 mb-1">META VS REAL</p>
-                      <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {ventasDelMes.length}/{metaMes || '?'}
-                      </p>
+                      {metaMes ? (
+                        <p className={`text-3xl font-bold ${estadoMeta === 'good' ? 'text-green-400' : estadoMeta === 'warning' ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {ventasDelMes.length}/{metaMes}
+                        </p>
+                      ) : (
+                        <p className="text-lg font-bold text-slate-500 cursor-pointer hover:text-blue-400" onClick={() => setView('goals')}>
+                          Sin meta <span className="text-xs">→ Configurar</span>
+                        </p>
+                      )}
                       <div className="h-1.5 bg-slate-700 rounded-full mt-2">
                         <div className={`h-full rounded-full ${estadoMeta === 'good' ? 'bg-green-500' : estadoMeta === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${Math.min(porcentajeMeta, 100)}%` }} />
                       </div>
@@ -3404,7 +3410,7 @@ function App() {
                           <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} width={80} axisLine={false} />
                           <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(71,85,105,0.5)', borderRadius: 8, color: '#e2e8f0' }}
                             formatter={(value: number) => [value, 'Leads']} />
-                          <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={20}>
+                          <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={20} label={{ position: 'right', fill: '#94a3b8', fontSize: 11, formatter: (v: number) => v > 0 ? v : '' }}>
                             {[
                               { name: 'Nuevos', count: funnel.new, fill: '#3b82f6' },
                               { name: 'Contactado', count: funnel.contacted, fill: '#06b6d4' },
@@ -3423,6 +3429,9 @@ function App() {
                   {/* Ranking vendedores */}
                   <div className="bg-slate-800/40 border border-slate-600/30 rounded-xl p-4">
                     <h3 className="font-semibold mb-3">🏆 Ranking Vendedores</h3>
+                    {vendedoresRanking.length > 0 && vendedoresRanking.every(v => v.ventas === 0 && !v.meta) && (
+                      <p className="text-xs text-slate-500 -mt-1 mb-2">Configura metas individuales en <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => setView('goals')}>Metas</span> para activar el ranking</p>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                       {vendedoresRanking.slice(0, 6).map((v, i) => (
                         <div key={v.id} className={`flex items-center gap-3 p-3 rounded-lg ${
