@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { Award, AlertTriangle, BarChart3, Bell, Building, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Globe, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Shield, Star, Tag, Target, TrendingUp, UserCheck, Users, Zap } from 'lucide-react'
-import type { View } from '../types/crm'
+import { Award, AlertTriangle, BarChart3, Bell, Building, Building2, Calendar as CalendarIcon, CheckSquare, ChevronRight, Clock, CreditCard, Gift, Globe, Inbox, Lightbulb, LogOut, Megaphone, MessageSquare, Phone, Settings, Shield, Star, Tag, Target, TrendingUp, UserCheck, Users, Zap } from 'lucide-react'
+import type { View, Tenant } from '../types/crm'
 import type { Lead, MortgageApplication, Promotion, CRMEvent, TeamMember } from '../types/crm'
+import OrganizationSwitcher from './OrganizationSwitcher'
 
 interface SidebarProps {
   view: View
@@ -20,6 +21,11 @@ interface SidebarProps {
   promotions: Promotion[]
   crmEvents: CRMEvent[]
   leads: Lead[]
+  currentTenant?: Tenant | null
+  onSwitchTenant?: (tenant: Tenant) => void
+  onCreateOrg?: () => void
+  onOpenSecurity?: () => void
+  onLogout?: () => void
 }
 
 export default function Sidebar({
@@ -27,7 +33,9 @@ export default function Sidebar({
   collapsedSections, setCollapsedSections,
   currentUser, setCurrentUser,
   permisos, mortgages, getDaysInStatus,
-  promotions, crmEvents, leads
+  promotions, crmEvents, leads,
+  currentTenant, onSwitchTenant, onCreateOrg,
+  onOpenSecurity, onLogout
 }: SidebarProps) {
   const routerNavigate = useNavigate()
 
@@ -81,6 +89,15 @@ export default function Sidebar({
         </div>
       </div>
 
+      {/* Organization Switcher */}
+      <div className="mt-3">
+        <OrganizationSwitcher
+          currentTenant={currentTenant || null}
+          onSwitch={(t) => onSwitchTenant?.(t)}
+          onCreate={() => onCreateOrg?.()}
+        />
+      </div>
+
       {/* User card */}
       {currentUser && (
         <div className="mt-4 mb-2 bg-slate-800/50 rounded-xl p-3 border border-slate-700/40">
@@ -108,7 +125,10 @@ export default function Sidebar({
                 </select>
               </div>
             </div>
-            <button onClick={() => { setCurrentUser(null); localStorage.removeItem('sara_user_phone') }} className="text-xs p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Cerrar sesion">
+            <button onClick={() => onOpenSecurity?.()} className="text-xs p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Seguridad">
+              <Shield size={14} />
+            </button>
+            <button onClick={() => onLogout?.()} className="text-xs p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Cerrar sesion">
               <LogOut size={14} />
             </button>
           </div>
@@ -199,7 +219,7 @@ export default function Sidebar({
         </div>
 
         {/* Admin */}
-        <SectionHeader sectionKey="admin" label="Admin" activeViews={['team','goals','sistema','config','approvals','api-webhooks']} />
+        <SectionHeader sectionKey="admin" label="Admin" activeViews={['team','goals','sistema','config','approvals','api-webhooks','organization']} />
         <div className={`overflow-hidden transition-all duration-200 ${!collapsedSections['admin'] ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {permisos.puedeVerSeccion('team') && <NavItem viewKey="team" icon={UserCheck} label="Equipo" />}
           {permisos.puedeVerSeccion('goals') && <NavItem viewKey="goals" icon={Target} label="Metas" />}
@@ -207,6 +227,7 @@ export default function Sidebar({
           {permisos.puedeVerSeccion('config') && <NavItem viewKey="config" icon={Settings} label="Configuracion" />}
           {permisos.puedeVerSeccion('approvals') && <NavItem viewKey="approvals" icon={Shield} label="Aprobaciones" />}
           {permisos.puedeVerSeccion('api-webhooks') && <NavItem viewKey="api-webhooks" icon={Globe} label="API / Webhooks" />}
+          {permisos.puedeVerSeccion('organization') && <NavItem viewKey="organization" icon={Building2} label="Organizacion" />}
         </div>
       </nav>
     </div>

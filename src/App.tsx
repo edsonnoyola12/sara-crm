@@ -7,9 +7,10 @@ import { PropertyModal, LeadModal, MemberModal, MortgageModal, CampaignModal, Pr
 import Sidebar from './components/Sidebar'
 import NotificationDrawer from './components/NotificationDrawer'
 import GlobalSearch from './components/GlobalSearch'
-import LoginScreen from './components/LoginScreen'
+import LoginScreen, { getSession, clearSession, getSessionTimeRemaining, extendSession, createSession } from './components/LoginScreen'
+import SecuritySettings from './components/SecuritySettings'
 import { SkeletonDashboard, SkeletonTable, SkeletonCards, SkeletonCalendar, SkeletonGeneric } from './components/Skeletons'
-import { Bell, Search } from 'lucide-react'
+import { Bell, Search, AlertTriangle, Clock } from 'lucide-react'
 
 const LeadsView = lazy(() => import('./views/LeadsView'))
 const DashboardView = lazy(() => import('./views/DashboardView'))
@@ -40,6 +41,7 @@ const ReportBuilderView = lazy(() => import('./views/ReportBuilderView'))
 const WorkflowBuilderView = lazy(() => import('./views/WorkflowBuilderView'))
 const ApprovalsView = lazy(() => import('./views/ApprovalsView'))
 const ApiWebhooksView = lazy(() => import('./views/ApiWebhooksView'))
+const OrganizationView = lazy(() => import('./views/OrganizationView'))
 const LeadDrawer = lazy(() => import('./components/LeadDrawer'))
 
 export default function App() {
@@ -57,6 +59,7 @@ export default function App() {
     getDaysInStatus, supabase,
     setLeads,
     unreadNotificationCount,
+    currentTenant, setCurrentTenant,
   } = useCrm()
 
   // UI-only state (not data)
@@ -94,9 +97,9 @@ export default function App() {
   // Notification state
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false)
 
-  // Login state
-  const [loginPhone, setLoginPhone] = useState('')
-  const [loginError, setLoginError] = useState('')
+  // Security / Auth state
+  const [showSecuritySettings, setShowSecuritySettings] = useState(false)
+  const [showSessionWarning, setShowSessionWarning] = useState(false)
 
   // Auto-expand sidebar section
   useEffect(() => {
@@ -105,7 +108,7 @@ export default function App() {
       comunicacion: ['mensajes','encuestas','referrals'],
       inteligencia: ['reportes','bi','marketing','sara-ai'],
       monitoreo: ['alertas','sla'],
-      admin: ['team','goals','sistema','config','approvals','api-webhooks'],
+      admin: ['team','goals','sistema','config','approvals','api-webhooks','organization'],
     }
     for (const [section, views] of Object.entries(sectionMap)) {
       if (views.includes(view) && collapsedSections[section]) {
@@ -128,7 +131,7 @@ export default function App() {
         setShowNewProperty(false); setShowNewMember(false); setShowNewMortgage(false)
         setShowNewCampaign(false); setShowNewAppointment(false); setShowNewPromotion(false)
         setShowNewCrmEvent(false); setShowInviteEventModal(false); setShowSendPromoModal(false)
-        setShowGlobalSearch(false)
+        setShowGlobalSearch(false); setShowSecuritySettings(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
@@ -189,20 +192,49 @@ export default function App() {
     finally { setPromoSending(false); setShowSendPromoModal(false); setSelectedPromoToSend(null) }
   }
 
-  const handleLogin = async () => {
-    const cleanPhone = loginPhone.replace(/\D/g, '').slice(-10)
-    if (cleanPhone.length !== 10) { setLoginError('Ingresa un numero de 10 digitos'); return }
-    const user = team.find(m => m.phone?.replace(/\D/g, '').slice(-10) === cleanPhone)
-    if (user) {
-      setCurrentUser(user); setLoginError(''); localStorage.setItem('sara_user_phone', cleanPhone)
-      if (user.role === 'agencia') setView('marketing')
-      else if (user.role === 'asesor') setView('mortgage')
-      else setView('dashboard')
-    } else { setLoginError('Numero no registrado en el equipo') }
+  // Session timeout check
+  useEffect(() => {
+    if (!currentUser) return
+    const interval = setInterval(() => {
+      const remaining = getSessionTimeRemaining()
+      if (remaining <= 0) {
+        // Session expired - auto logout
+        clearSession()
+        setCurrentUser(null)
+        localStorage.removeItem('sara_user_phone')
+        showToast('Tu sesion ha expirado. Inicia sesion de nuevo.', 'error')
+        setShowSessionWarning(false)
+      } else if (remaining <= 5 * 60 * 1000 && remaining > 0) {
+        // 5 minutes warning
+        setShowSessionWarning(true)
+      }
+    }, 30000) // check every 30 seconds
+    return () => clearInterval(interval)
+  }, [currentUser])
+
+  const handleLoginSuccess = (user: any) => {
+    setCurrentUser(user)
+    if (user.role === 'agencia') setView('marketing')
+    else if (user.role === 'asesor') setView('mortgage')
+    else setView('dashboard')
+  }
+
+  const handleLogout = () => {
+    clearSession()
+    setCurrentUser(null)
+    localStorage.removeItem('sara_user_phone')
+    setShowSecuritySettings(false)
+    setShowSessionWarning(false)
+  }
+
+  const handleExtendSession = () => {
+    extendSession()
+    setShowSessionWarning(false)
+    showToast('Sesion extendida', 'success')
   }
 
   if (!currentUser) {
-    return <LoginScreen loginPhone={loginPhone} setLoginPhone={setLoginPhone} loginError={loginError} onLogin={handleLogin} />
+    return <LoginScreen team={team} onLoginSuccess={handleLoginSuccess} showToast={showToast} />
   }
 
   return (
@@ -218,6 +250,11 @@ export default function App() {
         currentUser={currentUser} setCurrentUser={setCurrentUser} permisos={permisos}
         mortgages={mortgages} getDaysInStatus={getDaysInStatus}
         promotions={promotions} crmEvents={crmEvents} leads={leads}
+        currentTenant={currentTenant}
+        onSwitchTenant={(t) => { setCurrentTenant(t); loadData() }}
+        onCreateOrg={() => setView('organization')}
+        onOpenSecurity={() => setShowSecuritySettings(true)}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
@@ -297,6 +334,7 @@ export default function App() {
           {view === 'workflows' && <Suspense fallback={<SkeletonGeneric />}><WorkflowBuilderView /></Suspense>}
           {view === 'approvals' && <Suspense fallback={<SkeletonGeneric />}><ApprovalsView /></Suspense>}
           {view === 'api-webhooks' && <Suspense fallback={<SkeletonGeneric />}><ApiWebhooksView /></Suspense>}
+          {view === 'organization' && <Suspense fallback={<SkeletonGeneric />}><OrganizationView /></Suspense>}
         </div>
       </div>
 
@@ -328,6 +366,47 @@ export default function App() {
 
       {confirmModal && <ConfirmModal title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onClose={() => setConfirmModal(null)} />}
       {inputModal && <InputModal title={inputModal.title} fields={inputModal.fields} onSubmit={inputModal.onSubmit} onClose={() => setInputModal(null)} />}
+
+      {/* Security Settings Modal */}
+      {showSecuritySettings && currentUser && (
+        <SecuritySettings
+          userId={currentUser.id}
+          userName={currentUser.name}
+          onClose={() => setShowSecuritySettings(false)}
+          showToast={showToast}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {/* Session Timeout Warning */}
+      {showSessionWarning && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-2xl border border-orange-500/30 shadow-2xl p-6 max-w-sm w-full mx-4 animate-fade-in-up">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center border border-orange-500/20">
+                <Clock size={20} className="text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Sesion por expirar</h3>
+                <p className="text-xs text-slate-400">Tu sesion expirara pronto</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-300 mb-5">
+              Tu sesion esta a punto de expirar. Quieres extenderla para seguir trabajando?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={handleLogout}
+                className="flex-1 py-2.5 text-sm text-slate-400 border border-slate-700/50 rounded-xl hover:bg-slate-800 transition-colors">
+                Cerrar sesion
+              </button>
+              <button onClick={handleExtendSession}
+                className="flex-1 py-2.5 text-sm font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all">
+                Extender sesion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="fixed bottom-6 right-6 z-[200] space-y-2 pointer-events-none">
         {toasts.map((t, i) => (

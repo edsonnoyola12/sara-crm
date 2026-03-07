@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import type {
   Lead, Property, TeamMember, MortgageApplication, Campaign,
   Appointment, AlertSetting, ReminderConfig, Insight, Promotion,
-  CRMEvent, EventRegistration, LeadActivity, View, CustomField, AuditEntry, FieldPermission
+  CRMEvent, EventRegistration, LeadActivity, View, CustomField, AuditEntry, FieldPermission, Tenant
 } from '../types/crm'
 import { API_BASE, safeFetch } from '../types/crm'
 import { Flame, TrendingDown, TrendingUp, Award, AlertCircle, Target, Clock } from 'lucide-react'
@@ -73,6 +73,7 @@ function buildPermisos(currentUser: TeamMember | null) {
         workflows: ['admin', 'coordinador'],
         approvals: ['admin', 'coordinador'],
         'api-webhooks': ['admin'],
+        'organization': ['admin'],
       }
       return acceso[seccion]?.includes(currentUser.role) || false
     }
@@ -196,6 +197,10 @@ interface CrmContextValue {
   canViewField: (entityType: string, fieldName: string) => boolean
   canEditField: (entityType: string, fieldName: string) => boolean
 
+  // Tenant
+  currentTenant: Tenant | null
+  setCurrentTenant: (tenant: Tenant | null) => void
+
   // Supabase ref
   supabase: typeof supabase
 }
@@ -213,7 +218,7 @@ const VALID_VIEWS: View[] = [
   'dashboard', 'leads', 'properties', 'team', 'mortgage', 'marketing',
   'calendar', 'promotions', 'events', 'goals', 'followups', 'reportes',
   'bi', 'mensajes', 'encuestas', 'referrals', 'coordinator', 'sistema',
-  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder', 'workflows', 'approvals', 'api-webhooks'
+  'sara-ai', 'alertas', 'sla', 'config', 'inbox', 'forecast', 'report-builder', 'workflows', 'approvals', 'api-webhooks', 'organization'
 ]
 
 function pathToView(pathname: string): View {
@@ -289,6 +294,23 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   // ---- Auth ----
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null)
   const permisos = useMemo(() => buildPermisos(currentUser), [currentUser])
+
+  // ---- Tenant ----
+  const [currentTenant, setCurrentTenantState] = useState<Tenant | null>(() => {
+    try {
+      const saved = localStorage.getItem('sara_current_tenant')
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
+
+  const setCurrentTenant = useCallback((tenant: Tenant | null) => {
+    setCurrentTenantState(tenant)
+    if (tenant) {
+      localStorage.setItem('sara_current_tenant', JSON.stringify(tenant))
+    } else {
+      localStorage.removeItem('sara_current_tenant')
+    }
+  }, [])
 
   // ---- UI ----
   const [loading, setLoading] = useState(true)
@@ -906,6 +928,7 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
     confirmModal, setConfirmModal, inputModal, setInputModal,
     filteredLeads, filteredMortgages, vendedoresRanking, asesoresRanking,
     getDaysInStatus, getYoutubeThumbnail, sourceLabel: sourceLabelFn,
+    currentTenant, setCurrentTenant,
     supabase,
     auditLog, logAudit: logAuditFn,
     fieldPermissions, canViewField, canEditField,

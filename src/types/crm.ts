@@ -1,6 +1,28 @@
 // All interfaces matching the monolith's actual data shapes
 
-export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder' | 'workflows' | 'approvals' | 'api-webhooks'
+export type View = 'dashboard' | 'leads' | 'properties' | 'team' | 'calendar' | 'mortgage' | 'marketing' | 'referrals' | 'goals' | 'config' | 'followups' | 'promotions' | 'events' | 'reportes' | 'encuestas' | 'coordinator' | 'bi' | 'mensajes' | 'sistema' | 'sara-ai' | 'alertas' | 'sla' | 'inbox' | 'forecast' | 'tasks' | 'report-builder' | 'workflows' | 'approvals' | 'api-webhooks' | 'organization'
+
+export interface Tenant {
+  id: string
+  name: string
+  slug: string
+  logo_url?: string
+  primary_color?: string
+  plan: 'free' | 'starter' | 'pro' | 'enterprise'
+  max_users: number
+  max_leads: number
+  features: string[]
+  created_at: string
+  active: boolean
+}
+
+export interface TenantMember {
+  id: string
+  tenant_id: string
+  user_id: string
+  role: 'owner' | 'admin' | 'member'
+  joined_at: string
+}
 
 export interface ApprovalRequest {
   id: string
