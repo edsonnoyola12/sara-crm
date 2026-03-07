@@ -309,6 +309,8 @@ function App() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [propZoneFilter, setPropZoneFilter] = useState<string>('')
+  const [propPriceMax, setPropPriceMax] = useState<number>(0)
+  const [propBedFilter, setPropBedFilter] = useState<number>(0)
   const [team, setTeam] = useState<TeamMember[]>([])
   const [mortgages, setMortgages] = useState<MortgageApplication[]>([])
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -6260,15 +6262,48 @@ function App() {
             </div>
             {properties.length > 0 && (() => {
               const zones = [...new Set(properties.map(p => p.development).filter(Boolean))] as string[]
-              return zones.length > 1 ? (
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => setPropZoneFilter('')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!propZoneFilter ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>Todas ({properties.length})</button>
-                  {zones.map(z => {
-                    const cnt = properties.filter(p => p.development === z).length
-                    return <button key={z} onClick={() => setPropZoneFilter(z)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${propZoneFilter === z ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>{z} ({cnt})</button>
-                  })}
+              const beds = [...new Set(properties.map(p => p.bedrooms).filter(Boolean))].sort((a, b) => (a || 0) - (b || 0)) as number[]
+              const priceRanges = [
+                { label: 'Cualquier precio', max: 0 },
+                { label: '< $1M', max: 1000000 },
+                { label: '< $2M', max: 2000000 },
+                { label: '< $3M', max: 3000000 },
+                { label: '< $5M', max: 5000000 },
+                { label: '$5M+', max: -1 },
+              ]
+              return (
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Zone pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => setPropZoneFilter('')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!propZoneFilter ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>Todas ({properties.length})</button>
+                    {zones.map(z => {
+                      const cnt = properties.filter(p => p.development === z).length
+                      return <button key={z} onClick={() => setPropZoneFilter(z)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${propZoneFilter === z ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>{z} ({cnt})</button>
+                    })}
+                  </div>
+                  <div className="h-6 w-px bg-slate-700" />
+                  {/* Price filter */}
+                  <select value={propPriceMax} onChange={e => setPropPriceMax(Number(e.target.value))}
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none">
+                    {priceRanges.map(r => <option key={r.max} value={r.max}>{r.label}</option>)}
+                  </select>
+                  {/* Bedrooms filter */}
+                  {beds.length > 1 && (
+                    <select value={propBedFilter} onChange={e => setPropBedFilter(Number(e.target.value))}
+                      className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none">
+                      <option value={0}>Recámaras: Todas</option>
+                      {beds.map(b => <option key={b} value={b}>{b} rec</option>)}
+                    </select>
+                  )}
+                  {/* Active filter count */}
+                  {(propZoneFilter || propPriceMax || propBedFilter) ? (
+                    <button onClick={() => { setPropZoneFilter(''); setPropPriceMax(0); setPropBedFilter(0) }}
+                      className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+                      <X size={14} /> Limpiar filtros
+                    </button>
+                  ) : null}
                 </div>
-              ) : null
+              )
             })()}
             {properties.length === 0 ? (
               <div className="empty-state text-center py-16">
@@ -6285,7 +6320,13 @@ function App() {
               </div>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {properties.filter(p => !propZoneFilter || p.development === propZoneFilter).map(prop => (
+              {properties.filter(p => {
+                if (propZoneFilter && p.development !== propZoneFilter) return false
+                if (propPriceMax > 0 && (p.price || 0) >= propPriceMax) return false
+                if (propPriceMax === -1 && (p.price || 0) < 5000000) return false
+                if (propBedFilter > 0 && p.bedrooms !== propBedFilter) return false
+                return true
+              }).map(prop => (
                 <div key={prop.id} className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden group relative hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-200">
                   <div className="property-image-container h-40 bg-slate-700 flex items-center justify-center">
                     {prop.photo_url ? (
