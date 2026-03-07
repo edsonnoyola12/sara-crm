@@ -280,6 +280,9 @@ interface EventRegistration {
 function App() {
   const [view, setView] = useState<View>('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('sidebar_collapsed') || '{}') } catch { return {} }
+  })
   const [leads, setLeads] = useState<Lead[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [propZoneFilter, setPropZoneFilter] = useState<string>('')
@@ -628,6 +631,25 @@ function App() {
       localStorage.setItem('sara-crm-read-notifs', JSON.stringify([...readNotificationIds]))
     }
   }, [readNotificationIds])
+
+  // Auto-expand sidebar section when navigating to a view
+  useEffect(() => {
+    const sectionMap: Record<string, string[]> = {
+      ventas: ['coordinator','calendar','followups','mortgage','promotions','events'],
+      comunicacion: ['mensajes','encuestas','referrals'],
+      inteligencia: ['reportes','bi','marketing','sara-ai'],
+      monitoreo: ['alertas','sla'],
+      admin: ['team','goals','sistema','config'],
+    }
+    for (const [section, views] of Object.entries(sectionMap)) {
+      if (views.includes(view) && collapsedSections[section]) {
+        const next = { ...collapsedSections, [section]: false }
+        setCollapsedSections(next)
+        localStorage.setItem('sidebar_collapsed', JSON.stringify(next))
+        break
+      }
+    }
+  }, [view])
 
   // Esc cierra modales
   useEffect(() => {
@@ -2531,150 +2553,218 @@ function App() {
         )}
 
         <nav className="flex-1 overflow-y-auto mt-2 space-y-0.5">
-          {/* PRINCIPAL */}
-          <p className="sidebar-label">Principal</p>
+          {/* ── PRINCIPAL (siempre visible) ── */}
+          <p className="sidebar-label" style={{cursor:'default'}}>Principal</p>
           {permisos.puedeVerSeccion('dashboard') && (
             <button onClick={() => { setView('dashboard'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'dashboard' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <TrendingUp size={18} /> Dashboard
+              <TrendingUp size={16} /> Dashboard
             </button>
           )}
           {permisos.puedeVerSeccion('leads') && (
             <button onClick={() => { setView('leads'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'leads' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Users size={18} /> Leads
+              <Users size={16} /> Leads
             </button>
           )}
           {permisos.puedeVerSeccion('properties') && (
             <button onClick={() => { setView('properties'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'properties' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Building size={18} /> Propiedades
+              <Building size={16} /> Propiedades
             </button>
           )}
 
-          {/* VENTAS */}
-          <p className="sidebar-label">Ventas</p>
-          {permisos.puedeVerSeccion('coordinator') && (
-            <button onClick={() => { setView('coordinator'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'coordinator' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Phone size={18} /> Coordinador
-            </button>
-          )}
-          {permisos.puedeVerSeccion('calendar') && (
-            <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'calendar' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <CalendarIcon size={18} /> Calendario
-            </button>
-          )}
-          {permisos.puedeVerSeccion('followups') && (
-            <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'followups' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Clock size={18} /> Seguimientos
-            </button>
-          )}
-          {permisos.puedeVerSeccion('mortgage') && (
-            <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mortgage' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <CreditCard size={18} /> Hipotecas
-              {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
-                <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
-                  {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length}
-                </span>
-              )}
-            </button>
-          )}
+          {/* ── VENTAS ── */}
+          {(() => {
+            const key = 'ventas'
+            const isOpen = !collapsedSections[key]
+            const hasActive = ['coordinator','calendar','followups','mortgage','promotions','events'].includes(view)
+            const toggle = () => { const next = { ...collapsedSections, [key]: !collapsedSections[key] }; setCollapsedSections(next); localStorage.setItem('sidebar_collapsed', JSON.stringify(next)) }
+            return (<>
+              <button onClick={toggle} className={`sidebar-label cursor-pointer select-none flex items-center justify-between w-full ${hasActive ? 'text-slate-300' : ''}`}>
+                <span>Ventas</span>
+                <ChevronRight size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                {permisos.puedeVerSeccion('coordinator') && (
+                  <button onClick={() => { setView('coordinator'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'coordinator' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Phone size={16} /> Coordinador
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('calendar') && (
+                  <button onClick={() => { setView('calendar'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'calendar' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <CalendarIcon size={16} /> Calendario
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('followups') && (
+                  <button onClick={() => { setView('followups'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'followups' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Clock size={16} /> Seguimientos
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('mortgage') && (
+                  <button onClick={() => { setView('mortgage'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mortgage' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <CreditCard size={16} /> Hipotecas
+                    {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length > 0 && (
+                      <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
+                        {mortgages.filter(m => getDaysInStatus(m) > 3 && !['approved', 'rejected', 'cancelled'].includes(m.status)).length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('promotions') && (
+                  <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'promotions' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Tag size={16} /> Promociones
+                    {promotions.filter(p => p.status === 'active').length > 0 && (
+                      <span className="ml-auto bg-purple-500/20 text-purple-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
+                        {promotions.filter(p => p.status === 'active').length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('events') && (
+                  <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'events' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <CalendarIcon size={16} /> Eventos
+                    {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
+                      <span className="ml-auto bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
+                        {crmEvents.filter(e => e.status === 'upcoming').length}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            </>)
+          })()}
 
-          {/* COMUNICACION */}
-          <p className="sidebar-label">Comunicacion</p>
-          {permisos.puedeVerSeccion('mensajes') && (
-            <button onClick={() => { setView('mensajes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mensajes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <MessageSquare size={18} /> Mensajes
-            </button>
-          )}
-          {permisos.puedeVerSeccion('encuestas') && (
-            <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'encuestas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Star size={18} /> Encuestas
-            </button>
-          )}
-          {permisos.puedeVerSeccion('referrals') && (
-            <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'referrals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Gift size={18} /> Referidos
-              {leads.filter(l => l.source === 'referral').length > 0 && (
-                <span className="ml-auto bg-pink-500/20 text-pink-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
-                  {leads.filter(l => l.source === 'referral').length}
-                </span>
-              )}
-            </button>
-          )}
+          {/* ── COMUNICACION ── */}
+          {(() => {
+            const key = 'comunicacion'
+            const isOpen = !collapsedSections[key]
+            const hasActive = ['mensajes','encuestas','referrals'].includes(view)
+            const toggle = () => { const next = { ...collapsedSections, [key]: !collapsedSections[key] }; setCollapsedSections(next); localStorage.setItem('sidebar_collapsed', JSON.stringify(next)) }
+            return (<>
+              <button onClick={toggle} className={`sidebar-label cursor-pointer select-none flex items-center justify-between w-full ${hasActive ? 'text-slate-300' : ''}`}>
+                <span>Comunicacion</span>
+                <ChevronRight size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                {permisos.puedeVerSeccion('mensajes') && (
+                  <button onClick={() => { setView('mensajes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'mensajes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <MessageSquare size={16} /> Mensajes
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('encuestas') && (
+                  <button onClick={() => { setView('encuestas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'encuestas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Star size={16} /> Encuestas
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('referrals') && (
+                  <button onClick={() => { setView('referrals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'referrals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Gift size={16} /> Referidos
+                    {leads.filter(l => l.source === 'referral').length > 0 && (
+                      <span className="ml-auto bg-pink-500/20 text-pink-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                        {leads.filter(l => l.source === 'referral').length}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            </>)
+          })()}
 
-          {/* INTELIGENCIA */}
-          <p className="sidebar-label">Inteligencia</p>
-          {permisos.puedeVerSeccion('reportes') && (
-            <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'reportes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <BarChart3 size={18} /> Reportes CEO
-            </button>
-          )}
-          {permisos.puedeVerSeccion('bi') && (
-            <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'bi' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Lightbulb size={18} /> Inteligencia Comercial
-            </button>
-          )}
-          {permisos.puedeVerSeccion('marketing') && (
-            <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'marketing' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Megaphone size={18} /> Marketing
-            </button>
-          )}
-          {permisos.puedeVerSeccion('sistema') && (
-            <button onClick={() => { setView('alertas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'alertas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Bell size={18} /> Alertas
-            </button>
-          )}
-          {permisos.puedeVerSeccion('sistema') && (
-            <button onClick={() => { setView('sla'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sla' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Clock size={18} /> SLA
-            </button>
-          )}
+          {/* ── INTELIGENCIA ── */}
+          {(() => {
+            const key = 'inteligencia'
+            const isOpen = !collapsedSections[key]
+            const hasActive = ['reportes','bi','marketing','sara-ai'].includes(view)
+            const toggle = () => { const next = { ...collapsedSections, [key]: !collapsedSections[key] }; setCollapsedSections(next); localStorage.setItem('sidebar_collapsed', JSON.stringify(next)) }
+            return (<>
+              <button onClick={toggle} className={`sidebar-label cursor-pointer select-none flex items-center justify-between w-full ${hasActive ? 'text-slate-300' : ''}`}>
+                <span>Inteligencia</span>
+                <ChevronRight size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                {permisos.puedeVerSeccion('reportes') && (
+                  <button onClick={() => { setView('reportes'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'reportes' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <BarChart3 size={16} /> Reportes CEO
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('bi') && (
+                  <button onClick={() => { setView('bi'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'bi' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Lightbulb size={16} /> Inteligencia Comercial
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('marketing') && (
+                  <button onClick={() => { setView('marketing'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'marketing' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Megaphone size={16} /> Marketing
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('sistema') && (
+                  <button onClick={() => { setView('sara-ai'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sara-ai' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Lightbulb size={16} /> SARA IA
+                  </button>
+                )}
+              </div>
+            </>)
+          })()}
 
-          {/* ADMIN */}
-          <p className="sidebar-label">Admin</p>
-          {permisos.puedeVerSeccion('team') && (
-            <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'team' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <UserCheck size={18} /> Equipo
-            </button>
-          )}
-          {permisos.puedeVerSeccion('goals') && (
-            <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'goals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Target size={18} /> Metas
-            </button>
-          )}
-          {permisos.puedeVerSeccion('promotions') && (
-            <button onClick={() => { setView('promotions'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'promotions' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Gift size={18} /> Promociones
-              {promotions.filter(p => p.status === 'active').length > 0 && (
-                <span className="ml-auto bg-purple-500/20 text-purple-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
-                  {promotions.filter(p => p.status === 'active').length}
-                </span>
-              )}
-            </button>
-          )}
-          {permisos.puedeVerSeccion('events') && (
-            <button onClick={() => { setView('events'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'events' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <CalendarIcon size={18} /> Eventos
-              {crmEvents.filter(e => e.status === 'upcoming').length > 0 && (
-                <span className="ml-auto bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.5 rounded-full badge-pulse">
-                  {crmEvents.filter(e => e.status === 'upcoming').length}
-                </span>
-              )}
-            </button>
-          )}
-          {permisos.puedeVerSeccion('sistema') && (
-            <button onClick={() => { setView('sistema'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sistema' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <AlertTriangle size={18} /> Sistema
-            </button>
-          )}
-          {permisos.puedeVerSeccion('sistema') && (
-            <button onClick={() => { setView('sara-ai'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sara-ai' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Lightbulb size={18} /> SARA IA
-            </button>
-          )}
-          {permisos.puedeVerSeccion('config') && (
-            <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'config' ? 'sidebar-item-active' : 'text-slate-400'}`}>
-              <Settings size={18} /> Configuracion
-            </button>
-          )}
+          {/* ── MONITOREO ── */}
+          {(() => {
+            const key = 'monitoreo'
+            const isOpen = !collapsedSections[key]
+            const hasActive = ['alertas','sla'].includes(view)
+            const toggle = () => { const next = { ...collapsedSections, [key]: !collapsedSections[key] }; setCollapsedSections(next); localStorage.setItem('sidebar_collapsed', JSON.stringify(next)) }
+            return (<>
+              <button onClick={toggle} className={`sidebar-label cursor-pointer select-none flex items-center justify-between w-full ${hasActive ? 'text-slate-300' : ''}`}>
+                <span>Monitoreo</span>
+                <ChevronRight size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                {permisos.puedeVerSeccion('sistema') && (
+                  <button onClick={() => { setView('alertas'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'alertas' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Bell size={16} /> Alertas
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('sistema') && (
+                  <button onClick={() => { setView('sla'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sla' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Award size={16} /> SLA
+                  </button>
+                )}
+              </div>
+            </>)
+          })()}
+
+          {/* ── ADMIN ── */}
+          {(() => {
+            const key = 'admin'
+            const isOpen = !collapsedSections[key]
+            const hasActive = ['team','goals','sistema','config'].includes(view)
+            const toggle = () => { const next = { ...collapsedSections, [key]: !collapsedSections[key] }; setCollapsedSections(next); localStorage.setItem('sidebar_collapsed', JSON.stringify(next)) }
+            return (<>
+              <button onClick={toggle} className={`sidebar-label cursor-pointer select-none flex items-center justify-between w-full ${hasActive ? 'text-slate-300' : ''}`}>
+                <span>Admin</span>
+                <ChevronRight size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                {permisos.puedeVerSeccion('team') && (
+                  <button onClick={() => { setView('team'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'team' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <UserCheck size={16} /> Equipo
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('goals') && (
+                  <button onClick={() => { setView('goals'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'goals' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Target size={16} /> Metas
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('sistema') && (
+                  <button onClick={() => { setView('sistema'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'sistema' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <AlertTriangle size={16} /> Sistema
+                  </button>
+                )}
+                {permisos.puedeVerSeccion('config') && (
+                  <button onClick={() => { setView('config'); setSidebarOpen(false); }} className={`sidebar-item ${view === 'config' ? 'sidebar-item-active' : 'text-slate-400'}`}>
+                    <Settings size={16} /> Configuracion
+                  </button>
+                )}
+              </div>
+            </>)
+          })()}
         </nav>
       </div>
 
