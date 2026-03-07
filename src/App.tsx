@@ -5610,15 +5610,18 @@ function App() {
               <div className="flex flex-wrap items-center gap-2">
                 {/* Status chips */}
                 <div className="flex flex-wrap gap-1">
-                  {['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved', 'closed'].map(s => (
+                  {['new', 'contacted', 'scheduled', 'visited', 'negotiation', 'reserved', 'closed'].map(s => {
+                    const count = leads.filter(l => l.status === s).length
+                    return (
                     <button key={s} onClick={() => setLeadFilters(prev => ({
                       ...prev, status: prev.status.includes(s) ? prev.status.filter(x => x !== s) : [...prev.status, s]
                     }))} className={`filter-chip px-2.5 py-1 rounded-full text-xs font-medium ${
                       leadFilters.status.includes(s) ? 'bg-blue-600 text-white filter-chip-active' : 'bg-slate-700 text-slate-300'
                     }`}>
-                      {STATUS_LABELS[s] || s}
+                      {STATUS_LABELS[s] || s}{count > 0 ? ` (${count})` : ''}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="w-px h-6 bg-slate-600 mx-1" />
@@ -5903,6 +5906,7 @@ function App() {
                       { col: 'property_interest', label: 'Interés', hide: 'hidden md:table-cell' },
                       { col: 'score', label: 'Score', hide: '' },
                       { col: 'status', label: 'Estado', hide: '' },
+                      { col: 'last_message_at', label: 'Contacto', hide: 'hidden md:table-cell' },
                       { col: 'created_at', label: 'Fecha', hide: 'hidden lg:table-cell' },
                     ].map(h => (
                       <th key={h.col} className={`text-left p-4 cursor-pointer select-none hover:text-blue-400 ${h.hide}`} onClick={() => setLeadSort(prev => ({ col: h.col, asc: prev.col === h.col ? !prev.asc : true }))}>
@@ -5939,11 +5943,22 @@ function App() {
                         </span>
                       </td>
                       <td className="p-4">{STATUS_LABELS[lead.status] || lead.status}</td>
+                      <td className="p-4 hidden md:table-cell">{(() => {
+                        const ref = lead.last_message_at || lead.created_at
+                        if (!ref) return <span className="text-slate-500">-</span>
+                        const mins = Math.floor((Date.now() - new Date(ref).getTime()) / 60000)
+                        if (mins < 60) return <span className="text-green-400">{mins < 2 ? 'Ahora' : `${mins}m`}</span>
+                        const hrs = Math.floor(mins / 60)
+                        if (hrs < 24) return <span className="text-blue-400">{hrs}h</span>
+                        const days = Math.floor(hrs / 24)
+                        if (days <= 2) return <span className="text-yellow-400">{days === 1 ? 'Ayer' : '2d'}</span>
+                        return <span className={days > 7 ? 'text-red-400' : 'text-slate-400'}>{days}d</span>
+                      })()}</td>
                       <td className="p-4 hidden lg:table-cell">{lead.created_at ? new Date(lead.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '-'}</td>
                     </tr>
                   ))}
                   {displayLeads.length === 0 && (
-                    <tr><td colSpan={7} className="p-12 text-center empty-state">
+                    <tr><td colSpan={8} className="p-12 text-center empty-state">
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
                         <span className="text-4xl">🔍</span>
                       </div>
@@ -6257,7 +6272,12 @@ function App() {
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all">
                 <h3 className="text-xl font-semibold mb-4">Vendedores</h3>
                 <div className="space-y-3">
-                  {team.filter(t => t.role === 'vendedor').map(member => (
+                  {team.filter(t => t.role === 'vendedor').map(member => {
+                    const memberLeads = leads.filter(l => l.assigned_to === member.id && !['closed','delivered','lost','inactive','fallen'].includes(l.status))
+                    const todayStr = new Date().toISOString().split('T')[0]
+                    const citasHoy = appointments.filter(a => a.vendedor_id === member.id && a.scheduled_date === todayStr && a.status !== 'cancelled')
+                    const hotCount = memberLeads.filter(l => l.score >= 70).length
+                    return (
                     <div key={member.id} className="team-card flex items-center justify-between bg-slate-700 p-4 rounded-xl group">
                       <div className="flex items-center gap-3">
                         <div className="relative w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center">
@@ -6266,9 +6286,10 @@ function App() {
                         </div>
                         <div>
                           <p className="font-semibold">{member.name}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-medium">Vendedor</span>
-                            <span className="text-slate-500 text-xs">{member.phone}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-600 text-slate-300">{memberLeads.length} leads</span>
+                            {hotCount > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">{hotCount} hot</span>}
+                            {citasHoy.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400">{citasHoy.length} cita{citasHoy.length > 1 ? 's' : ''} hoy</span>}
                           </div>
                         </div>
                       </div>
@@ -6288,7 +6309,8 @@ function App() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                   {team.filter(t => t.role === 'vendedor').length === 0 && (
                     <div className="empty-state text-center py-6">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-600/50 mb-2"><span className="text-2xl">👔</span></div>
