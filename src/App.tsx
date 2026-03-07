@@ -10770,18 +10770,21 @@ function App() {
       )}
 
       {selectedLead && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedLead(null)}>
-          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl w-full max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex" onClick={() => setSelectedLead(null)}>
+          {/* Spacer — click to close */}
+          <div className="flex-1 min-w-0" />
+          {/* Drawer panel — slides in from right */}
+          <div className="bg-slate-800 border-l border-slate-700/50 w-full max-w-6xl h-full flex flex-col animate-slide-in-right" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-6 pt-5 pb-4 border-b border-slate-700/50">
+            <div className="px-6 pt-5 pb-4 border-b border-slate-700/50 shrink-0">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg font-bold">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg font-bold shrink-0">
                     {(selectedLead.name || '?')[0].toUpperCase()}
                   </div>
                   <div>
                     <h3 className="text-xl font-bold">{selectedLead.name || 'Sin nombre'}</h3>
-                    <div className="flex items-center gap-3 text-sm text-slate-400 mt-0.5">
+                    <div className="flex items-center gap-3 text-sm text-slate-400 mt-0.5 flex-wrap">
                       <span className="flex items-center gap-1"><Phone size={13} />{selectedLead.phone}</span>
                       <span className={`${getScoreColor(selectedLead.score)} px-2 py-0.5 rounded text-xs`}>
                         {getScoreLabel(selectedLead.score)} ({selectedLead.score})
@@ -10799,10 +10802,10 @@ function App() {
                 </div>
               </div>
               {/* Tab bar */}
-              <div className="flex gap-1">
+              <div className="flex gap-1 overflow-x-auto">
                 {([['resumen','Resumen'],['info','Info'],['timeline','Timeline'],['citas','Citas'],['notas','Notas'],['credito','Credito']] as [typeof leadDetailTab, string][]).map(([key, label]) => (
                   <button key={key} onClick={() => setLeadDetailTab(key)}
-                    className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                    className={`tab-indicator px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                       leadDetailTab === key ? 'tab-indicator-active text-blue-400 bg-slate-700/50' : 'text-slate-400 hover:text-slate-200'
                     }`}>{label}</button>
                 ))}
@@ -10861,9 +10864,9 @@ function App() {
                   sl.status === 'reserved' ? 'Verificar documentacion y pagos' : 'Dar seguimiento'
 
                 return (
-                  <div className="space-y-5">
-                    {/* Top row: Donut + Factors */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    {/* LEFT COLUMN — Score + Quick Info */}
+                    <div className="space-y-5">
                       {/* Score Donut */}
                       <div className="bg-slate-700/40 rounded-xl p-5 flex flex-col items-center">
                         <svg width="120" height="120" viewBox="0 0 96 96" className="mb-2">
@@ -10876,10 +10879,42 @@ function App() {
                         </svg>
                         <p className="text-xs text-slate-500">Score general del lead</p>
                       </div>
+                      {/* Quick Info */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'Dias activo', value: `${daysActive}d` },
+                          { label: 'Ultimo contacto', value: lastContact },
+                          { label: 'Desarrollo', value: sl.property_interest || notes.desarrollos_interes?.[0] || 'No definido' },
+                          { label: 'Recamaras', value: notes.recamaras || 'No definido' },
+                          { label: 'Fuente', value: sl.source || 'No definida' },
+                          { label: 'Vendedor', value: team.find(t => t.id === sl.assigned_to)?.name || 'Sin asignar' },
+                        ].map((item, i) => (
+                          <div key={i} className="bg-slate-700/30 rounded-xl p-3">
+                            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{item.label}</p>
+                            <p className="text-sm font-medium mt-0.5 truncate">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Next Best Action */}
+                      <div className="next-action-card rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0">
+                            <ArrowRight size={16} className="text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold">Siguiente accion</p>
+                            <p className="text-sm font-medium mt-0.5">{nextAction}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN — Factors + Journey */}
+                    <div className="lg:col-span-2 space-y-5">
                       {/* Factor bars */}
                       <div className="bg-slate-700/40 rounded-xl p-5">
                         <h4 className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">Factores de Score</h4>
-                        <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
                           {factors.map(f => (
                             <div key={f.label}>
                               <div className="flex justify-between text-[11px] mb-1">
@@ -10893,37 +10928,6 @@ function App() {
                           ))}
                         </div>
                       </div>
-                    </div>
-
-                    {/* Quick Info Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {[
-                        { label: 'Dias activo', value: `${daysActive}d` },
-                        { label: 'Ultimo contacto', value: lastContact },
-                        { label: 'Desarrollo', value: sl.property_interest || notes.desarrollos_interes?.[0] || 'No definido' },
-                        { label: 'Recamaras', value: notes.recamaras || 'No definido' },
-                        { label: 'Fuente', value: sl.source || 'No definida' },
-                        { label: 'Vendedor', value: team.find(t => t.id === sl.assigned_to)?.name || 'Sin asignar' },
-                      ].map((item, i) => (
-                        <div key={i} className="bg-slate-700/30 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{item.label}</p>
-                          <p className="text-sm font-medium mt-0.5 truncate">{item.value}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Next Best Action */}
-                    <div className="next-action-card rounded-xl p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center flex-shrink-0">
-                          <ArrowRight size={16} className="text-blue-400" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold">Siguiente accion recomendada</p>
-                          <p className="text-sm font-medium mt-0.5">{nextAction}</p>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* Journey Progress */}
                     <div className="bg-slate-700/40 rounded-xl p-5">
@@ -10949,6 +10953,7 @@ function App() {
                           )
                         })}
                       </div>
+                    </div>
                     </div>
                   </div>
                 )

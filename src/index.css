@@ -508,6 +508,9 @@ body {
 .notif-drawer {
   animation: drawerSlideIn 0.25s ease-out;
 }
+.animate-slide-in-right {
+  animation: drawerSlideIn 0.3s ease-out;
+}
 .notif-drawer-item {
   transition: background 0.15s ease;
 }
