@@ -6040,6 +6040,7 @@ function App() {
                       { col: 'property_interest', label: 'Interés', hide: 'hidden md:table-cell' },
                       { col: 'score', label: 'Score', hide: '' },
                       { col: 'status', label: 'Estado', hide: '' },
+                      { col: 'assigned_to', label: 'Vendedor', hide: 'hidden lg:table-cell' },
                       { col: 'last_message_at', label: 'Contacto', hide: 'hidden md:table-cell' },
                       { col: 'created_at', label: 'Fecha', hide: 'hidden lg:table-cell' },
                     ].map(h => (
@@ -6076,7 +6077,46 @@ function App() {
                           {getScoreLabel(lead.score)} ({lead.score})
                         </span>
                       </td>
-                      <td className="p-4">{STATUS_LABELS[lead.status] || lead.status}</td>
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={lead.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value
+                            if (newStatus === lead.status) return
+                            const timestamp = new Date().toISOString()
+                            const historyEntry = { date: timestamp, from: lead.status, to: newStatus, note: 'Cambio rápido desde tabla' }
+                            const existingHistory = lead.notes?.status_history || []
+                            const newNotes = { ...(lead.notes || {}), status_history: [...existingHistory, historyEntry] }
+                            await supabase.from('leads').update({ status: newStatus, status_changed_at: timestamp, notes: newNotes }).eq('id', lead.id)
+                            setLeads(leads.map(l => l.id === lead.id ? { ...l, status: newStatus, notes: newNotes, status_changed_at: timestamp } : l))
+                            showToast(`${lead.name || 'Lead'} → ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
+                          }}
+                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none"
+                        >
+                          {Object.entries(STATUS_LABELS).filter(([k]) => !['sold','paused'].includes(k)).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-4 hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={lead.assigned_to || ''}
+                          onChange={async (e) => {
+                            const newVendor = e.target.value || null
+                            if (newVendor === (lead.assigned_to || '')) return
+                            await supabase.from('leads').update({ assigned_to: newVendor }).eq('id', lead.id)
+                            setLeads(leads.map(l => l.id === lead.id ? { ...l, assigned_to: newVendor } : l))
+                            const vendorName = team.find(t => t.id === newVendor)?.name || 'Sin asignar'
+                            showToast(`${lead.name || 'Lead'} → ${vendorName}`, 'success')
+                          }}
+                          className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-xs cursor-pointer hover:border-blue-500 focus:border-blue-500 focus:outline-none max-w-[120px]"
+                        >
+                          <option value="">Sin asignar</option>
+                          {team.filter(t => t.role === 'vendedor' || t.role === 'admin' || t.role === 'coordinador').map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="p-4 hidden md:table-cell">{(() => {
                         const ref = lead.last_message_at || lead.created_at
                         if (!ref) return <span className="text-slate-500">-</span>
@@ -6092,7 +6132,7 @@ function App() {
                     </tr>
                   ))}
                   {displayLeads.length === 0 && (
-                    <tr><td colSpan={8} className="p-12 text-center empty-state">
+                    <tr><td colSpan={9} className="p-12 text-center empty-state">
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-700/50 mb-3">
                         <span className="text-4xl">🔍</span>
                       </div>
