@@ -474,35 +474,41 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
   async function loadData() {
     setLoading(true)
     try {
-      const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, remindersRes, appointmentsRes, alertRes, promosRes, eventsRes, customFieldsRes, auditRes, fieldPermsRes] = await Promise.all([
+      // Core tables (must succeed)
+      const [leadsRes, propsRes, teamRes, mortgagesRes, campaignsRes, appointmentsRes] = await Promise.all([
         supabase.from('leads').select('*').order('created_at', { ascending: false }),
         supabase.from('properties').select('*'),
         supabase.from('team_members').select('*'),
         supabase.from('mortgage_applications').select('*').order('created_at', { ascending: false }),
         supabase.from('marketing_campaigns').select('*').order('created_at', { ascending: false }),
-        supabase.from('reminder_config').select('*').order('lead_category'),
         supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }),
-        supabase.from('alert_settings').select('*').order('category').order('stage'),
-        supabase.from('promotions').select('*').order('start_date', { ascending: false }),
-        supabase.from('events').select('*').order('event_date', { ascending: true }),
-        supabase.from('custom_fields').select('*').order('order', { ascending: true }),
-        supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500),
-        supabase.from('field_permissions').select('*')
       ])
       setLeads(leadsRes.data || [])
       setProperties(propsRes.data || [])
       setTeam(teamRes.data || [])
       setMortgages(mortgagesRes.data || [])
       setCampaigns(campaignsRes.data || [])
-      setAlertSettings(alertRes.data || [])
-      setReminderConfigs(remindersRes.data || [])
       setAppointments(appointmentsRes.data || [])
-      setPromotions(promosRes.data || [])
-      setCrmEvents(eventsRes.data || [])
-      setCustomFields(customFieldsRes.data || [])
-      setAuditLog((auditRes.data || []) as AuditEntry[])
-      setFieldPermissions((fieldPermsRes.data || []) as FieldPermission[])
       generateInsights(leadsRes.data || [], teamRes.data || [], campaignsRes.data || [])
+
+      // Optional tables (don't break app if missing)
+      const optional = await Promise.allSettled([
+        supabase.from('reminder_config').select('*').order('lead_category'),
+        supabase.from('alert_settings').select('*').order('category').order('stage'),
+        supabase.from('promotions').select('*').order('start_date', { ascending: false }),
+        supabase.from('events').select('*').order('event_date', { ascending: true }),
+        supabase.from('custom_fields').select('*').order('order', { ascending: true }),
+        supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(500),
+        supabase.from('field_permissions').select('*'),
+      ])
+      const opt = (i: number) => optional[i].status === 'fulfilled' ? (optional[i] as any).value.data || [] : []
+      setReminderConfigs(opt(0))
+      setAlertSettings(opt(1))
+      setPromotions(opt(2))
+      setCrmEvents(opt(3))
+      setCustomFields(opt(4))
+      setAuditLog(opt(5) as AuditEntry[])
+      setFieldPermissions(opt(6) as FieldPermission[])
       setLastRefresh(new Date())
 
       // Restore session
