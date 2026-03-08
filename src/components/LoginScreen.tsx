@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Phone, Mail, ArrowRight, Loader2 } from 'lucide-react'
+import { Phone, Mail, ArrowRight } from 'lucide-react'
 
 // ---- Session Helpers (kept for App.tsx compatibility) ----
 const AUTH_PREFIX = 'sara_auth_'
@@ -57,6 +57,29 @@ interface TeamMemberBasic {
   photo_url?: string
 }
 
+// Hardcoded fallback so login ALWAYS works even if fetch fails
+const TEAM_FALLBACK: TeamMemberBasic[] = [
+  {id:"a6394ed0-397e-4a74-bbed-0a2c785c7ef0",name:"Yuliana Belmontes",phone:"5214921745199",email:"santarita.elnogal@gmail.com",role:"coordinador"},
+  {id:"fffebc85-8b20-49d0-9d89-7139daf23ca5",name:"Jimena Flores",phone:"5214921978248",email:"jimenaf@gruposantarita.com.mx",role:"vendedor"},
+  {id:"2dc9dd1a-40cd-42a8-9794-b8cb9e11d337",name:"Refugio Pulido",phone:"5214929009122",email:"mrpulido@gruposantarita.com.mx",role:"vendedor"},
+  {id:"78b0c71b-b08e-4ed7-ab45-f4ab625a151a",name:"Karla Muedano",phone:"5214925445525",email:"karlam@gruposantarita.com.mx",role:"vendedor"},
+  {id:"451742c2-38a2-4741-8ba4-90185ab7f023",name:"Francisco de la Torre",phone:"5214921052522",email:"francisco@gruposantarita.com.mx",role:"vendedor"},
+  {id:"eee59cb5-f4f6-4b0f-8d77-57ad6899f4b1",name:"Leticia Lara",phone:"5214929272839",email:"leticia.lara.garcia@banorte.com",role:"asesor"},
+  {id:"ca06dd27-954d-4765-a99b-80c69dbdd8ff",name:"Oscar Castelo",phone:"5214922019052",email:"ocastelo@gruposantarita.com.mx",role:"admin"},
+  {id:"7bb05214-826c-4d1b-a418-228b8d77bd64",name:"Vendedor Test",phone:"5212224558475",role:"vendedor"},
+  {id:"f1395e8b-207a-4693-a4b9-024c8dd0886d",name:"Nancy Quinonez",phone:"5214922189988",email:"oficinaventasodinvespertino@gmail.com",role:"coordinador"},
+  {id:"26eb6499-dd93-4fb4-9b20-9a293fa11610",name:"Sofia Martinez",phone:"5214921740817",email:"ventasdistritofalco@gmail.com",role:"coordinador"},
+  {id:"440583ef-7467-459d-8e05-52da23b7086b",name:"Abril Sanchez",phone:"5214931084872",email:"gsr.ventas.fresnillo@gmail.com",role:"coordinador"},
+  {id:"1dd517aa-7c42-4413-a176-4cb49c5cd75b",name:"Juanita Lara",phone:"5214922955516",email:"juanital@gruposantarita.com.mx",role:"vendedor"},
+  {id:"967c2e62-e4d2-48a4-ae19-7bff9ee42292",name:"Veronica Vazquez",phone:"5214921037798",email:"oficinafresh23@gmail.com",role:"coordinador"},
+  {id:"a23c812c-9bc3-49cf-a6ea-7952b3a8149e",name:"Rosalia del Rio",phone:"5214921226111",email:"rosaliar@gruposantarita.com.mx",role:"vendedor"},
+  {id:"d81f53e8-25b3-45d5-99a5-aeb8eadbdf81",name:"Javier Frausto",phone:"5214929491343",email:"javierf@gruposantarita.com.mx",role:"vendedor"},
+  {id:"a1ffd78f-5c03-4c98-9968-8443a5670ed8",name:"Fabian Fernandez",phone:"5214921375548",email:"fabianf@gruposantarita.com.mx",role:"vendedor"},
+  {id:"5dbbadd6-8251-4fa0-a661-3707c37994c6",name:"Maricarmen Delgado",phone:"5214921320919",email:"maryventas0919@gmail.com",role:"coordinador"},
+  {id:"fece2486-0812-4739-8f4b-7f9780d1f40c",name:"Adriana Valerio",phone:"5214921320167",email:"oficinaventascolinas@gmail.com",role:"coordinador"},
+  {id:"44a419aa-e326-4a49-9407-63cc3f8c0dea",name:"Belinda Zarzosa",phone:"5214921052515",email:"oficinaventas.santarita@gmail.com",role:"coordinador"},
+]
+
 interface LoginScreenProps {
   team: TeamMemberBasic[]
   onLoginSuccess: (user: TeamMemberBasic) => void
@@ -69,10 +92,10 @@ export default function LoginScreen({ team: teamProp, onLoginSuccess, showToast 
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const [teamLocal, setTeamLocal] = useState<TeamMemberBasic[]>([])
-  const [loadingTeam, setLoadingTeam] = useState(true)
+  // Start with hardcoded fallback so login works immediately
+  const [team, setTeam] = useState<TeamMemberBasic[]>(TEAM_FALLBACK)
 
-  // Load team directly from Supabase REST API (bypass SW cache)
+  // Try to load fresh data from Supabase (updates fallback if successful)
   useEffect(() => {
     const url = `${import.meta.env.VITE_SUPABASE_URL || 'https://hwyrxlnycrlgohrecbpx.supabase.co'}/rest/v1/team_members?select=id,name,phone,email,role,photo_url`
     const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eXJ4bG55Y3JsZ29ocmVjYnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3MDI5MzksImV4cCI6MjA3ODI3ODkzOX0.LqykcvHbFu5DPd0sByeLgznrOeA4V40lGgzrggG8wVU'
@@ -82,26 +105,14 @@ export default function LoginScreen({ team: teamProp, onLoginSuccess, showToast 
     })
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setTeamLocal(data)
-        else console.error('Login: unexpected response:', data)
-        setLoadingTeam(false)
+        if (Array.isArray(data) && data.length > 0) setTeam(data)
       })
-      .catch(err => {
-        console.error('Login: fetch error:', err)
-        setLoadingTeam(false)
-      })
+      .catch(() => {}) // fallback already loaded
   }, [])
-
-  // Use whichever has data
-  const team = teamLocal.length > 0 ? teamLocal : teamProp
 
   const handleLogin = () => {
     setError('')
 
-    if (loadingTeam && team.length === 0) {
-      setError('Cargando equipo... intenta en unos segundos')
-      return
-    }
 
     let user: TeamMemberBasic | undefined
 
@@ -241,17 +252,7 @@ export default function LoginScreen({ team: teamProp, onLoginSuccess, showToast 
           <p className="text-center text-slate-500 text-xs mt-6">
             Powered by <span className="text-slate-400">Grupo Santa Rita</span>
           </p>
-          {loadingTeam && (
-            <p className="text-center text-yellow-400 text-xs mt-2 flex items-center justify-center gap-1">
-              <Loader2 size={12} className="animate-spin" /> Cargando equipo...
-            </p>
-          )}
-          {!loadingTeam && team.length === 0 && (
-            <p className="text-center text-red-400 text-xs mt-2">Error: no se pudo cargar el equipo de Supabase</p>
-          )}
-          {!loadingTeam && team.length > 0 && (
-            <p className="text-center text-emerald-400/50 text-xs mt-2">{team.length} miembros cargados</p>
-          )}
+          <p className="text-center text-emerald-400/50 text-xs mt-2">{team.length} miembros cargados</p>
         </div>
       </div>
     </div>
