@@ -211,6 +211,9 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
           <p className="text-center text-slate-500 text-xs mt-6">
             Powered by <span className="text-slate-400">Grupo Santa Rita</span>
           </p>
+          {team.length === 0 && (
+            <p className="text-center text-red-400 text-xs mt-2">Equipo no cargado — espera unos segundos y reintenta</p>
+          )}
         </div>
       </div>
     </div>
