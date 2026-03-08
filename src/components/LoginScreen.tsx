@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Phone, Mail, ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Phone, Mail, ArrowRight, Loader2 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 // ---- Session Helpers (kept for App.tsx compatibility) ----
 const AUTH_PREFIX = 'sara_auth_'
@@ -64,14 +65,33 @@ interface LoginScreenProps {
 }
 
 // ---- Main LoginScreen ----
-export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginScreenProps) {
+export default function LoginScreen({ team: teamProp, onLoginSuccess, showToast }: LoginScreenProps) {
   const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
+  const [teamLocal, setTeamLocal] = useState<TeamMemberBasic[]>([])
+  const [loadingTeam, setLoadingTeam] = useState(true)
+
+  // Load team directly from Supabase (bypass any caching issues)
+  useEffect(() => {
+    supabase.from('team_members').select('*').then(({ data, error: err }) => {
+      if (err) console.error('Login: Error loading team:', err)
+      setTeamLocal(data || [])
+      setLoadingTeam(false)
+    })
+  }, [])
+
+  // Use whichever has data
+  const team = teamLocal.length > 0 ? teamLocal : teamProp
 
   const handleLogin = () => {
     setError('')
+
+    if (loadingTeam && team.length === 0) {
+      setError('Cargando equipo... intenta en unos segundos')
+      return
+    }
 
     let user: TeamMemberBasic | undefined
 
@@ -83,7 +103,7 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
       }
       user = team.find(m => m.phone?.replace(/\D/g, '').slice(-10) === cleanPhone)
       if (!user) {
-        setError('Numero no registrado en el equipo')
+        setError(`Numero no registrado (${team.length} miembros cargados)`)
         return
       }
     } else {
@@ -94,7 +114,7 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
       }
       user = team.find(m => m.email?.toLowerCase() === cleanEmail)
       if (!user) {
-        setError('Email no registrado en el equipo')
+        setError(`Email no registrado (${team.length} miembros cargados)`)
         return
       }
     }
@@ -211,8 +231,16 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
           <p className="text-center text-slate-500 text-xs mt-6">
             Powered by <span className="text-slate-400">Grupo Santa Rita</span>
           </p>
-          {team.length === 0 && (
-            <p className="text-center text-red-400 text-xs mt-2">Equipo no cargado — espera unos segundos y reintenta</p>
+          {loadingTeam && (
+            <p className="text-center text-yellow-400 text-xs mt-2 flex items-center justify-center gap-1">
+              <Loader2 size={12} className="animate-spin" /> Cargando equipo...
+            </p>
+          )}
+          {!loadingTeam && team.length === 0 && (
+            <p className="text-center text-red-400 text-xs mt-2">Error: no se pudo cargar el equipo de Supabase</p>
+          )}
+          {!loadingTeam && team.length > 0 && (
+            <p className="text-center text-emerald-400/50 text-xs mt-2">{team.length} miembros cargados</p>
           )}
         </div>
       </div>
