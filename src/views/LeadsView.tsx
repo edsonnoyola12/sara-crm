@@ -236,7 +236,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
         subtitle="Gestion de prospectos"
         badge={displayLeads.length}
         actions={
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
             <div className="flex gap-0.5 bg-slate-700/50 rounded-lg p-0.5">
               <button onClick={() => setLeadViewMode('list')} className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${leadViewMode === 'list' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}>
                 <LayoutList size={14} /> Lista
@@ -246,10 +246,10 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
               </button>
             </div>
             <button onClick={() => { setImportExportTab('import'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Importar CSV">
-              <Upload size={16} /> Importar
+              <Upload size={16} /> <span className="hidden sm:inline">Importar</span>
             </button>
             <button onClick={() => { setImportExportTab('export'); setShowImportExport(true) }} className="bg-slate-700 px-3 py-2 rounded-xl hover:bg-slate-600 flex items-center gap-2 text-sm" title="Exportar CSV">
-              <Download size={16} /> Exportar
+              <Download size={16} /> <span className="hidden sm:inline">Exportar</span>
             </button>
             {permisos.puedeCrearLead() && (
               <button onClick={() => setShowNewLead(true)} className="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2">
@@ -259,7 +259,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
             {permisos.puedeVerLeadsReadOnly() && (
               <span className="text-xs text-slate-400 bg-slate-700 px-3 py-2 rounded-lg">Solo lectura</span>
             )}
-            <div className="flex gap-2">
+            <div className="hidden sm:flex gap-2">
               <span className="bg-red-500 px-3 py-1 rounded-full text-sm">HOT ({hotLeads})</span>
               <span className="bg-orange-500 px-3 py-1 rounded-full text-sm">WARM ({warmLeads})</span>
               <span className="bg-blue-500 px-3 py-1 rounded-full text-sm">COLD ({coldLeads})</span>
@@ -335,7 +335,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
           )}
 
           {/* Saved filter presets */}
-          <div className="ml-auto flex flex-wrap gap-1.5 items-center">
+          <div className="sm:ml-auto flex flex-wrap gap-1.5 items-center">
             {savedFilters.map(sf => (
               <span key={sf.id} className="inline-flex items-center gap-1 bg-slate-800 border border-slate-700/50 rounded-full px-3 py-1 text-xs text-slate-300 hover:border-slate-500 transition-colors group">
                 <button onClick={() => setLeadFilters({
@@ -383,7 +383,7 @@ export default function LeadsView({ onSelectLead }: LeadsViewProps) {
 
       {/* Bulk Action Bar */}
       {selectedLeads.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl px-3 sm:px-6 py-3 flex flex-wrap items-center gap-2 sm:gap-4 max-w-[calc(100%-2rem)] w-auto">
           <span className="text-sm font-semibold text-blue-400">
             <CheckSquare size={16} className="inline mr-1" />{selectedLeads.size} seleccionados
           </span>

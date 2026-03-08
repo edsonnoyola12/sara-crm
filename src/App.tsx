@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar'
 import NotificationDrawer from './components/NotificationDrawer'
 import GlobalSearch from './components/GlobalSearch'
 const CommandPalette = lazy(() => import('./components/CommandPalette'))
+const KeyboardShortcuts = lazy(() => import('./components/KeyboardShortcuts'))
 import LoginScreen, { getSession, clearSession, getSessionTimeRemaining, extendSession, createSession } from './components/LoginScreen'
 import SecuritySettings from './components/SecuritySettings'
 import { SkeletonDashboard, SkeletonTable, SkeletonCards, SkeletonCalendar, SkeletonGeneric } from './components/Skeletons'
@@ -259,7 +260,7 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      <div className="flex-1 p-4 pt-16 lg:p-8 lg:pt-8 overflow-auto">
+      <div className="flex-1 p-3 pt-16 sm:p-4 sm:pt-16 lg:p-8 lg:pt-8 overflow-auto">
         {/* Desktop header */}
         <div className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2">
           <Suspense fallback={null}><SyncIndicator /></Suspense>
@@ -292,6 +293,7 @@ export default function App() {
           onSelectLead={lead => setSelectedLead(lead)} setView={setView} />
 
         <Suspense fallback={null}><CommandPalette /></Suspense>
+        <Suspense fallback={null}><KeyboardShortcuts /></Suspense>
 
         {/* Views */}
         <div key={view} className="section-enter">
@@ -414,9 +416,9 @@ export default function App() {
         </div>
       )}
 
-      <div className="fixed bottom-6 right-6 z-[200] space-y-2 pointer-events-none">
+      <div className="fixed bottom-6 right-3 sm:right-6 z-[200] space-y-2 pointer-events-none max-w-[calc(100%-1.5rem)] sm:max-w-sm">
         {toasts.map((t, i) => (
-          <div key={t.id} className={`toast-enter pointer-events-auto px-5 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-sm cursor-pointer ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}
+          <div key={t.id} className={`toast-enter pointer-events-auto px-4 sm:px-5 py-3 rounded-xl shadow-2xl text-sm font-medium cursor-pointer ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}
             onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ opacity: 1 - (i * 0.1) }}>
             {t.message}
           </div>

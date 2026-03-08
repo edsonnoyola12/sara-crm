@@ -14,12 +14,12 @@ function PropertyModal({ property, onSave, onClose }: { property: Property | nul
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl hover:border-slate-600/50 transition-all w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-4 sm:p-6 rounded-2xl hover:border-slate-600/50 transition-all w-[calc(100%-2rem)] max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold">{property ? 'Editar Propiedad' : 'Nueva Propiedad'}</h3>
+          <h3 className="text-lg sm:text-xl font-bold">{property ? 'Editar Propiedad' : 'Nueva Propiedad'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white" aria-label="Cerrar"><X /></button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-slate-400 mb-1">Nombre</label>
             <input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
@@ -227,7 +227,7 @@ export default function PropertiesView() {
             onAction={permisos.puedeEditarPropiedades() ? () => setShowNewProperty(true) : undefined}
           />
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {properties.filter(p => {
             if (propZoneFilter && p.development !== propZoneFilter) return false
             if (propPriceMax > 0 && (p.price || 0) >= propPriceMax) return false
