@@ -9,8 +9,7 @@ import NotificationDrawer from './components/NotificationDrawer'
 import GlobalSearch from './components/GlobalSearch'
 const CommandPalette = lazy(() => import('./components/CommandPalette'))
 const KeyboardShortcuts = lazy(() => import('./components/KeyboardShortcuts'))
-import LoginScreen, { getSession, clearSession, getSessionTimeRemaining, extendSession, createSession } from './components/LoginScreen'
-import { supabaseSignOut } from './lib/auth'
+import LoginScreen, { getSession, clearSession, getSessionTimeRemaining, extendSession } from './components/LoginScreen'
 import SecuritySettings from './components/SecuritySettings'
 import { SkeletonDashboard, SkeletonTable, SkeletonCards, SkeletonCalendar, SkeletonGeneric } from './components/Skeletons'
 import { Bell, Search, AlertTriangle, Clock } from 'lucide-react'
@@ -227,7 +226,6 @@ export default function App() {
 
   const handleLogout = () => {
     clearSession()
-    supabaseSignOut().catch(err => console.warn('[auth] Supabase sign out error:', err))
     setCurrentUser(null)
     localStorage.removeItem('sara_user_phone')
     setShowSecuritySettings(false)
