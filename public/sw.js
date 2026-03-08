@@ -1,5 +1,5 @@
 // SARA CRM Service Worker v1
-const CACHE_NAME = 'sara-crm-v1';
+const CACHE_NAME = 'sara-crm-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Static assets to pre-cache on install
@@ -51,9 +51,14 @@ function fetchWithTimeout(request, timeoutMs) {
   });
 }
 
-// Check if request is an API call
+// Check if request is an API call (exclude supabase - never cache DB queries)
 function isApiRequest(url) {
-  return url.includes('/api/') || url.includes('supabase');
+  return url.includes('/api/');
+}
+
+// Supabase requests: always network, never cache
+function isSupabaseRequest(url) {
+  return url.includes('supabase');
 }
 
 // Check if request is a static asset
@@ -86,6 +91,11 @@ self.addEventListener('fetch', (event) => {
         })
       );
     }
+    return;
+  }
+
+  // Supabase requests: always pass through to network, never cache
+  if (isSupabaseRequest(request.url)) {
     return;
   }
 

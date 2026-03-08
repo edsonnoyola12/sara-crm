@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Phone, Mail, ArrowRight, Loader2 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 
 // ---- Session Helpers (kept for App.tsx compatibility) ----
 const AUTH_PREFIX = 'sara_auth_'
@@ -73,13 +72,24 @@ export default function LoginScreen({ team: teamProp, onLoginSuccess, showToast 
   const [teamLocal, setTeamLocal] = useState<TeamMemberBasic[]>([])
   const [loadingTeam, setLoadingTeam] = useState(true)
 
-  // Load team directly from Supabase (bypass any caching issues)
+  // Load team directly from Supabase REST API (bypass SW cache)
   useEffect(() => {
-    supabase.from('team_members').select('*').then(({ data, error: err }) => {
-      if (err) console.error('Login: Error loading team:', err)
-      setTeamLocal(data || [])
-      setLoadingTeam(false)
+    const url = `${import.meta.env.VITE_SUPABASE_URL || 'https://hwyrxlnycrlgohrecbpx.supabase.co'}/rest/v1/team_members?select=id,name,phone,email,role,photo_url`
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eXJ4bG55Y3JsZ29ocmVjYnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3MDI5MzksImV4cCI6MjA3ODI3ODkzOX0.LqykcvHbFu5DPd0sByeLgznrOeA4V40lGgzrggG8wVU'
+    fetch(url, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` },
+      cache: 'no-store'
     })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setTeamLocal(data)
+        else console.error('Login: unexpected response:', data)
+        setLoadingTeam(false)
+      })
+      .catch(err => {
+        console.error('Login: fetch error:', err)
+        setLoadingTeam(false)
+      })
   }, [])
 
   // Use whichever has data
