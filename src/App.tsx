@@ -46,6 +46,8 @@ const ApiWebhooksView = lazy(() => import('./views/ApiWebhooksView'))
 const OrganizationView = lazy(() => import('./views/OrganizationView'))
 const LeadDrawer = lazy(() => import('./components/LeadDrawer'))
 const SyncIndicator = lazy(() => import('./components/SyncIndicator'))
+const ToastContainer = lazy(() => import('./components/ToastContainer'))
+const ThemeToggle = lazy(() => import('./components/ThemeToggle'))
 
 export default function App() {
   // All core state comes from CrmContext (loaded once, shared everywhere)
@@ -264,6 +266,7 @@ export default function App() {
         {/* Desktop header */}
         <div className="fixed top-4 right-4 z-30 hidden lg:flex items-center gap-2">
           <Suspense fallback={null}><SyncIndicator /></Suspense>
+          <Suspense fallback={null}><ThemeToggle /></Suspense>
           <button onClick={() => setNotifDrawerOpen(true)} className="relative p-2 bg-slate-800/80 border border-slate-700/60 rounded-lg text-slate-400 hover:bg-slate-700/80 hover:text-white transition-all backdrop-blur-sm">
             <Bell size={15} />
             {unreadNotificationCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}
@@ -275,6 +278,7 @@ export default function App() {
         {/* Mobile header */}
         <div className="fixed top-4 right-4 z-30 lg:hidden flex items-center gap-2">
           <Suspense fallback={null}><SyncIndicator /></Suspense>
+          <Suspense fallback={null}><ThemeToggle /></Suspense>
           <button onClick={() => setNotifDrawerOpen(true)} className="relative p-2 bg-slate-800 rounded-lg">
             <Bell size={16} className="text-slate-400" />
             {unreadNotificationCount > 0 && <span className="notif-badge absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</span>}
@@ -416,14 +420,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="fixed bottom-6 right-3 sm:right-6 z-[200] space-y-2 pointer-events-none max-w-[calc(100%-1.5rem)] sm:max-w-sm">
-        {toasts.map((t, i) => (
-          <div key={t.id} className={`toast-enter pointer-events-auto px-4 sm:px-5 py-3 rounded-xl shadow-2xl text-sm font-medium cursor-pointer ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}
-            onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ opacity: 1 - (i * 0.1) }}>
-            {t.message}
-          </div>
-        ))}
-      </div>
+      <Suspense fallback={null}><ToastContainer /></Suspense>
     </div>
   )
 }

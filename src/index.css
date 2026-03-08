@@ -277,6 +277,14 @@ body {
   animation: toastSlideIn 0.3s ease-out;
 }
 
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 /* Filter chip */
 .filter-chip {
   transition: all 0.15s ease;
@@ -686,4 +694,197 @@ button, .sidebar-item, .filter-chip, .kanban-card {
 }
 .conversation-item-unread {
   background: rgba(59, 130, 246, 0.05);
+}
+
+/* ═══ LIGHT THEME OVERRIDES ═══ */
+
+.light {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+}
+
+/* Main backgrounds */
+.light body,
+.light .bg-slate-950,
+.light .bg-slate-900,
+.light .from-slate-900,
+.light .to-slate-950 {
+  background: var(--bg-primary) !important;
+}
+
+.light .bg-slate-800\/50,
+.light .bg-slate-800\/60,
+.light .bg-slate-800\/80,
+.light .bg-slate-800 {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Borders */
+.light .border-slate-700\/40,
+.light .border-slate-700\/50,
+.light .border-slate-700\/60,
+.light .border-slate-700,
+.light .border-slate-800,
+.light .border-slate-800\/50 {
+  border-color: var(--border-color) !important;
+}
+
+/* Text */
+.light .text-white,
+.light h1,
+.light h2,
+.light h3 {
+  color: var(--text-primary) !important;
+}
+
+.light .text-slate-300,
+.light .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+
+.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Keep sidebar dark for contrast */
+.light nav,
+.light aside {
+  background: linear-gradient(to bottom, #1e293b, #0f172a) !important;
+}
+.light nav .text-white,
+.light nav h1,
+.light nav h2,
+.light nav h3,
+.light aside .text-white,
+.light aside h1,
+.light aside h2,
+.light aside h3 {
+  color: #ffffff !important;
+}
+.light nav .text-slate-300,
+.light nav .text-slate-400,
+.light nav .text-slate-500,
+.light aside .text-slate-300,
+.light aside .text-slate-400,
+.light aside .text-slate-500 {
+  color: rgb(148, 163, 184) !important;
+}
+.light nav .border-slate-700\/40,
+.light nav .border-slate-700\/50,
+.light nav .border-slate-700,
+.light nav .border-slate-800,
+.light aside .border-slate-700\/40,
+.light aside .border-slate-700\/50,
+.light aside .border-slate-700,
+.light aside .border-slate-800 {
+  border-color: rgba(51, 65, 85, 0.5) !important;
+}
+.light nav .bg-slate-800,
+.light nav .bg-slate-800\/50,
+.light aside .bg-slate-800,
+.light aside .bg-slate-800\/50 {
+  background: rgba(30, 41, 59, 0.6) !important;
+}
+
+/* Input fields */
+.light input,
+.light select,
+.light textarea {
+  background: #f8fafc !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Cards and panels - subtle shadow */
+.light .rounded-xl,
+.light .rounded-2xl {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Glass cards */
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Hover states */
+.light .hover\:bg-slate-700\/80:hover,
+.light .hover\:bg-slate-700\/50:hover {
+  background: #e2e8f0 !important;
+}
+
+/* Scrollbar light */
+.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Lead row hover */
+.light .lead-row:hover {
+  background: rgba(226, 232, 240, 0.5);
+}
+
+/* Body background override */
+.light body {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+}
+
+/* Skeleton shimmer light */
+.light .skeleton {
+  background: linear-gradient(90deg, rgba(226,232,240,0.5) 25%, rgba(203,213,225,0.7) 50%, rgba(226,232,240,0.5) 75%);
+  background-size: 200% 100%;
+}
+
+/* Recharts tooltip light */
+.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Kanban card light */
+.light .kanban-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Notification drawer light */
+.light .notif-drawer-item:hover {
+  background: rgba(226, 232, 240, 0.5);
+}
+
+/* Sidebar backdrop stays dark */
+.light .sidebar-backdrop {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dropdown/popover backgrounds */
+.light .bg-slate-900 {
+  background: var(--bg-card) !important;
+}
+
+/* Table headers */
+.light th {
+  color: var(--text-secondary) !important;
+}
+
+/* Backdrop blur panels */
+.light .backdrop-blur-sm {
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Kbd styling */
+.light kbd {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: var(--text-secondary) !important;
 }
