@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Phone, Mail, Eye, EyeOff, Lock, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react'
+import { signInWithPhone, signUpWithPhone } from '../lib/auth'
 
 // ---- Auth Helpers ----
 const AUTH_PREFIX = 'sara_auth_'
@@ -291,13 +292,56 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
       return
     }
 
-    // Find user
+    // Find user in team
     const user = findUser()
     if (!user) {
       setError(loginMode === 'phone' ? 'Numero no registrado en el equipo' : 'Email no registrado en el equipo')
       recordFailedAttempt(identifier)
       return
     }
+
+    // --- Try Supabase Auth first (phone mode only for now) ---
+    if (loginMode === 'phone' && password) {
+      const phoneClean = phone.replace(/\D/g, '').slice(-10)
+      const supaResult = await signInWithPhone(phoneClean, password)
+
+      if (!supaResult.legacy) {
+        // Supabase Auth handled it (success or real error)
+        if (supaResult.error) {
+          recordFailedAttempt(identifier)
+          const newAttempts = getLoginAttempts(identifier)
+          if (newAttempts.lockedUntil > 0) {
+            setLockCountdown(Math.ceil((newAttempts.lockedUntil - Date.now()) / 1000))
+            setError('Cuenta bloqueada por 15 minutos')
+          } else {
+            setError(`Contrasena incorrecta (${5 - newAttempts.count} intentos restantes)`)
+          }
+          return
+        }
+
+        // Supabase Auth success — complete login
+        clearLoginAttempts(identifier)
+        setMatchedUser(user)
+
+        if (is2FAEnabled(user.id)) {
+          const code = generate2FACode()
+          store2FACode(user.id, code)
+          setTwoFATimer(300)
+          setTwoFACode('')
+          setStep('2fa')
+          showToast(`Codigo 2FA: ${code} (demo - en produccion se envia por SMS)`, 'info')
+          return
+        }
+
+        createSession(user.id, keepSession)
+        localStorage.setItem('sara_user_phone', user.phone?.replace(/\D/g, '').slice(-10) || '')
+        onLoginSuccess(user)
+        return
+      }
+      // If legacy=true, fall through to legacy localStorage password check below
+    }
+
+    // --- Legacy localStorage password flow ---
 
     // Check if password is set up
     const storedPwd = getStoredPassword(user.id)
@@ -308,7 +352,7 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
       return
     }
 
-    // Verify password
+    // Verify password against localStorage hash
     const hashed = await hashPassword(password)
     if (hashed !== storedPwd) {
       recordFailedAttempt(identifier)
@@ -322,9 +366,20 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
       return
     }
 
-    // Password correct - clear attempts
+    // Legacy password correct - clear attempts
     clearLoginAttempts(identifier)
     setMatchedUser(user)
+
+    // Auto-migrate: register this user in Supabase Auth for future logins
+    if (loginMode === 'phone') {
+      const phoneClean = phone.replace(/\D/g, '').slice(-10)
+      const signUpResult = await signUpWithPhone(phoneClean, password)
+      if (signUpResult.error) {
+        console.warn('[auth-migration] Could not auto-register in Supabase Auth:', signUpResult.error)
+      } else {
+        console.log('[auth-migration] User migrated to Supabase Auth successfully')
+      }
+    }
 
     // Check 2FA
     if (is2FAEnabled(user.id)) {
@@ -375,6 +430,18 @@ export default function LoginScreen({ team, onLoginSuccess, showToast }: LoginSc
     if (newPassword !== confirmPassword) { setError('Las contrasenas no coinciden'); return }
     const hashed = await hashPassword(newPassword)
     storePassword(matchedUser.id, hashed)
+
+    // Also register in Supabase Auth
+    if (matchedUser.phone) {
+      const phoneClean = matchedUser.phone.replace(/\D/g, '').slice(-10)
+      const signUpResult = await signUpWithPhone(phoneClean, newPassword)
+      if (signUpResult.error) {
+        console.warn('[auth-migration] Could not register in Supabase Auth on setup:', signUpResult.error)
+      } else {
+        console.log('[auth-migration] User registered in Supabase Auth on first setup')
+      }
+    }
+
     createSession(matchedUser.id, keepSession)
     localStorage.setItem('sara_user_phone', matchedUser.phone?.replace(/\D/g, '').slice(-10) || '')
     showToast('Contrasena configurada correctamente', 'success')

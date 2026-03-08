@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { getSupabaseSession, onAuthStateChange } from '../lib/auth'
 import type {
   Lead, Property, TeamMember, MortgageApplication, Campaign,
   Appointment, AlertSetting, ReminderConfig, Insight, Promotion,
@@ -644,6 +645,39 @@ function CrmProviderInner({ children, navigate, locationPathname }: {
 
     return () => { clearInterval(interval); appointmentsSub.unsubscribe(); leadsSub.unsubscribe(); mortgageSub.unsubscribe() }
   }, [])
+
+  // ---- Supabase Auth session restoration ----
+  useEffect(() => {
+    // On mount, check if there's an active Supabase session and auto-restore user
+    getSupabaseSession().then(session => {
+      if (session?.user?.email && !currentUser && team.length > 0) {
+        // Extract phone from the email format: <digits>@sara-crm.app
+        const emailPrefix = session.user.email.replace('@sara-crm.app', '')
+        if (emailPrefix && emailPrefix !== session.user.email) {
+          const phoneClean = emailPrefix.slice(-10)
+          const restored = team.find((m: TeamMember) => m.phone?.replace(/\D/g, '').slice(-10) === phoneClean)
+          if (restored) {
+            setCurrentUser(restored)
+            localStorage.setItem('sara_user_phone', phoneClean)
+            if (restored.role === 'agencia') setView('marketing')
+            else if (restored.role === 'asesor') setView('mortgage')
+            else setView('dashboard')
+          }
+        }
+      }
+    }).catch(err => console.warn('[auth] Error checking Supabase session:', err))
+
+    // Listen for auth state changes (e.g., token refresh, sign out from another tab)
+    const { data: { subscription } } = onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        // If signed out from Supabase (e.g., another tab), clear local state
+        setCurrentUser(null)
+        localStorage.removeItem('sara_user_phone')
+      }
+    })
+
+    return () => { subscription.unsubscribe() }
+  }, [team.length])
 
   // ---- Audit logging ----
   async function logAuditFn(entry: Omit<AuditEntry, 'id' | 'timestamp' | 'user_id' | 'user_name'>) {
