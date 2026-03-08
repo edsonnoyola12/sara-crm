@@ -239,6 +239,18 @@ export default function App() {
   }
 
   if (!currentUser) {
+    if (loading && team.length === 0) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <span className="text-3xl font-bold">S</span>
+            </div>
+            <p className="text-slate-400 text-sm">Cargando...</p>
+          </div>
+        </div>
+      )
+    }
     return <LoginScreen team={team} onLoginSuccess={handleLoginSuccess} showToast={showToast} />
   }
 
