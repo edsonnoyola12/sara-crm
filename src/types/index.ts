@@ -118,6 +118,10 @@ export interface Tenant {
   logo_url?: string
   primary_color?: string
   secondary_color?: string
+  trial_ends_at?: string
+  stripe_customer_id?: string
+  stripe_subscription_id?: string
+  active?: boolean
 }
 
 export interface AuthResponse {
