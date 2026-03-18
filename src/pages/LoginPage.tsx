@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export function LoginPage() {
   const { login, error, isLoading } = useAuth()
@@ -73,6 +73,13 @@ export function LoginPage() {
               {isLoading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-gray-500">
+            No tienes cuenta?{' '}
+            <Link to="/signup" className="text-green-600 hover:text-green-700 font-medium">
+              Crea una gratis
+            </Link>
+          </p>
         </div>
 
         <p className="text-center text-green-200 text-sm mt-6">

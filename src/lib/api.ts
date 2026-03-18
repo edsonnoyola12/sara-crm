@@ -120,7 +120,7 @@ class ApiClient {
     return res.json()
   }
 
-  // Auth-specific methods
+  // Auth-specific methods (no JWT required)
   async login(email: string, password: string) {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
@@ -134,8 +134,38 @@ class ApiClient {
     return res.json()
   }
 
+  async signup(data: { name: string; email: string; password: string }) {
+    const res = await fetch(`${API_BASE}/api/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await res.json().catch(() => ({ error: 'Error de conexion' }))
+    if (!res.ok) throw new Error(json.error || 'Signup failed')
+    return json
+  }
+
+  async getPlans() {
+    const res = await fetch(`${API_BASE}/api/plans`)
+    if (!res.ok) throw new Error('Error cargando planes')
+    return res.json()
+  }
+
   async me() {
     return this.get('/api/auth/me')
+  }
+
+  // Onboarding (JWT required)
+  async getOnboardingStatus() {
+    return this.get('/api/onboarding/status')
+  }
+
+  async updateOnboarding(step: number, data: any) {
+    return this.post(`/api/onboarding/step/${step}`, data)
+  }
+
+  async completeOnboarding() {
+    return this.post('/api/onboarding/complete')
   }
 }
 

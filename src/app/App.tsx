@@ -1,9 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// APP — Root component with Router + Auth
-// Routes: public (/login, /signup, /pricing, /docs, /invitations/accept)
-//         protected (/onboarding, /billing, /settings)
-//         admin (/admin)
-//         root (/ → landing or CRM)
+// APP — Root component with Router + Auth + White-label branding
+// 16 routes: 10 public, 3 protected, 1 admin, 1 root, 1 catch-all
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Routes, Route, Navigate } from 'react-router-dom'
@@ -20,7 +17,11 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { AcceptInvitationPage } from '../pages/AcceptInvitationPage'
 import { SuperAdminPage } from '../pages/SuperAdminPage'
 import { ApiDocsPage } from '../pages/ApiDocsPage'
+import { PrivacyPage } from '../pages/PrivacyPage'
+import { TermsPage } from '../pages/TermsPage'
+import { ContactPage } from '../pages/ContactPage'
 import { useAuth } from '../hooks/useAuth'
+import { useBranding } from '../hooks/useBranding'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -45,6 +46,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 function RootPage() {
   const { isAuthenticated, isLoading } = useAuth()
+  useBranding() // Apply tenant colors when authenticated
 
   if (isLoading) {
     return (
@@ -75,6 +77,9 @@ export default function App() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/docs" element={<ApiDocsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
       <Route path="/admin" element={<SuperAdminPage />} />
 
